@@ -18,6 +18,7 @@ brew cask install chrome
 brew cask install divvy
 brew cask install dropbox
 brew cask install firefox
+brew cask install flash
 brew cask install flux
 brew cask install github
 brew cask install gitx
@@ -29,6 +30,7 @@ brew cask install onepassword
 brew cask install paragon-ntfs
 brew cask install spotify
 brew cask install sequel-pro
+brew cask install silverlight
 brew cask install sublime-text
 brew cask install the-unarchiver
 brew cask install utorrent

@@ -21,6 +21,13 @@ Plugin 'scrooloose/nerdcommenter'
 Plugin 'mileszs/ack.vim'
 Plugin 'tpope/vim-surround'
 Plugin 'tpope/vim-rails'
+Plugin 'myusuf3/numbers.vim'
+Plugin 'bling/vim-airline'
+Plugin 'ervandew/supertab'
+Plugin 'tpope/vim-endwise'
+Plugin 'tpope/vim-haml'
+Plugin 'skalnik/vim-vroom'
+Plugin 'vim-ruby/vim-ruby'
 
 call vundle#end()
 

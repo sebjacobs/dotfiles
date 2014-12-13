@@ -2,6 +2,8 @@ git
 
 ruby -e "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/master/install)"
 
+git clone https://github.com/gmarik/Vundle.vim.git ~/.vim/bundle/Vundle.vim
+
 brew install ack
 brew install imagemagick
 brew install mysql

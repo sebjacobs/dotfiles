@@ -47,3 +47,4 @@ function flssh {
   ssh "$username@$dns_name"
 }
 
+export GREP_OPTIONS='--color=auto --exclude-dir=.bundle --exclude-dir=.git'

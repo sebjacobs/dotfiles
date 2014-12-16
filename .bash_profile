@@ -30,6 +30,9 @@ source ~/scripts/git-prompt.sh
 
 PS1='[\u@\h \W$(__git_ps1 " (%s)")]\$ '
 
+#profile secrets
+source ~/.profile_secrets
+
 function flssh {
   local environment=$1
   local username=$2

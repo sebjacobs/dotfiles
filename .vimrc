@@ -28,6 +28,7 @@ Plugin 'tpope/vim-endwise'
 Plugin 'tpope/vim-haml'
 Plugin 'skalnik/vim-vroom'
 Plugin 'vim-ruby/vim-ruby'
+Plugin 'rking/ag.vim'
 
 call vundle#end()
 

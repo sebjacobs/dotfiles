@@ -7,6 +7,7 @@ git clone https://github.com/gmarik/Vundle.vim.git ~/.vim/bundle/Vundle.vim
 
 brew install ack
 brew install ag
+brew install --HEAD hub
 brew install imagemagick
 brew install mysql
 brew install node npm

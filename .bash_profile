@@ -16,6 +16,7 @@ alias bi="bundle install"
 alias bu="bundle update"
 
 #git aliases
+alias git=hub
 alias gst="git status"
 alias gco="git checkout"
 alias gfe="git fetch"

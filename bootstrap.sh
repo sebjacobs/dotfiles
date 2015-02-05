@@ -15,6 +15,7 @@ brew install phantomjs
 brew install pow
 brew install rbenv ruby-build
 brew install redis
+brew install csshX
 
 brew tap homebrew/boneyard
 

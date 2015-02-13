@@ -18,6 +18,7 @@
   abbrevCommit = true
 [alias]
 	l = "log --oneline --graph --decorate"
+	lp = "log --oneline --graph --decorate --pretty"
 	la = "log --oneline --graph --decorate --all"
 [github]
   user = sebjacobs

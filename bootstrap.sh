@@ -22,6 +22,7 @@ brew tap homebrew/boneyard
 brew install caskroom/cask/brew-cask
 brew cask install alfred
 brew cask install android-studio
+brew cask install chefdk
 brew cask install chrome
 brew cask install divvy
 brew cask install dropbox

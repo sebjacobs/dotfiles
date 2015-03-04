@@ -24,6 +24,9 @@ alias grom="git rebase origin/master"
 alias grim="git rebase -i origin/master"
 alias gl="git l"
 alias gla="git la"
+alias gad="git add ."
+alias gam="git commit --amend"
+alias gcon="git rebase --continue"
 
 #git scripts
 source ~/scripts/git-completion.sh

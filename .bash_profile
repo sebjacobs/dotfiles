@@ -8,6 +8,7 @@ export EDITOR="vim"
 #path additions
 export PATH=.bundle/bin:$PATH
 export PATH=/usr/local/bin:$PATH
+export PATH=./bin:$PATH
 export PATH=$PATH:/usr/local/opt/go/libexec/bin
 
 #bundler aliases

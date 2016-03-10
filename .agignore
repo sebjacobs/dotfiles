@@ -1,5 +1,8 @@
 *.ai
 *.svg
+*.jpg
+*.jpeg
+*.png
 .bundle/
 .git/
 log/

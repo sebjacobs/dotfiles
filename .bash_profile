@@ -9,7 +9,6 @@ export EDITOR="vim"
 export PATH=.bundle/bin:$PATH
 export PATH=/usr/local/bin:$PATH
 export PATH=$PATH:~/tools/sdk/tools
-export PATH="/usr/local/heroku/bin:$PATH"
 
 #bundler aliases
 alias be="bundle exec"

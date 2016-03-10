@@ -16,6 +16,11 @@ alias be="bundle exec"
 alias bi="bundle install"
 alias bu="bundle update"
 
+#rails aliases
+alias mig="bundle exec rake db:migrate"
+alias s="bundle exec rails s"
+alias c="bundle exec rails c"
+
 #ruby variables
 export RUBY_GC_HEAP_INIT_SLOTS=1000000
 export RUBY_HEAP_SLOTS_INCREMENT=1000000

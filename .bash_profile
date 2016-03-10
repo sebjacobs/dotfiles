@@ -8,7 +8,6 @@ export EDITOR="vim"
 #path additions
 export PATH=.bundle/bin:$PATH
 export PATH=/usr/local/bin:$PATH
-export PATH=$PATH:~/tools/sdk/tools
 
 #bundler aliases
 alias be="bundle exec"

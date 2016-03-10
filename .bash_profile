@@ -1,5 +1,6 @@
-#rbenv setup
-if which rbenv > /dev/null; then eval "$(rbenv init -)"; fi
+#chruby setup
+source /usr/local/opt/chruby/share/chruby/chruby.sh
+chruby ruby-2.3.0
 
 #vim setup
 export EDITOR="vim"

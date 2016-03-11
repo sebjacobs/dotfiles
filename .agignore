@@ -5,6 +5,7 @@
 *.png
 .bundle/
 .git/
+knapsack_rspec_report.json
 log/
 node_modules/
 public/assets

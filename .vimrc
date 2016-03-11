@@ -30,6 +30,8 @@ Plugin 'skalnik/vim-vroom'
 Plugin 'vim-ruby/vim-ruby'
 Plugin 'rking/ag.vim'
 Plugin 'tpope/vim-markdown'
+Plugin 'keith/swift.vim'
+Plugin 'junegunn/vim-easy-align'
 
 call vundle#end()
 
@@ -166,6 +168,10 @@ set laststatus=2        " Show the statusline
 " filename [encoding,line-endings][filetype] ... col,row/total-rows Position
 set statusline=%f\ [%{strlen(&fenc)?&fenc:'none'},%{&ff}]%y%h%m%r%=%c,%l/%L\ %P
 
+
+" Start interactive EasyAlign in visual mode (e.g. vip<Enter>)
+vmap <Enter> <Plug>(EasyAlign)
+
 """""""""""""""""""""""
 " CTRLP CUSTOM SETTINGS
 """""""""""""""""""""""
@@ -222,6 +228,15 @@ map <leader>N :NERDTreeToggle<cr>
 """""""""""""""""""
 map <leader>t :VroomRunTestFile<cr>
 map <leader>T :VroomRunNearestTest<cr>
+
+" Use spring
+let g:vroom_use_spring = 1
+
+"""""""""""""""""""
+" NUMBERS MAPPINGS
+"""""""""""""""""""
+
+map <leader>h :NumbersOnOff<cr>
 
 """""""""""""""""""
 " RAILS MAPPINGS

@@ -1,3 +1,4 @@
+alias git=hub
 alias g="git"
 alias gb="git branch"
 alias gst="git status"
@@ -7,8 +8,9 @@ alias gci="git commit"
 alias gch="git cherry-pick"
 alias gp="git push"
 alias gfe="git fetch"
+alias gr="git rebase"
 alias grom="git rebase origin/master"
-alias grim="git rebase -i origin/master"
+alias grim="git rebase -i origin/master --autosquash"
 alias gl="git l"
 alias gla="git la"
 alias gad="git add ."
@@ -32,6 +34,7 @@ __git_complete gl _git_log
 __git_complete gla _git_log
 __git_complete gad _git_add
 __git_complete gam _git_commit
+__git_complete gr _git_rebase
 __git_complete gcon _git_rebase
 __git_complete gab _git_rebase
 __git_complete gm _git_merge

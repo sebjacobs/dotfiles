@@ -43,5 +43,5 @@ source ~/.profile-secrets
 
 export FL_DIR=~/Projects/futurelearn/futurelearn
 
-source ~/scripts/flssh.sh
-source ~/scripts/flcd.sh
+source ~/secret-scripts/flssh.sh
+source ~/secret-scripts/flcd.sh

@@ -7,6 +7,8 @@
 	email = me@sebjacobs.com
 [core]
   excludesfile = ~/.gitignore
+[branch "master"]
+  mergeOptions = --no-ff
 [color]
   status = auto
   branch = auto

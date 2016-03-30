@@ -11,6 +11,7 @@ export PATH=/usr/local/sbin:$PATH
 export PATH=/usr/local/bin:$PATH
 export PATH=./bin:$PATH
 export PATH=$PATH:/usr/local/opt/go/libexec/bin
+export PATH=$PATH:/Users/sebjacobs/.chefdk/gem/ruby/2.1.0/bin
 
 #bundler aliases
 alias be="bundle exec"

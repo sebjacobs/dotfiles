@@ -1,7 +1,3 @@
-#chruby setup
-source /usr/local/opt/chruby/share/chruby/chruby.sh
-chruby ruby-2.3.0
-
 #vim setup
 export EDITOR="vim"
 
@@ -11,6 +7,10 @@ export PATH=/usr/local/sbin:$PATH
 export PATH=/usr/local/bin:$PATH
 export PATH=./bin:$PATH
 export PATH=$PATH:/usr/local/opt/go/libexec/bin
+
+#chruby setup
+source /usr/local/opt/chruby/share/chruby/chruby.sh
+chruby ruby-2.3.3
 
 #bundler aliases
 alias be="bundle exec"

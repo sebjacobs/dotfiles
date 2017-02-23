@@ -3,3 +3,6 @@ config/database.yml
 .powenv
 .env
 .bundle
+node_modules
+.idea
+.gradle

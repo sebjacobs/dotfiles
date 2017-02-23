@@ -10,6 +10,10 @@ export PATH=$PATH:/usr/local/opt/go/libexec/bin
 
 export JAVA_HOME="$(/usr/libexec/java_home)"
 
+export HOMEBREW_NO_ANALYTICS=1
+export HOMEBREW_NO_INSECURE_REDIRECT=1
+export HOMEBREW_CASK_OPTS=--require-sha
+
 #chruby setup
 source /usr/local/opt/chruby/share/chruby/chruby.sh
 chruby ruby-2.3.3

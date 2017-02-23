@@ -43,7 +43,3 @@ export GREP_OPTIONS='--color=auto --exclude-dir=.bundle --exclude-dir=.git'
 
 source ~/.profile-secrets
 
-export FL_DIR=~/Projects/futurelearn/futurelearn
-
-source ~/secret-scripts/flssh.sh
-source ~/secret-scripts/flcd.sh

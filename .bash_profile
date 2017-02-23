@@ -8,6 +8,8 @@ export PATH=/usr/local/bin:$PATH
 export PATH=./bin:$PATH
 export PATH=$PATH:/usr/local/opt/go/libexec/bin
 
+export JAVA_HOME="$(/usr/libexec/java_home)"
+
 #chruby setup
 source /usr/local/opt/chruby/share/chruby/chruby.sh
 chruby ruby-2.3.3

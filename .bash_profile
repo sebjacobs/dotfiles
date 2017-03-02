@@ -1,6 +1,9 @@
 #vim setup
 export EDITOR="vim"
 
+export GOPATH=~/Projects/go_projects
+export PATH=$PATH:$(go env GOPATH)/bin
+
 #path additions
 export PATH=.bundle/bin:$PATH
 export PATH=/usr/local/sbin:$PATH

@@ -3,3 +3,4 @@ BUNDLE_PATH: "./.bundle"
 BUNDLE_BIN: "./.bundle/bin"
 BUNDLE_JOBS: '4'
 BUNDLE_IGNORE_MESSAGES: 'true'
+BUNDLE_BUILD__THRIFT: "--with-cppflags=-D_FORTIFY_SOURCE=0"

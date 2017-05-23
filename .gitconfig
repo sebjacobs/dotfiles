@@ -21,6 +21,7 @@
 	l = "log --oneline --graph --decorate"
 	lp = "log --oneline --graph --decorate --pretty"
 	la = "log --oneline --graph --decorate --all"
+	praise = blame
 [github]
   user = sebjacobs
 [git-pair]

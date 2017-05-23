@@ -26,6 +26,10 @@ export HOMEBREW_CASK_OPTS=--require-sha
 source /usr/local/opt/chruby/share/chruby/chruby.sh
 chruby ruby-2.3.3
 
+#chruby setup
+source /usr/local/opt/chruby/share/chruby/chruby.sh
+chruby ruby-2.4.1
+
 #bundler aliases
 alias be="bundle exec"
 alias bi="bundle install"

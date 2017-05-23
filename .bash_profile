@@ -1,5 +1,6 @@
 #vim setup
 export EDITOR="vim"
+alias vi="vim"
 
 export GOPATH=~/Projects/go_projects
 export PATH=$PATH:$(go env GOPATH)/bin

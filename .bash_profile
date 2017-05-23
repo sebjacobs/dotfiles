@@ -16,6 +16,7 @@ export PATH=/usr/local/Cellar/node/7.7.3/bin:$PATH
 export PATH=/usr/local/opt/curl/bin:$PATH
 export PATH="/usr/local/opt/mysql@5.6/bin:$PATH"
 export PATH=~/scripts:$PATH
+export PATH="/usr/local/opt/mysql@5.6/bin:$PATH"
 
 export JAVA_HOME="$(/usr/libexec/java_home)"
 

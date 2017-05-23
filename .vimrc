@@ -114,6 +114,12 @@ au BufReadPost * if &filetype !~ '^git\c' && line("'\"") > 0 && line("'\"") <= l
   \| exe "normal! g`\"" | endif
 
 """"""""""
+" NEW THINK PAD PRO MAPPINGS
+""""""""""
+
+imap jk <Esc>
+
+""""""""""
 " MAPPINGS
 """"""""""
 

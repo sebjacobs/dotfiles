@@ -15,16 +15,13 @@ export PATH=./node_modules/.bin:$PATH
 export PATH=/usr/local/Cellar/node/7.5.0/bin:$PATH
 export PATH=/usr/local/opt/curl/bin:$PATH
 export PATH="/usr/local/opt/mysql@5.6/bin:$PATH"
+export PATH=~/scripts:$PATH
 
 export JAVA_HOME="$(/usr/libexec/java_home)"
 
 export HOMEBREW_NO_ANALYTICS=1
 export HOMEBREW_NO_INSECURE_REDIRECT=1
 export HOMEBREW_CASK_OPTS=--require-sha
-
-#chruby setup
-source /usr/local/opt/chruby/share/chruby/chruby.sh
-chruby ruby-2.3.3
 
 #chruby setup
 source /usr/local/opt/chruby/share/chruby/chruby.sh

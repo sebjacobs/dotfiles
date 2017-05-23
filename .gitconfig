@@ -25,25 +25,22 @@
 [github]
   user = sebjacobs
 [git-pair]
-	pattern = pairing+%name+%name@futurelearn.com
-	authors = chrisroos <chris@seagul.co.uk>
-	authors = floehopper <james@floehopper.org>
+  pattern = pairing+%name+%name@futurelearn.com
 	authors = sebjacobs <me@sebjacobs.com>
 	authors = mseckington <mseckington@gmail.com>
-	authors = mocoso <joel.chippindale@futurelearn.com>
 	authors = nicky <nicky.thompson@gmail.com>
 	authors = zetter <zetter@gmail.com>
-	authors = chrislo <chris.lowis@gmail.com>
 	authors = eightbitraptor <matt@eightbitraptor.com>
-	authors = barrymcgee <barry.mcgee@integralcode.co.uk>
 	authors = jcoglan <jcoglan@gmail.com>
-	authors = markjs <mark.smith@futurelearn.com>
-	authors = malpinder <mal.pinder@futurelearn.com>
 	authors = wannabefro <sam.mctaggart@gmail.com>
 	authors = alssndro <alex.mura@futurelearn.com>
 	authors = mrageh <adam.magan@futurelearn.com>
-	authors = CristinaRO <cristina.rotaru@futurelearn.com>
-	authors = jamesmockett <james.mockett@futurelearn.com>
+	authors = ohthatjames <ohthatjames@gmail.com>
+	authors = urbanautomaton <simon@urbanautomaton.com>
+	authors = daniel-ferguson <danielferguson@me.com>
+	authors = jsphmrrw <joseph.morrow@futurelearn.com>
+	authors = mattbee <matt.bee@futurelearn.com>
+	authors = marcotranchino <marco.tranchino@futurelearn.com>
 [url "git@github.com:"]
 	insteadOf = https://github.com/
 [url "git@bitbucket.org:"]

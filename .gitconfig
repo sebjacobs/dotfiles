@@ -1,10 +1,10 @@
 [filter "media"]
-	required = true
-	clean = git media clean %f
-	smudge = git media smudge %f
+  required = true
+  clean = git media clean %f
+  smudge = git media smudge %f
 [user]
-	name = Seb Jacobs
-	email = me@sebjacobs.com
+  name = Seb Jacobs
+  email = me@sebjacobs.com
 [core]
   excludesfile = ~/.gitignore
 [branch "master"]
@@ -17,33 +17,34 @@
   default = simple
 [log]
   abbrevCommit = true
+[rebase]
+  autoStash = true
+  autosquash = true
 [alias]
-	l = "log --oneline --graph --decorate"
-	lp = "log --oneline --graph --decorate --pretty"
-	la = "log --oneline --graph --decorate --all"
-	praise = blame
+  dogs = 'commit --no-verify'
+  st = 'status'
+  co = 'checkout'
+  ci = 'commit'
+  l = "-c core.commitGraph=true log --oneline --graph --decorate"
+  lp = "-c core.commitGraph=true log --oneline --graph --decorate --pretty"
+  la = "-c core.commitGraph=true log --oneline --graph --decorate --all"
+  praise = blame
 [github]
   user = sebjacobs
 [git-pair]
   pattern = pairing+%name+%name@futurelearn.com
 	authors = sebjacobs <me@sebjacobs.com>
-	authors = mseckington <mseckington@gmail.com>
-	authors = nicky <nicky.thompson@gmail.com>
-	authors = zetter <zetter@gmail.com>
-	authors = eightbitraptor <matt@eightbitraptor.com>
-	authors = jcoglan <jcoglan@gmail.com>
 	authors = wannabefro <sam.mctaggart@gmail.com>
 	authors = alssndro <alex.mura@futurelearn.com>
-	authors = mrageh <adam.magan@futurelearn.com>
 	authors = ohthatjames <ohthatjames@gmail.com>
 	authors = urbanautomaton <simon@urbanautomaton.com>
-	authors = daniel-ferguson <danielferguson@me.com>
 	authors = jsphmrrw <joseph.morrow@futurelearn.com>
 	authors = mattbee <matt.bee@futurelearn.com>
 	authors = marcotranchino <marco.tranchino@futurelearn.com>
+  authors = smfeest <stephen.feest@futurelearn.com>
 [url "git@github.com:"]
 	insteadOf = https://github.com/
 [url "git@bitbucket.org:"]
 	insteadOf = https://bitbucket.org/
 [commit]
-	verbose = true
+  verbose = true

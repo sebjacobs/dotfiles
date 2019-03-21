@@ -6,3 +6,12 @@ config/database.yml
 node_modules
 .idea
 .gradle
+.vscode
+yarn-error.log
+.pnp
+.pnp.js
+vendor/cache
+.byebug_history
+public/sitemaps
+tags
+.foreman

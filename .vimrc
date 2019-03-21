@@ -1,45 +1,31 @@
 let mapleader=","                 " Make , the leader key
 
 """""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""
-" CONFIGURE VUNDLE
+" CONFIGURE PLUG
 """""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""
+set rtp+=~/.vim/bundle/plug.vim
 
-set rtp+=~/.vim/bundle/Vundle.vim
-call vundle#begin()
+call plug#begin('~/.vim/bundle')
+Plug 'scrooloose/nerdtree'
+Plug 'junegunn/fzf.vim'
+Plug 'ctrlpvim/ctrlp.vim'
+Plug 'nanotech/jellybeans.vim'
+Plug 'tpope/vim-fugitive'
+Plug 'scrooloose/nerdcommenter'
+Plug 'tpope/vim-surround'
+Plug 'junegunn/vim-easy-align'
+Plug 'tpope/vim-rails'
+Plug 'bling/vim-airline'
+Plug 'ervandew/supertab'
+Plug 'tpope/vim-endwise'
+Plug 'tpope/vim-haml'
+Plug 'skalnik/vim-vroom'
+Plug 'vim-ruby/vim-ruby'
+Plug 'tpope/vim-markdown'
+Plug 'hashivim/vim-terraform'
+call plug#end()
 
-Plugin 'gmarik/Vundle.vim'
-
-"""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""
-" VUNDLE PLUGINS
-"""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""
-
-Plugin 'scrooloose/nerdtree'
-Plugin 'kien/ctrlp.vim'
-Plugin 'nanotech/jellybeans.vim'
-Plugin 'tpope/vim-fugitive'
-Plugin 'scrooloose/nerdcommenter'
-Plugin 'mileszs/ack.vim'
-Plugin 'tpope/vim-surround'
-Plugin 'tpope/vim-rails'
-Plugin 'myusuf3/numbers.vim'
-Plugin 'bling/vim-airline'
-Plugin 'ervandew/supertab'
-Plugin 'tpope/vim-endwise'
-Plugin 'tpope/vim-haml'
-Plugin 'skalnik/vim-vroom'
-Plugin 'vim-ruby/vim-ruby'
-Plugin 'rking/ag.vim'
-Plugin 'tpope/vim-markdown'
-Plugin 'keith/swift.vim'
-Plugin 'junegunn/vim-easy-align'
-
-call vundle#end()
-
-"""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""
-" SENSIBLE DEFAULTS, MOSTLY COMING FROM JANUS
-" https://github.com/carlhuda/janus/blob/master/janus/vim/core/before/plugin/settings.vim
-"""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""
-
+set noswapfile
 set nocompatible                  " Vim, not vi
 set number                        " Show line numbers
 set ruler                         " Display line and column number
@@ -79,14 +65,6 @@ set wildignore+=*.zip,*.tar.gz,*.tar.bz2,*.rar,*.tar.xz
 set wildignore+=*/public/assets/*,/vendor/gems/*,*/vendor/cache/*,*/.bundle/*,*/.sass-cache/*,*/tmp/*
 set wildignore+=*/public/uploads/*,*/log/*
 set wildignore+=*/.git/*,*/.rbx/*,*/.hg/*,*/.svn/*,*/.DS_Store
-set wildignore+=*.swp,*~,._*
-
-""""""""""""""""""""""""""""""""""""
-" WHERE TO PUT BACKUP AND SWAP FILES
-""""""""""""""""""""""""""""""""""""
-
-set backupdir=~/.vim/_backup//
-set directory=~/.vim/_temp//
 
 """""""""""""""""""""""""""""""""""""""
 " SET FILE TYPES FOR VARIOUS EXTENSIONS
@@ -143,12 +121,6 @@ map <leader>= <c-w>=
 
 cnoremap %% <c-r>=expand('%:h').'/'<cr>
 
-" <leader>e edits a file in the current path
-map <leader>e :edit %%
-
-" <leader>g opens the Git status window
-map <leader>g :Gstatus<cr>
-
 " Use F9 to toggle between paste and nopaste
 set pastetoggle=<F9>
 
@@ -183,14 +155,7 @@ vmap <Enter> <Plug>(EasyAlign)
 """""""""""""""""""""""
 
 " Set up a bunch of <leader> key mappings for common Ruby/Rails directories
-map <leader>gv :CtrlP app/views<cr>
-map <leader>gc :CtrlP app/controllers<cr>
-map <leader>gm :CtrlP app/models<cr>
-map <leader>gh :CtrlP app/helpers<cr>
-map <leader>gl :CtrlP lib<cr>
-map <leader>gp :CtrlP public<cr>
 map <leader>f :CtrlP<cr>
-map <leader>F :CtrlP %%<cr>
 
 let g:ctrlp_show_hidden = 1
 

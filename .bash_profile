@@ -56,4 +56,8 @@ PS1='[\u@\h \W$(__git_ps1 " (%s)")]\$ '
 export GREP_OPTIONS='--color=auto --exclude-dir=.bundle --exclude-dir=.git'
 
 source ~/.profile-secrets
+for script in ~/secret-scripts/*
+do
+  source $script
+done
 

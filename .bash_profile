@@ -14,9 +14,8 @@ export PATH=$PATH:/usr/local/opt/go/libexec/bin
 export PATH=./node_modules/.bin:$PATH
 export PATH=/usr/local/Cellar/node/7.7.3/bin:$PATH
 export PATH=/usr/local/opt/curl/bin:$PATH
-export PATH="/usr/local/opt/mysql@5.6/bin:$PATH"
+export PATH="/usr/local/opt/mysql@5.7/bin:$PATH"
 export PATH=~/scripts:$PATH
-export PATH="/usr/local/opt/mysql@5.6/bin:$PATH"
 
 export JAVA_HOME="$(/usr/libexec/java_home)"
 
@@ -26,7 +25,7 @@ export HOMEBREW_CASK_OPTS=--require-sha
 
 #chruby setup
 source /usr/local/opt/chruby/share/chruby/chruby.sh
-chruby ruby-2.4.1
+chruby ruby-2.6.2
 
 #bundler aliases
 alias be="bundle exec"

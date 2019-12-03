@@ -101,9 +101,6 @@ imap jk <Esc>
 " MAPPINGS
 """"""""""
 
-" Make :W do the same as :w
-command! W :w
-
 " Hit return to clear search highlighting
 noremap <cr> :nohlsearch<cr>
 

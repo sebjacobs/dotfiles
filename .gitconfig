@@ -17,11 +17,12 @@
   default = simple
 [log]
   abbrevCommit = true
+[pull]
+  rebase = merges
 [rebase]
   autoStash = true
   autosquash = true
 [alias]
-  dogs = 'commit --no-verify'
   st = 'status'
   co = 'checkout'
   ci = 'commit'
@@ -29,6 +30,7 @@
   lp = "-c core.commitGraph=true log --oneline --graph --decorate --pretty"
   la = "-c core.commitGraph=true log --oneline --graph --decorate --all"
   praise = blame
+	pushf = push --force-with-lease
 [github]
   user = sebjacobs
 [git-pair]
@@ -48,3 +50,5 @@
 	insteadOf = https://bitbucket.org/
 [commit]
   verbose = true
+[diff]
+	noprefix = true

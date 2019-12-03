@@ -21,24 +21,3 @@ alias gab="git rebase --abort || git cherry-pick --abort"
 alias gm="git merge"
 alias gamf="git commit --amend --no-verify"
 alias gstag="git diff --staged"
-
-__git_complete g __git_main
-__git_complete gb _git_show_branch
-__git_complete gst _git_show_branch
-__git_complete gs _git_show
-__git_complete gco _git_checkout
-__git_complete gci _git_commit
-__git_complete gch _git_cherry_pick
-__git_complete gp _git_push
-__git_complete gfe _git_fetch
-__git_complete grom _git_rebase
-__git_complete grim _git_rebase
-__git_complete gl _git_log
-__git_complete gla _git_log
-__git_complete gad _git_add
-__git_complete gam _git_commit
-__git_complete gre _git_rebase
-__git_complete gr _git_reset
-__git_complete gcon _git_rebase
-__git_complete gab _git_rebase
-__git_complete gm _git_merge

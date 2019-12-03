@@ -20,6 +20,7 @@ alias gcon="git rebase --continue || git cherry-pick --continue"
 alias gab="git rebase --abort || git cherry-pick --abort"
 alias gm="git merge"
 alias gamf="git commit --amend --no-verify"
+alias gstag="git diff --staged"
 
 __git_complete g __git_main
 __git_complete gb _git_show_branch

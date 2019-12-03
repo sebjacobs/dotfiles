@@ -133,7 +133,7 @@ color jellybeans        " Use the jellybeans colour theme
 " MISC CONFIGURATION
 """"""""""""""""""""
 
-set shell=/bin/bash     " Make Vim load bash environment (e.g. RVM)
+set shell=/bin/zsh     " Make Vim load zsh environment (e.g. RVM)
 set timeoutlen=500      " Only wait 500ms before processing certain commands
 set showcmd             " Display incomplete commands
 set scrolloff=3         " Keep more lines when scrolling off the end of a buffer

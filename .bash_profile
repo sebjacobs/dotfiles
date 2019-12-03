@@ -12,7 +12,6 @@ export PATH=/usr/local/bin:$PATH
 export PATH=./bin:$PATH
 export PATH=$PATH:/usr/local/opt/go/libexec/bin
 export PATH=./node_modules/.bin:$PATH
-export PATH=/usr/local/Cellar/node/7.7.3/bin:$PATH
 export PATH=/usr/local/opt/curl/bin:$PATH
 export PATH="/usr/local/opt/mysql@5.7/bin:$PATH"
 export PATH=~/scripts:$PATH
@@ -26,6 +25,12 @@ export HOMEBREW_CASK_OPTS=--require-sha
 #chruby setup
 source /usr/local/opt/chruby/share/chruby/chruby.sh
 chruby ruby-2.6.2
+
+
+#nvm setup
+export NVM_DIR="$HOME/.nvm"
+  [ -s "/usr/local/opt/nvm/nvm.sh" ] && . "/usr/local/opt/nvm/nvm.sh"  # This loads nvm
+  [ -s "/usr/local/opt/nvm/etc/bash_completion" ] && . "/usr/local/opt/nvm/etc/bash_completion"  # This loads nvm bash_completion
 
 #bundler aliases
 alias be="bundle exec"

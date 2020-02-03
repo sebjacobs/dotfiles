@@ -1,7 +1,3 @@
-[filter "media"]
-  required = true
-  clean = git media clean %f
-  smudge = git media smudge %f
 [user]
   name = Seb Jacobs
   email = me@sebjacobs.com
@@ -23,27 +19,10 @@
   autoStash = true
   autosquash = true
 [alias]
-  st = 'status'
-  co = 'checkout'
-  ci = 'commit'
-  l = "-c core.commitGraph=true log --oneline --graph --decorate"
-  lp = "-c core.commitGraph=true log --oneline --graph --decorate --pretty"
-  la = "-c core.commitGraph=true log --oneline --graph --decorate --all"
   praise = blame
 	pushf = push --force-with-lease
 [github]
   user = sebjacobs
-[git-pair]
-  pattern = pairing+%name+%name@futurelearn.com
-	authors = sebjacobs <me@sebjacobs.com>
-	authors = wannabefro <sam.mctaggart@gmail.com>
-	authors = alssndro <alex.mura@futurelearn.com>
-	authors = ohthatjames <ohthatjames@gmail.com>
-	authors = urbanautomaton <simon@urbanautomaton.com>
-	authors = jsphmrrw <joseph.morrow@futurelearn.com>
-	authors = mattbee <matt.bee@futurelearn.com>
-	authors = marcotranchino <marco.tranchino@futurelearn.com>
-  authors = smfeest <stephen.feest@futurelearn.com>
 [url "git@github.com:"]
 	insteadOf = https://github.com/
 [url "git@bitbucket.org:"]

@@ -1,8 +1,0 @@
---ignore-dir=.bundle
---ignore-dir=.git
---ignore-dir=log
---ignore-dir=tmp
---ignore-dir=public/assets
---ignore-dir=public/uploads
---ignore-file=ext:svg
---ignore-file=ext:ai

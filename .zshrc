@@ -138,7 +138,7 @@ export RUBY_GC_MALLOC_LIMIT=100000000
 export RUBY_HEAP_FREE_MIN=500000
 
 #git aliases
-source ~/.git_aliases
+source ~/.gitaliases
 alias uncommit='git reset --soft HEAD~1'
 
 source ~/.profile-secrets

@@ -143,9 +143,6 @@ alias uncommit='git reset --soft HEAD~1'
 
 source ~/.profile-secrets
 
-export FL_DIR=~/Projects/futurelearn/app
-alias flcd="cd $FL_DIR"
-
 for script in ~/secret-scripts/*
 do
   source $script

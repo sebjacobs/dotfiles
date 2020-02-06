@@ -3,7 +3,6 @@
   email = me@sebjacobs.com
 [core]
   excludesfile = ~/.gitignore
-[branch "master"]
 [color]
   status = auto
   branch = auto

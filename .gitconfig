@@ -19,14 +19,14 @@
   autosquash = true
 [alias]
   praise = blame
-	pushf = push --force-with-lease
+  pushf = push --force-with-lease
 [github]
   user = sebjacobs
 [url "git@github.com:"]
-	insteadOf = https://github.com/
+  insteadOf = https://github.com/
 [url "git@bitbucket.org:"]
-	insteadOf = https://bitbucket.org/
+  insteadOf = https://bitbucket.org/
 [commit]
   verbose = true
 [diff]
-	noprefix = true
+  noprefix = true

@@ -7,7 +7,7 @@ export ZSH="/Users/sebjacobs/.oh-my-zsh"
 # Set name of the theme to load --- if set to "random", it will
 # load a random theme each time oh-my-zsh is loaded, in which case,
 # to know which specific one was loaded, run: echo $RANDOM_THEME
-# See https://github.com/robbyrussell/oh-my-zsh/wiki/Themes
+# See https://github.com/ohmyzsh/ohmyzsh/wiki/Themes
 ZSH_THEME="robbyrussell"
 
 # Set list of themes to pick from when loading at random
@@ -79,42 +79,38 @@ source $ZSH/oh-my-zsh.sh
 # You may need to manually set your language environment
 # export LANG=en_US.UTF-8
 
+# Preferred editor for local and remote sessions
+# if [[ -n $SSH_CONNECTION ]]; then
+#   export EDITOR='vim'
+# else
+#   export EDITOR='mvim'
+# fi
+
 # Compilation flags
 # export ARCHFLAGS="-arch x86_64"
 
-export GOPATH=~/Projects/go_projects
-export PATH=$PATH:$(go env GOPATH)/bin
+# Set personal aliases, overriding those provided by oh-my-zsh libs,
+# plugins, and themes. Aliases can be placed here, though oh-my-zsh # users are encouraged to define aliases within the ZSH_CUSTOM folder.
+# For a full list of active aliases, run `alias`.
+#
+# Example aliases
+# alias zshconfig="mate ~/.zshrc"
+# alias ohmyzsh="mate ~/.oh-my-zsh"
 
-#path additions
-export PATH=.bundle/bin:$PATH
-export PATH=/usr/local/sbin:$PATH
-export PATH=/usr/local/bin:$PATH
-export PATH=./bin:$PATH
-export PATH=$PATH:/usr/local/opt/go/libexec/bin
-export PATH=./node_modules/.bin:$PATH
-export PATH=/usr/local/opt/curl/bin:$PATH
 export PATH="/usr/local/opt/mysql@5.7/bin:$PATH"
-export PATH=~/scripts:$PATH
-export PATH="$HOME/.yarn/bin:$HOME/.config/yarn/global/node_modules/.bin:$PATH"
+export PATH="./node_modules/.bin:$PATH"
 
-export JAVA_HOME="$(/usr/libexec/java_home)"
-
-export HOMEBREW_NO_ANALYTICS=1
-export HOMEBREW_NO_INSECURE_REDIRECT=1
-export HOMEBREW_CASK_OPTS=--require-sha
-
-export EDITOR="vim"
-
-#chruby setup
 source /usr/local/opt/chruby/share/chruby/chruby.sh
-chruby ruby-2.6.4
 
-#nvm setup
+chruby 2.6.5
+
 export NVM_DIR="$HOME/.nvm"
-  [ -s "/usr/local/opt/nvm/nvm.sh" ] && . "/usr/local/opt/nvm/nvm.sh"  # This loads nvm
-  [ -s "/usr/local/opt/nvm/etc/bash_completion" ] && . "/usr/local/opt/nvm/etc/bash_completion"  # This loads nvm bash_completion
+[ -s "/usr/local/opt/nvm/nvm.sh" ] && . "/usr/local/opt/nvm/nvm.sh"  # This loads nvm
+[ -s "/usr/local/opt/nvm/etc/bash_completion.d/nvm" ] && . "/usr/local/opt/nvm/etc/bash_completion.d/nvm"  # This loads nvm bash_completion
 
 nvm use --lts
+
+export EDITOR='vim'
 
 #bundler aliases
 alias be="bundle exec"
@@ -123,11 +119,9 @@ alias bu="bundle update"
 
 #rails aliases
 alias mig="bundle exec rake db:migrate"
-alias s="bundle exec rails s"
-alias c="bundle exec rails c"
-
-#misc aliases
 alias ffs="bundle install && yarn install && bundle exec rails db:migrate"
+
+source ~/.gitaliases
 
 #ruby variables
 export RUBY_GC_HEAP_INIT_SLOTS=1000000
@@ -136,13 +130,4 @@ export RUBY_HEAP_SLOTS_GROWTH_FACTOR=1
 export RUBY_GC_MALLOC_LIMIT=100000000
 export RUBY_HEAP_FREE_MIN=500000
 
-#git aliases
-source ~/.gitaliases
 alias uncommit='git reset --soft HEAD~1'
-
-source ~/.profile-secrets
-
-for script in ~/secret-scripts/*
-do
-  source $script
-done

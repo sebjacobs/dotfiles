@@ -11,6 +11,7 @@ set nocompatible
 set number
 set splitbelow
 set splitright
+set mouse+=a
 syntax on
 
 let g:netrw_banner=0

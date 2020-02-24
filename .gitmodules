@@ -1,3 +1,6 @@
 [submodule ".vim/pack/sebjacobs/start/surround"]
 	path = .vim/pack/sebjacobs/start/surround
 	url = https://tpope.io/vim/surround.git
+[submodule ".vim/pack/sebjacobs/start/unimpaired"]
+	path = .vim/pack/sebjacobs/start/unimpaired
+	url = https://tpope.io/vim/unimpaired.git

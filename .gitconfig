@@ -1,6 +1,6 @@
 [user]
-  name = Seb Jacobs
-  email = me@sebjacobs.com
+	name = Seb Jacobs
+	email = me@sebjacobs.com
 [core]
   excludesfile = ~/.gitignore
 	attributesfile = ~/.gitattributes

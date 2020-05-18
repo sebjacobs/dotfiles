@@ -73,7 +73,7 @@
 	],
 	"devDependencies": {
 		"vscode": "^1.0.0",
-		"eslint": "^3.6.0"
+		"eslint": "^7.0.0"
 	},
 	"__metadata": {
 		"id": "31dab038-d2f7-47c2-894e-5c35684dbd0e",

@@ -3,6 +3,7 @@
   email = me@sebjacobs.com
 [core]
   excludesfile = ~/.gitignore
+	attributesfile = ~/.gitattributes
 [color]
   status = auto
   branch = auto
@@ -30,3 +31,6 @@
   verbose = true
 [diff]
   noprefix = true
+[merge "railsschema"]
+	name = newer Rails schema version
+	driver = "ruby -e 'system %(git), %(merge-file), %(--marker-size=%L), %(%A), %(%O), %(%B);\n  b = File.read(%(%A));\n  b.sub!(/^<+ .*\\nActiveRecord::Schema\\.define.version: ([\\d_]+). do\\n=+\\nActiveRecord::Schema\\.define.version: ([\\d_]+). do\\n>+ .*/) {\n    %(ActiveRecord::Schema.define(version: #{[$1, $2].max}) do);\n  };\n  File.open(%(%A), %(w)) {|f| f.write(b)};\n  exit 1 if b.include?(%(<)*%L)'"

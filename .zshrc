@@ -102,7 +102,7 @@ export PATH="./node_modules/.bin:$PATH"
 
 source /usr/local/opt/chruby/share/chruby/chruby.sh
 
-chruby 2.6.5
+chruby 2.6.6
 
 export NVM_DIR="$HOME/.nvm"
 [ -s "/usr/local/opt/nvm/nvm.sh" ] && . "/usr/local/opt/nvm/nvm.sh"  # This loads nvm
@@ -132,3 +132,4 @@ export RUBY_HEAP_FREE_MIN=500000
 
 alias uncommit='git reset --soft HEAD~1'
 export PATH="/usr/local/sbin:$PATH"
+export PATH="/usr/local/opt/elasticsearch@6/bin:$PATH"

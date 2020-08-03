@@ -159,7 +159,7 @@ exports.allToolsInformation = {
                 }
             }
             catch (err) {
-                return `Failed to close gocode process: ${err}.`;
+                // This may fail if gocode isn't already running.
             }
             return '';
         }),

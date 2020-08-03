@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <PackageManifest Version="2.0.0" xmlns="http://schemas.microsoft.com/developer/vsx-schema/2011" xmlns:d="http://schemas.microsoft.com/developer/vsx-schema-design/2011">
   <Metadata>
-    <Identity Language="en-US" Id="go" Version="0.15.1" Publisher="golang"/>
+    <Identity Language="en-US" Id="go" Version="0.15.2" Publisher="golang"/>
     <DisplayName>Go</DisplayName>
     <Description xml:space="preserve">Rich Go language support for Visual Studio Code</Description>
     <Tags>multi-root ready,snippet,debuggers,go,Go,__ext_go,go.mod,Go Module File,__ext_gomod,go.sum,Go Checksum File,__ext_gosum</Tags>

@@ -2,7 +2,7 @@
     "workbench.startupEditor": "newUntitledFile",
     "editor.minimap.enabled": false,
     "workbench.editor.enablePreviewFromQuickOpen": false,
-    "window.zoomLevel": 1,
+    "window.zoomLevel": 0,
     "editor.fontSize": 14,
     "workbench.editor.enablePreview": false
 }

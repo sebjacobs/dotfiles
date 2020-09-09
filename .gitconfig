@@ -9,6 +9,7 @@
   branch = auto
   diff = auto
   interactive = auto
+	ui = true
 [push]
   default = simple
 [log]

@@ -133,3 +133,15 @@ export RUBY_HEAP_FREE_MIN=500000
 alias uncommit='git reset --soft HEAD~1'
 export PATH="/usr/local/sbin:$PATH"
 export PATH="/usr/local/opt/elasticsearch@6/bin:$PATH"
+
+export GOPATH=~/Projects/go
+export PATH=$PATH:$(go env GOPATH)/bin
+
+export CPPFLAGS="-I/usr/local/opt/openjdk/include"
+export PATH="/usr/local/opt/openjdk/bin:$PATH"
+
+export ANDROID_HOME=/Users/sebjacobs/Library/Android/sdk
+export PATH=$ANDROID_HOME/platform-tools:$PATH
+export PATH=$ANDROID_HOME/tools:$PATH
+export JAVA_HOME="/Applications/Android Studio.app/Contents/jre/jdk/Contents/Home"
+

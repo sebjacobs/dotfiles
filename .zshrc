@@ -127,6 +127,8 @@ export CPPFLAGS="-I/usr/local/opt/openjdk/include"
 export PATH="/usr/local/opt/openjdk/bin:$PATH"
 
 export ANDROID_HOME=/Users/sebjacobs/Library/Android/sdk
+export ANDROID_SDK_ROOT=/Users/sebjacobs/Library/Android/sdk
+export ANDROID_AVD_HOME=/Users/sebjacobs/.android/avd
 export PATH=$ANDROID_HOME/platform-tools:$PATH
 export PATH=$ANDROID_HOME/tools:$PATH
 export JAVA_HOME="/Applications/Android Studio.app/Contents/jre/jdk/Contents/Home"

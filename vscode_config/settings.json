@@ -25,5 +25,9 @@
     },
     "editor.suggestSelection": "first",
     "vsintellicode.modify.editor.suggestSelection": "automaticallyOverrodeDefaultValue",
-    "python.showStartPage": false
+    "python.showStartPage": false,
+    "explorer.confirmDelete": false,
+    "explorer.confirmDragAndDrop": false,
+    "editor.renameOnType": true,
+    "workbench.colorTheme": "Night Owl"
 }

@@ -135,5 +135,11 @@ export JAVA_HOME="/Applications/Android Studio.app/Contents/jre/jdk/Contents/Hom
 
 autoload -U bashcompinit
 bashcompinit
+
 eval "$(register-python-argcomplete pipx)"
 export PATH="$PATH:/Users/sebjacobs/.local/bin"
+
+export PATH="$HOME/.jenv/bin:$PATH"
+eval "$(jenv init -)"
+
+

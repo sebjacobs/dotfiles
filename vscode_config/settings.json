@@ -23,6 +23,11 @@
     "[json]": {
         "editor.defaultFormatter": "esbenp.prettier-vscode"
     },
+    "[makefile]": {
+      "editor.tabSize": 4,
+      "editor.insertSpaces": false,
+      "editor.detectIndentation": false
+    },
     "editor.suggestSelection": "first",
     "vsintellicode.modify.editor.suggestSelection": "automaticallyOverrodeDefaultValue",
     "python.showStartPage": false,

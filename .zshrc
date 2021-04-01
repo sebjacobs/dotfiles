@@ -137,6 +137,10 @@ export PATH=$PATH:$ANDROID_HOME/tools/bin
 export PATH=$PATH:$ANDROID_HOME/platform-tools
 export JAVA_HOME="/Applications/Android Studio.app/Contents/jre/jdk/Contents/Home"
 
+#for fastlane deployments
+export LC_ALL=en_US.UTF-8
+export LANG=en_US.UTF-8
+
 autoload -U bashcompinit
 bashcompinit
 

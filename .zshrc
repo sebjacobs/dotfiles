@@ -128,14 +128,15 @@ export PATH=$PATH:$(go env GOPATH)/bin
 export CPPFLAGS="-I/usr/local/opt/openjdk@8/include"
 export PATH="/usr/local/opt/openjdk@8/bin:$PATH"
 
-export ANDROID_HOME=~/Library/Android/sdk
-export ANDROID_SDK_ROOT=~/Library/Android/sdk
+#export ANDROID_HOME=~/Library/Android/sdk
+export ANDROID_HOME=/usr/local/share/android-sdk
 export ANDROID_AVD_HOME=~/.android/avd
 export PATH=$PATH:$ANDROID_HOME/emulator
 export PATH=$PATH:$ANDROID_HOME/tools
 export PATH=$PATH:$ANDROID_HOME/tools/bin
 export PATH=$PATH:$ANDROID_HOME/platform-tools
-export JAVA_HOME="/Applications/Android Studio.app/Contents/jre/jdk/Contents/Home"
+#export JAVA_HOME="/Applications/Android Studio.app/Contents/jre/jdk/Contents/Home"
+export JAVA_HOME="/usr/local/opt/openjdk@8/libexec/openjdk.jdk/Contents/Home"
 
 #for fastlane deployments
 export LC_ALL=en_US.UTF-8

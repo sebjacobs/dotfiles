@@ -2,7 +2,6 @@
     "workbench.startupEditor": "newUntitledFile",
     "editor.minimap.enabled": false,
     "workbench.editor.enablePreviewFromQuickOpen": false,
-    "window.zoomLevel": 1,
     "editor.fontSize": 14,
     "workbench.editor.enablePreview": false,
     "prettier.useEditorConfig": false,
@@ -49,5 +48,24 @@
     "explorer.confirmDelete": false,
     "explorer.confirmDragAndDrop": false,
     "editor.renameOnType": true,
-    "workbench.colorTheme": "Night Owl"
+    "workbench.colorTheme": "Night Owl",
+    "window.zoomLevel": 3,
+    "workbench.editorAssociations": [
+        {
+            "viewType": "jupyter.notebook.ipynb",
+            "filenamePattern": "*.ipynb"
+        }
+    ],
+    "search.exclude": {
+        "**/.git": true,
+        "**/node_modules": true,
+        "**/yarn.lock": true,
+        "**/.idea": true,
+        "**/android/app/src/main/java/**/**/generated": true,
+        "**/android/app/build": true,
+        "**/ios/build": true,
+        "**/ios/Pods": true,
+        "**/ios/Podfile.lock": true,
+        "**/ios/**.xcarchive/**/**/main.jsbundle": true
+    }
 }

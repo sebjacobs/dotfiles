@@ -103,6 +103,8 @@ alias be="bundle exec"
 alias bi="bundle install"
 alias bu="bundle update"
 
+alias emu="emulator -no-boot-anim -noaudio @emu &"
+
 #rails aliases
 alias mig="bundle exec rake db:migrate"
 alias ffs="bundle install && yarn install && bundle exec rails db:migrate"

@@ -23,6 +23,21 @@
     "[json]": {
         "editor.defaultFormatter": "esbenp.prettier-vscode"
     },
+    "[c]": {
+        "editor.defaultFormatter": "xaver.clang-format"
+    },
+    "[objective-c]": {
+        "editor.formatOnSave": false
+    },
+    "[objective-cpp]": {
+        "editor.formatOnSave": false
+    },
+    "[cpp]": {
+        "editor.formatOnSave": false
+    },
+    "[java]": {
+        "editor.formatOnSave": false
+    },
     "[makefile]": {
       "editor.tabSize": 4,
       "editor.insertSpaces": false,

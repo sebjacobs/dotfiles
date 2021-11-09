@@ -60,12 +60,17 @@
         "**/.git": true,
         "**/node_modules": true,
         "**/yarn.lock": true,
+        "**/.yarn": true,
         "**/.idea": true,
+        "**/.generated.tsx": true,
         "**/android/app/src/main/java/**/**/generated": true,
         "**/android/app/build": true,
         "**/ios/build": true,
         "**/ios/Pods": true,
         "**/ios/Podfile.lock": true,
         "**/ios/**.xcarchive/**/**/main.jsbundle": true
+    },
+    "files.exclude": {
+        "**/.bundle": true
     }
 }

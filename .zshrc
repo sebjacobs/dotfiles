@@ -88,13 +88,7 @@ export PATH="./node_modules/.bin:$PATH"
 
 source /usr/local/opt/chruby/share/chruby/chruby.sh
 
-chruby 2.6.6
-
-export NVM_DIR="$HOME/.nvm"
-[ -s "/usr/local/opt/nvm/nvm.sh" ] && . "/usr/local/opt/nvm/nvm.sh"  # This loads nvm
-[ -s "/usr/local/opt/nvm/etc/bash_completion.d/nvm" ] && . "/usr/local/opt/nvm/etc/bash_completion.d/nvm"  # This loads nvm bash_completion
-
-nvm use --lts
+chruby 2.7.4
 
 export EDITOR='vim'
 
@@ -128,19 +122,16 @@ export PATH=$PATH:$(go env GOPATH)/bin
 export CPPFLAGS="-I/usr/local/opt/openjdk@8/include"
 export PATH="/usr/local/opt/openjdk@8/bin:$PATH"
 
-#export ANDROID_HOME=~/Library/Android/sdk
-export ANDROID_HOME=/usr/local/share/android-sdk
-export ANDROID_AVD_HOME=~/.android/avd
+export ANDROID_HOME=~/Library/Android/sdk
 export PATH=$PATH:$ANDROID_HOME/emulator
 export PATH=$PATH:$ANDROID_HOME/tools
 export PATH=$PATH:$ANDROID_HOME/tools/bin
 export PATH=$PATH:$ANDROID_HOME/platform-tools
-#export JAVA_HOME="/Applications/Android Studio.app/Contents/jre/jdk/Contents/Home"
-export JAVA_HOME="/usr/local/opt/openjdk@8/libexec/openjdk.jdk/Contents/Home"
+export JAVA_HOME="/Applications/Android Studio.app/Contents/jre/Contents/Home"
 
 #for fastlane deployments
-export LC_ALL=en_US.UTF-8
-export LANG=en_US.UTF-8
+export LC_ALL=en_GB.UTF-8
+export LANG=en_GB.UTF-8
 
 autoload -U bashcompinit
 bashcompinit
@@ -151,25 +142,11 @@ export PATH="$PATH:/Users/sebjacobs/.local/bin"
 export PATH="$HOME/.jenv/bin:$PATH"
 eval "$(jenv init -)"
 
+export NVM_DIR="$HOME/.nvm"
+[ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"  # This loads nvm
+[ -s "$NVM_DIR/bash_completion" ] && \. "$NVM_DIR/bash_completion"  # This loads nvm bash_completion
 
-autoload -U add-zsh-hook
-load-nvmrc() {
-  local node_version="$(nvm version)"
-  local nvmrc_path="$(nvm_find_nvmrc)"
+nvm use --lts
 
-  if [ -n "$nvmrc_path" ]; then
-    local nvmrc_node_version=$(nvm version "$(cat "${nvmrc_path}")")
 
-    if [ "$nvmrc_node_version" = "N/A" ]; then
-      nvm install
-    elif [ "$nvmrc_node_version" != "$node_version" ]; then
-      nvm use
-    fi
-  elif [ "$node_version" != "$(nvm version default)" ]; then
-    echo "Reverting to nvm default version"
-    nvm use --lts
-  fi
-}
-add-zsh-hook chpwd load-nvmrc
-load-nvmrc
-
+export PATH="$HOME/.yarn/bin:$HOME/.config/yarn/global/node_modules/.bin:$PATH"

@@ -1,3 +1,4 @@
+.oh-my-zsh/custom/secrets.zsh
 .venv
 .DS_Store
 config/database.yml

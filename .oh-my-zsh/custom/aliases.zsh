@@ -14,7 +14,8 @@ function convert_ac3_to_aac() {
   filename="${filename%.*}"
   output_filename="$filename-aac.$extension"
 
-  ffmpeg -i $1 -vcodec copy -scodec copy -acodec libfdk_aac -b:a 640k -ac 6 -map 0 $output_filename
+  # ffmpeg -i $1 -vcodec copy -scodec copy -acodec libfdk_aac -b:a 640k -ac 6 -map 0 $output_filename
+  ffmpeg -i $1 -vcodec copy -scodec copy -acodec libfdk_aac -b:a 640k -ac 6 -map 0:a -map 0:v -map 0:s:m:language:eng $output_filename
 }
 
 alias ac3_to_aac="convert_ac3_to_aac"

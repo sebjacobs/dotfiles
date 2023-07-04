@@ -1,10 +1,11 @@
 eval "$(/opt/homebrew/bin/brew shellenv)"
 
-#export JAVA_HOME=$(/usr/libexec/java_home -v 19)
 #export JAVA_HOME=$(/usr/libexec/java_home -v 11)
-export JAVA_HOME=$(/usr/libexec/java_home -v 17)
-export PATH="$HOME/.jenv/bin:$PATH"
-eval "$(jenv init -)"
+#export JAVA_HOME=$(/usr/libexec/java_home -v 17)
+#export JAVA_HOME=$(/usr/libexec/java_home -v 16)
+export JAVA_HOME=$(/usr/libexec/java_home -v 20)
+#export PATH="$HOME/.jenv/bin:$PATH"
+#eval "$(jenv init -)"
 
 export ANDROID_HOME=~/Library/Android/sdk
 export PATH=$PATH:$ANDROID_HOME/cmdline-tools/latest/bin

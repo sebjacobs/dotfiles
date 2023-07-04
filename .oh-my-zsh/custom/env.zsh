@@ -40,8 +40,8 @@ export PATH="$PATH":"$HOME/.pub-cache/bin"
 export EDITOR='code --wait'
 
 source /opt/homebrew/opt/chruby/share/chruby/chruby.sh
-#chruby 2.7.5
-chruby 3.2.0
+# chruby 3.2.1
+chruby 2.7.7
 
 export NVM_DIR="$HOME/.nvm"
 [ -s "/opt/homebrew/opt/nvm/nvm.sh" ] && \. "/opt/homebrew/opt/nvm/nvm.sh"  # This loads nvm

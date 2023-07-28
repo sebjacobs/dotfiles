@@ -27,6 +27,15 @@ if ! test -f "$BREW_PREFIX/opt/nvm/nvm.sh"; then
   exit
 fi
 
+dirs=(
+  ".bundle"
+)
+
+for dir in "${dirs[@]}"
+do
+  mkdir -p "$HOME/$dir"
+done
+
 files=(
   ".bundle/config"
   ".oh-my-zsh/custom"

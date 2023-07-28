@@ -14,9 +14,9 @@ export PATH=$PATH:$ANDROID_HOME/platform-tools
 export PATH=$PATH:$HOME/bin
 
 
-export PATH="/opt/homebrew/opt/openssl@1.1/bin:$PATH"
-export LDFLAGS="-L/opt/homebrew/opt/openssl@1.1/lib"
-export CPPFLAGS="-I/opt/homebrew/opt/openssl@1.1/include"
+export PATH="$BREW_PREFIX/opt/openssl@1.1/bin:$PATH"
+export LDFLAGS="-L$BREW_PREFIX/opt/openssl@1.1/lib"
+export CPPFLAGS="-I$BREW_PREFIX/opt/openssl@1.1/include"
 
 #export RUBY_CONFIGURE_OPTS="--with-zlib-dir=$(brew --prefix zlib) --with-openssl-dir=$(brew --prefix openssl@1.1) --with-readline-dir=$(brew --prefix readline) --with-libyaml-dir=$(brew --prefix libyaml)"
 
@@ -31,18 +31,17 @@ eval "$(pyenv init -)"
 export PIP_REQUIRE_VIRTUAL_ENV=true
 export PATH="$HOME/.local/bin:$PATH"
 
-export PATH="/opt/homebrew/opt/dotnet@6/bin:$PATH"
-export DOTNET_ROOT="/opt/homebrew/opt/dotnet@6/libexec"
+export PATH="$BREW_PREFIX/opt/dotnet@6/bin:$PATH"
+export DOTNET_ROOT="$BREW_PREFIX/opt/dotnet@6/libexec"
 
 export PATH="$PATH":"$HOME/.pub-cache/bin"
 
 export EDITOR='code --wait'
 
-source /opt/homebrew/opt/chruby/share/chruby/chruby.sh
+source $BREW_PREFIX/opt/chruby/share/chruby/chruby.sh
 # chruby 3.2.1
 chruby 2.7.7
 
 export NVM_DIR="$HOME/.nvm"
-[ -s "/opt/homebrew/opt/nvm/nvm.sh" ] && \. "/opt/homebrew/opt/nvm/nvm.sh"  # This loads nvm
-[ -s "/opt/homebrew/opt/nvm/etc/bash_completion.d/nvm" ] && \. "/opt/homebrew/opt/nvm/etc/bash_completion.d/nvm"  # This loads nvm bash_completion
+[ -s "$BREW_PREFIX/opt/nvm/nvm.sh" ] && \. "$BREW_PREFIX/opt/nvm/nvm.sh"  # This loads nvm
 nvm use --lts

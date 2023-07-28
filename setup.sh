@@ -1,5 +1,7 @@
 #!/usr/bin/env sh
 
+source ./.oh-my-zsh/custom/00_brew.zsh
+
 if [ ! -d "$HOME/.oh-my-zsh" ]; then
   echo "please install oh-my-zsh"
   exit
@@ -15,12 +17,12 @@ if ! command -v pyenv >/dev/null; then
   exit
 fi
 
-if ! test -f "/opt/homebrew/opt/chruby/share/chruby/chruby.sh"; then
+if ! test -f "$BREW_PREFIX/opt/chruby/share/chruby/chruby.sh"; then
   echo "please install chruby"
   exit
 fi
 
-if ! test -f "/opt/homebrew/opt/nvm/nvm.sh"; then
+if ! test -f "$BREW_PREFIX/opt/nvm/nvm.sh"; then
   echo "please install nvm"
   exit
 fi

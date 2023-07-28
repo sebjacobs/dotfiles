@@ -10,6 +10,21 @@ if ! command -v brew &> /dev/null; then
   exit
 fi
 
+if ! command -v pyenv >/dev/null; then
+  echo "please install pyenv"
+  exit
+fi
+
+if ! test -f "/opt/homebrew/opt/chruby/share/chruby/chruby.sh"; then
+  echo "please install chruby"
+  exit
+fi
+
+if ! test -f "/opt/homebrew/opt/nvm/nvm.sh"; then
+  echo "please install nvm"
+  exit
+fi
+
 files=(
   ".bundle/config"
   ".oh-my-zsh/custom"

@@ -15,6 +15,7 @@ yarn-error.log
 .pnp.js
 vendor/cache
 __pycache__
+.pytest_cache/
 .byebug_history
 public/sitemaps
 tags

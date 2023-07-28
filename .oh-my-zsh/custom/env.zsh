@@ -30,6 +30,7 @@ command -v pyenv >/dev/null || export PATH="$PYENV_ROOT/bin:$PATH"
 eval "$(pyenv init -)"
 
 # python poetry setup
+export PIP_REQUIRE_VIRTUAL_ENV=true
 export PATH="/Users/sebjacobs/.local/bin:$PATH"
 
 export PATH="/opt/homebrew/opt/dotnet@6/bin:$PATH"

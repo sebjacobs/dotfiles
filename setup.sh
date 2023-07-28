@@ -51,7 +51,13 @@ for file in "${files[@]}"
 do
   source="$(pwd)/$file"
   target="$HOME/$file"
-  ln -snf $source $target
+  if [ -f $target ] || [ -d $target ]; then
+      if ! test -L $target; then
+        echo "skipping $target"
+      fi
+  else
+    ln -snf $source $target
+  fi
 done
 
 echo "finished symlinking dotfiles"

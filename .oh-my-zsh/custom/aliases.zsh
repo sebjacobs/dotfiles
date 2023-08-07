@@ -27,3 +27,8 @@ function convert_ac3_to_aac() {
 }
 
 alias ac3_to_aac="convert_ac3_to_aac"
+
+alias colima-start="colima start --kubernetes"
+
+alias k=kubectl
+complete -o default -F __start_kubectl k

@@ -45,3 +45,8 @@ chruby 2.7.7
 export NVM_DIR="$HOME/.nvm"
 [ -s "$BREW_PREFIX/opt/nvm/nvm.sh" ] && \. "$BREW_PREFIX/opt/nvm/nvm.sh"  # This loads nvm
 nvm use --lts
+
+
+# setup kubectl autocompletion
+source <(kubectl completion zsh)
+

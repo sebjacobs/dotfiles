@@ -7,6 +7,10 @@ if [ ! -d "$HOME/.oh-my-zsh" ]; then
   exit
 fi
 
+if ! grep "^ZSH_CUSTOM" ~/.zshrc > /dev/null; then
+  awk '1;/# ZSH_CUSTOM/{print "ZSH_CUSTOM=$HOME/dotfiles/.oh-my-zsh/custom"}' $HOME/.zshrc > $HOME/.zshrc.tmp && mv $HOME/.zshrc.tmp $HOME/.zshrc
+fi
+
 if ! command -v brew &> /dev/null; then
   echo "please install homebrew"
   exit
@@ -38,7 +42,6 @@ done
 
 files=(
   ".bundle/config"
-  ".oh-my-zsh/custom"
   ".ssh/config"
   ".editorconfig"
   ".gemrc"

@@ -42,10 +42,8 @@ source $BREW_PREFIX/opt/chruby/share/chruby/chruby.sh
 chruby 3.2.2
 # chruby 2.7.8
 
-export NVM_DIR="$HOME/.nvm"
-[ -s "$BREW_PREFIX/opt/nvm/nvm.sh" ] && \. "$BREW_PREFIX/opt/nvm/nvm.sh"  # This loads nvm
-nvm use --lts
-
+export VOLTA_HOME="$HOME/.volta"
+export PATH="$VOLTA_HOME/bin:$PATH"
 
 # setup kubectl autocompletion
 source <(kubectl completion zsh)

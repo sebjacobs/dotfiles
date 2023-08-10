@@ -26,8 +26,8 @@ if ! test -f "$BREW_PREFIX/opt/chruby/share/chruby/chruby.sh"; then
   exit
 fi
 
-if ! test -f "$BREW_PREFIX/opt/nvm/nvm.sh"; then
-  echo "please install nvm"
+if ! command -v volta > /dev/null; then
+  echo "please install volta"
   exit
 fi
 

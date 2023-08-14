@@ -39,8 +39,8 @@ export PATH="$PATH":"$HOME/.pub-cache/bin"
 export EDITOR='code --wait'
 
 source $BREW_PREFIX/opt/chruby/share/chruby/chruby.sh
-# chruby 3.2.1
-chruby 2.7.7
+chruby 3.2.2
+# chruby 2.7.8
 
 export NVM_DIR="$HOME/.nvm"
 [ -s "$BREW_PREFIX/opt/nvm/nvm.sh" ] && \. "$BREW_PREFIX/opt/nvm/nvm.sh"  # This loads nvm

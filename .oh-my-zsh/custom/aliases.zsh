@@ -12,6 +12,13 @@ alias pyt="poetry run pytest"
 alias node-init="rsync -r --exclude=\"package-lock.json\" --exclude=\"dist\" --exclude=\".git\" --exclude \"node_modules\"  $HOME/Tech/templates/nodejs-template/* $1"
 alias express-init="rsync -r --exclude=\"package-lock.json\" --exclude=\"dist\" --exclude=\".git\" --exclude \"node_modules\"  $HOME/Tech/templates/express-template/* $1"
 
+# java
+alias spring-init="spring init --type=gradle-project-kotlin --java-version=17 --dependencies=web $1"
+alias spring-init-kotlin="spring init --language=kotlin --type=gradle-project-kotlin --java-version=17 --dependencies=web $1"
+
+function idea() {
+    /Applications/IntelliJ\ IDEA\ CE.app/Contents/MacOS/idea "$1" > /dev/null 2>&1 &
+}
 
 alias intel="env /usr/bin/arch -x86_64 /bin/zsh"
 alias arm="env /usr/bin/arch -arm64 /bin/zsh"

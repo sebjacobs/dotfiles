@@ -1,7 +1,7 @@
 #export JAVA_HOME=$(/usr/libexec/java_home -v 11)
-export JAVA_HOME=$(/usr/libexec/java_home -v 17)
-#export PATH="$HOME/.jenv/bin:$PATH"
-#eval "$(jenv init -)"
+#export JAVA_HOME=$(/usr/libexec/java_home -v 17)
+export PATH="$HOME/.jenv/bin:$PATH"
+eval "$(jenv init -)"
 
 export ANDROID_HOME=$HOME/Library/Android/sdk
 export PATH=$PATH:$ANDROID_HOME/cmdline-tools/latest/bin

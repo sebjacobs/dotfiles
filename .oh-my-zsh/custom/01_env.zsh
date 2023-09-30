@@ -30,8 +30,8 @@ eval "$(pyenv init -)"
 export PIP_REQUIRE_VIRTUAL_ENV=true
 export PATH="$HOME/.local/bin:$PATH"
 
-export PATH="$BREW_PREFIX/opt/dotnet@6/bin:$PATH"
-export DOTNET_ROOT="$BREW_PREFIX/opt/dotnet@6/libexec"
+#dotnet setup
+export PATH="$PATH:$HOME/.dotnet/tools"
 
 export PATH="$PATH":"$HOME/.pub-cache/bin"
 

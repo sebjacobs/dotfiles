@@ -21,3 +21,6 @@ public/sitemaps
 tags
 .foreman
 *.swp
+
+### Maven ###
+target/

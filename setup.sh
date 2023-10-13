@@ -31,6 +31,11 @@ if ! command -v volta > /dev/null; then
   exit
 fi
 
+if ! test -d $HOME/.sdkman; then
+  echo "please install sdkman"
+  exit
+fi
+
 dirs=(
   ".bundle"
 )

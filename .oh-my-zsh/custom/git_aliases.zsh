@@ -13,6 +13,7 @@ alias grom="git rebase origin/main || git rebase origin/master"
 alias grim="git rebase -i origin/main --autosquash || git rebase -i origin/master --autosquash"
 alias gri="git rebase --autosquash -i"
 alias gl="git log --oneline --graph --decorate"
+alias gll='git log --pretty="%C(Yellow)%h (%C(Yellow)%ad) %C(Yellow)(%aN) %C(auto)%d %C(reset)%s" --date=short --graph'
 alias gad="git add ."
 alias gam="git commit --amend"
 alias gcon="git rebase --continue || git cherry-pick --continue"

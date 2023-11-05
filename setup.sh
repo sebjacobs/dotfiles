@@ -68,4 +68,12 @@ do
   fi
 done
 
+
+for file in $(ls ./bin)
+do
+  source="$(pwd)/bin/$file"
+  target="$HOME/bin/$file"
+  ln -snf $source $target
+done
+
 echo "finished symlinking dotfiles"

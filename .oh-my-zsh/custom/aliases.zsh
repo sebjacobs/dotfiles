@@ -39,3 +39,11 @@ alias colima-start="colima start --kubernetes"
 
 alias k=kubectl
 complete -o default -F __start_kubectl k
+
+alias genplan="mkdir -p docs && touch docs/plan.excalidraw"
+
+function create_excalidraw_file() {
+  name=$1
+  touch $name.excalidraw
+}
+alias genex="create_excalidraw_file"

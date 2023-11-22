@@ -12,9 +12,9 @@ if command -v colima &> /dev/null; then
   export DOCKER_HOST=$(docker context inspect colima -f '{{.Endpoints.docker.Host}}')
 fi
 
-export PATH="$BREW_PREFIX/opt/openssl@1.1/bin:$PATH"
-export LDFLAGS="-L$BREW_PREFIX/opt/openssl@1.1/lib"
-export CPPFLAGS="-I$BREW_PREFIX/opt/openssl@1.1/include"
+#export PATH="$BREW_PREFIX/opt/openssl@1.1/bin:$PATH"
+#export LDFLAGS="-L$BREW_PREFIX/opt/openssl@1.1/lib"
+#export CPPFLAGS="-I$BREW_PREFIX/opt/openssl@1.1/include"
 
 #export RUBY_CONFIGURE_OPTS="--with-zlib-dir=$(brew --prefix zlib) --with-openssl-dir=$(brew --prefix openssl@1.1) --with-readline-dir=$(brew --prefix readline) --with-libyaml-dir=$(brew --prefix libyaml)"
 

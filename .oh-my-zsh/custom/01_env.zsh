@@ -50,6 +50,10 @@ export PATH="$VOLTA_HOME/bin:$PATH"
 export BUN_INSTALL="$HOME/.bun"
 export PATH="$BUN_INSTALL/bin:$PATH"
 
+#golang
+export PATH="$HOME/go/bin:$PATH"
+
 # setup kubectl autocompletion
 source <(kubectl completion zsh)
+
 

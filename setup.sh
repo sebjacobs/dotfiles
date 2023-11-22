@@ -21,8 +21,8 @@ if ! command -v pyenv >/dev/null; then
   exit
 fi
 
-if ! test -f "$BREW_PREFIX/opt/chruby/share/chruby/chruby.sh"; then
-  echo "please install chruby"
+if ! test -f "$BREW_PREFIX/opt/asdf/libexec/asdf.sh"; then
+  echo "please install asdf"
   exit
 fi
 

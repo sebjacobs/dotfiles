@@ -1,4 +1,5 @@
-source "/Users/sebjacobs/.sdkman/bin/sdkman-init.sh"
+export SDKMAN_DIR="$HOME/.sdkman"
+[[ -s "$HOME/.sdkman/bin/sdkman-init.sh" ]] && source "/Users/sebjacobs/.sdkman/bin/sdkman-init.sh"
 
 export ANDROID_HOME=$HOME/Library/Android/sdk
 export PATH=$PATH:$ANDROID_HOME/cmdline-tools/latest/bin
@@ -42,6 +43,7 @@ export EDITOR='code --wait'
 ## NodeJS version management
 export VOLTA_HOME="$HOME/.volta"
 export PATH="$VOLTA_HOME/bin:$PATH"
+unset _VOLTA_TOOL_RECURSION
 
 # bun completions
 [ -s "$HOME/.bun/_bun" ] && source "$HOME/.bun/_bun"

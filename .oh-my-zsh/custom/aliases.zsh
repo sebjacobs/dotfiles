@@ -11,6 +11,7 @@ alias pyt="poetry run pytest"
 # nodejs
 alias node-init="rsync -r --exclude=\"package-lock.json\" --exclude=\"dist\" --exclude=\".git\" --exclude \"node_modules\"  $HOME/Tech/templates/nodejs-template/* $1"
 alias express-init="rsync -r --exclude=\"package-lock.json\" --exclude=\"dist\" --exclude=\".git\" --exclude \"node_modules\"  $HOME/Tech/templates/express-template/* $1"
+alias nextjs-init="rsync -r --exclude=\"package-lock.json\" --exclude=\"dist\" --exclude=\".git\" --exclude \"node_modules\"  $HOME/Tech/templates/nextjs-template/* $1"
 
 # java
 alias spring-init="spring init --type=gradle-project-kotlin --java-version=17 --dependencies=web $1"

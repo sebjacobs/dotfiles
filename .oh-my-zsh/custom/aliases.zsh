@@ -42,6 +42,13 @@ function yt_dlp_mp3(){
 
 alias yt-dlp-mp3="yt_dlp_mp3"
 
+function yt_dlp_m4a(){
+  url=$1
+  yt-dlp --extract-audio --audio-format m4a --audio-quality 0 $url
+}
+alias yt-dlp-m4a="yt_dlp_m4a"
+
+
 alias ac3_to_aac="convert_ac3_to_aac"
 
 alias colima-start="colima start --kubernetes"

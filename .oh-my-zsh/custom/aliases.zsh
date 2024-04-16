@@ -34,6 +34,14 @@ function convert_ac3_to_aac() {
   ffmpeg -i $1 -vcodec copy -scodec copy -acodec libfdk_aac -b:a 640k -ac 6 -map 0:a -map 0:v -map 0:s:m:language:eng $output_filename
 }
 
+
+function yt_dlp_mp3(){
+  url=$1
+  yt-dlp --extract-audio --audio-format mp3 --audio-quality 0 $url
+}
+
+alias yt-dlp-mp3="yt_dlp_mp3"
+
 alias ac3_to_aac="convert_ac3_to_aac"
 
 alias colima-start="colima start --kubernetes"

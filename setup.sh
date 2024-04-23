@@ -1,6 +1,8 @@
 #!/usr/bin/env sh
 
-source ./.oh-my-zsh/custom/00_brew.zsh
+DOTFILES_HOME=$HOME/dotfiles
+
+source $DOTFILES_HOME/.oh-my-zsh/custom/00_brew.zsh
 
 if [ ! -d "$HOME/.oh-my-zsh" ]; then
   echo "please install oh-my-zsh"
@@ -8,7 +10,7 @@ if [ ! -d "$HOME/.oh-my-zsh" ]; then
 fi
 
 if ! grep "^ZSH_CUSTOM" ~/.zshrc > /dev/null; then
-  awk '1;/# ZSH_CUSTOM/{print "ZSH_CUSTOM=$HOME/dotfiles/.oh-my-zsh/custom"}' $HOME/.zshrc > $HOME/.zshrc.tmp && mv $HOME/.zshrc.tmp $HOME/.zshrc
+  awk '1;/# ZSH_CUSTOM/{print "ZSH_CUSTOM=$DOTFILES_HOME/.oh-my-zsh/custom"}' $HOME/.zshrc > $HOME/.zshrc.tmp && mv $HOME/.zshrc.tmp $HOME/.zshrc
 fi
 
 if ! command -v brew &> /dev/null; then
@@ -57,7 +59,7 @@ files=(
 
 for file in "${files[@]}"
 do
-  source="$(pwd)/$file"
+  source="$DOTFILES_HOME/$file"
   target="$HOME/$file"
   if [ -f $target ] || [ -d $target ]; then
       if ! test -L $target; then
@@ -71,7 +73,7 @@ done
 
 for file in $(ls ./bin)
 do
-  source="$(pwd)/bin/$file"
+  source="$DOTFILES_HOME/bin/$file"
   target="$HOME/bin/$file"
   ln -snf $source $target
 done

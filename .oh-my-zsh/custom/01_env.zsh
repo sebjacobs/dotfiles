@@ -37,8 +37,8 @@ export PATH="$PATH":"$HOME/.pub-cache/bin"
 
 export EDITOR='code --wait'
 
-## Ruby version management
-. $BREW_PREFIX/opt/asdf/libexec/asdf.sh
+## Ruby version management (ASDF)
+export PATH="${ASDF_DATA_DIR:-$HOME/.asdf}/shims:$PATH"
 
 ## NodeJS version management
 export VOLTA_HOME="$HOME/.volta"

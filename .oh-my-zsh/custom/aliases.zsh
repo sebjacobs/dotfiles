@@ -1,7 +1,8 @@
 # ruby/rails
-alias bi="bundle install"
+alias ba="bundle add"
 alias be="bundle exec"
-alias mig="bundle exec rake db:migrate"
+alias bi="bundle install"
+alias mig="bundle exec rails db:migrate"
 alias ffs="bundle install && yarn install && bundle exec rails db:migrate"
 
 # python/django

@@ -23,8 +23,8 @@ if ! command -v pyenv >/dev/null; then
   exit
 fi
 
-if ! test -f "$BREW_PREFIX/opt/asdf/libexec/asdf.sh"; then
-  echo "please install asdf"
+if ! command -v mise > /dev/null; then
+  echo "please install mise"
   exit
 fi
 

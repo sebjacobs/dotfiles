@@ -1,6 +1,9 @@
 export SDKMAN_DIR="$HOME/.sdkman"
 [[ -s "$HOME/.sdkman/bin/sdkman-init.sh" ]] && source "/Users/sebjacobs/.sdkman/bin/sdkman-init.sh"
 
+# fix active storage local upload issue
+export OBJC_DISABLE_INITIALIZE_FORK_SAFETY=YES
+
 export ANDROID_HOME=$HOME/Library/Android/sdk
 export PATH=$PATH:$ANDROID_HOME/cmdline-tools/latest/bin
 export PATH=$PATH:$ANDROID_HOME/emulator
@@ -18,6 +21,8 @@ fi
 #export CPPFLAGS="-I$BREW_PREFIX/opt/openssl@1.1/include"
 
 #export RUBY_CONFIGURE_OPTS="--with-zlib-dir=$(brew --prefix zlib) --with-openssl-dir=$(brew --prefix openssl@1.1) --with-readline-dir=$(brew --prefix readline) --with-libyaml-dir=$(brew --prefix libyaml)"
+
+export MISE_RUBY_INSTALL=true
 
 export DENO_INSTALL="$HOME/.deno"
 export PATH="$DENO_INSTALL/bin:$PATH"

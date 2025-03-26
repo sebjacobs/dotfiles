@@ -42,9 +42,10 @@ export PATH="$PATH":"$HOME/.pub-cache/bin"
 
 export EDITOR='code --wait'
 
-## Ruby version management (ASDF)
-# export PATH="${ASDF_DATA_DIR:-$HOME/.asdf}/shims:$PATH"
-eval "$(mise activate zsh)"
+source /opt/homebrew/opt/chruby/share/chruby/chruby.sh
+source /opt/homebrew/opt/chruby/share/chruby/auto.sh
+
+chruby ruby-3.4.2
 
 ## NodeJS version management
 export VOLTA_HOME="$HOME/.volta"

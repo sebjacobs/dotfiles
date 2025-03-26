@@ -2,6 +2,7 @@
 alias ba="bundle add"
 alias be="bundle exec"
 alias bi="bundle install"
+alias bu="bundle update"
 alias mig="bundle exec rails db:migrate"
 alias ffs="bundle install && yarn install && bundle exec rails db:migrate"
 

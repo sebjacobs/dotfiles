@@ -22,7 +22,12 @@ fi
 
 #export RUBY_CONFIGURE_OPTS="--with-zlib-dir=$(brew --prefix zlib) --with-openssl-dir=$(brew --prefix openssl@1.1) --with-readline-dir=$(brew --prefix readline) --with-libyaml-dir=$(brew --prefix libyaml)"
 
-export MISE_RUBY_INSTALL=true
+
+export PATH="/opt/homebrew/opt/postgresql@17/bin:$PATH"
+export PATH="/opt/homebrew/opt/mysql@8.4/bin:$PATH"
+
+export LDFLAGS="-L/opt/homebrew/opt/mysql@8.4/lib"
+export CPPFLAGS="-I/opt/homebrew/opt/mysql@8.4/include"
 
 export DENO_INSTALL="$HOME/.deno"
 export PATH="$DENO_INSTALL/bin:$PATH"

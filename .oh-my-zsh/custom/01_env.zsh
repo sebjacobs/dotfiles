@@ -13,10 +13,6 @@ export PATH=$PATH:$ANDROID_HOME/platform-tools
 
 export PATH=$PATH:$HOME/bin
 
-if command -v colima &> /dev/null; then
-  export DOCKER_HOST=$(docker context inspect colima -f '{{.Endpoints.docker.Host}}')
-fi
-
 
 #export RUBY_CONFIGURE_OPTS="--with-zlib-dir=$(brew --prefix zlib) --with-openssl-dir=$(brew --prefix openssl@1.1) --with-readline-dir=$(brew --prefix readline) --with-libyaml-dir=$(brew --prefix libyaml)"
 

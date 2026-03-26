@@ -40,6 +40,7 @@ fi
 
 dirs=(
   ".bundle"
+  ".claude"
 )
 
 for dir in "${dirs[@]}"
@@ -55,6 +56,9 @@ files=(
   ".gitattributes"
   ".gitconfig"
   ".gitignore"
+  ".claude/CLAUDE.md"
+  ".claude/settings.json"
+  ".claude/keybindings.json"
 )
 
 for file in "${files[@]}"

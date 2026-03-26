@@ -34,7 +34,6 @@
   insteadOf = https://gitlab.com/
 [commit]
   verbose = true
-  template = ~/.gitmessage
 [diff]
   noprefix = true
 [merge "railsschema"]

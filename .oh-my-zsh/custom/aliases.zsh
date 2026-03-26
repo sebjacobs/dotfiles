@@ -32,8 +32,12 @@ function convert_ac3_to_aac() {
   filename="${filename%.*}"
   output_filename="$filename-aac.$extension"
 
-  # ffmpeg -i $1 -vcodec copy -scodec copy -acodec libfdk_aac -b:a 640k -ac 6 -map 0 $output_filename
-  ffmpeg -i $1 -vcodec copy -scodec copy -acodec libfdk_aac -b:a 640k -ac 6 -map 0:a -map 0:v -map 0:s:m:language:eng $output_filename
+  # remove subtitles and additional audio tracks
+  # ffmpeg -i $1 -map 0 -c copy -map -0:a:1 -sn $output_filename
+  ffmpeg -i $1 -vcodec copy -scodec copy -acodec libfdk_aac -b:a 640k -ac 6 -map 0 $output_filename
+  # copy but remove additional audio tracks
+  # ffmpeg -i $1 -vcodec copy -scodec copy -acodec copy -map 0:a:0 -map 0:v -map 0:s:m:language:eng $output_filename
+  #ffmpeg -i $1 -vcodec copy -scodec copy -acodec libfdk_aac -b:a 640k -ac 6 -map 0:a -map 0:v -map 0:s:m:language:eng $output_filename
 }
 
 
@@ -41,7 +45,6 @@ function yt_dlp_mp3(){
   url=$1
   yt-dlp --extract-audio --audio-format mp3 --audio-quality 0 $url
 }
-
 alias yt-dlp-mp3="yt_dlp_mp3"
 
 function yt_dlp_m4a(){
@@ -51,7 +54,17 @@ function yt_dlp_m4a(){
 alias yt-dlp-m4a="yt_dlp_m4a"
 
 
-alias ac3_to_aac="convert_ac3_to_aac"
+alias ac3-to-aac="convert_ac3_to_aac"
+
+function all_ac3_to_aac(){
+  for file in ./*; do
+    if [ -f "$file" ]; then
+      ac3-to-aac $file
+    fi
+  done
+}
+
+alias all-ac3-to-aac="all_ac3_to_aac"
 
 alias colima-start="colima start --kubernetes"
 

@@ -1,0 +1,2 @@
+# yt-dlp "$1" -f "bestvideo[ext=mp4]+bestaudio[ext=m4a]/best[ext=mp4]/best"
+yt-dlp "$1" -S res,ext:mp4:m4a

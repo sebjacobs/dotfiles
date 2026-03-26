@@ -5,6 +5,7 @@ config/database.yml
 .env
 .bundle
 node_modules
+.next
 .idea
 .gradle
 .vscode

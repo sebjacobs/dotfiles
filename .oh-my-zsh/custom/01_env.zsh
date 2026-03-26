@@ -10,15 +10,13 @@ export PATH=$PATH:$ANDROID_HOME/emulator
 export PATH=$PATH:$ANDROID_HOME/tools
 export PATH=$PATH:$ANDROID_HOME/tools/bin
 export PATH=$PATH:$ANDROID_HOME/platform-tools
+
 export PATH=$PATH:$HOME/bin
 
 if command -v colima &> /dev/null; then
   export DOCKER_HOST=$(docker context inspect colima -f '{{.Endpoints.docker.Host}}')
 fi
 
-#export PATH="$BREW_PREFIX/opt/openssl@1.1/bin:$PATH"
-#export LDFLAGS="-L$BREW_PREFIX/opt/openssl@1.1/lib"
-#export CPPFLAGS="-I$BREW_PREFIX/opt/openssl@1.1/include"
 
 #export RUBY_CONFIGURE_OPTS="--with-zlib-dir=$(brew --prefix zlib) --with-openssl-dir=$(brew --prefix openssl@1.1) --with-readline-dir=$(brew --prefix readline) --with-libyaml-dir=$(brew --prefix libyaml)"
 
@@ -50,7 +48,7 @@ export EDITOR='zed --wait'
 source /opt/homebrew/opt/chruby/share/chruby/chruby.sh
 source /opt/homebrew/opt/chruby/share/chruby/auto.sh
 
-chruby ruby-3.4.2
+chruby ruby-3.4.5
 
 ## NodeJS version management
 export VOLTA_HOME="$HOME/.volta"

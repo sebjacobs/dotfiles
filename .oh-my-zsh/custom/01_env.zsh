@@ -45,7 +45,7 @@ export PATH="$PATH:$HOME/.dotnet/tools"
 
 export PATH="$PATH":"$HOME/.pub-cache/bin"
 
-export EDITOR='code --wait'
+export EDITOR='zed --wait'
 
 source /opt/homebrew/opt/chruby/share/chruby/chruby.sh
 source /opt/homebrew/opt/chruby/share/chruby/auto.sh

@@ -31,6 +31,7 @@ Changes accumulate as dirty working tree state during a session. Do **not** comm
 - First line: short imperative summary (< 72 chars)
 - Blank line, then a body paragraph explaining **why** the change was made — the motivation, not just what changed
 - If multiple files are involved, a brief `Changes:` list of what was done
+- Include links/references where relevant — e.g. Claude chat session URLs, GitHub issues, PRs, external docs, or research that informed the change
 - Always end with `Co-Authored-By: Claude Opus 4.6 <noreply@anthropic.com>`
 - Use a HEREDOC to pass the message to `git commit -m`
 

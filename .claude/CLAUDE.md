@@ -62,6 +62,11 @@ PR descriptions follow the same philosophy as commit messages — explain the *w
 
 Include a TODO checklist for any remaining steps not yet done on the branch — this makes the PR a live tracker of what's left.
 
+**Feature development approach:**
+Before starting a new feature, write a short spec (spec-kit style: `spec.md` for what/why, `plan.md` for how) and agree on it before writing any code. From the agreed spec, use TDD — write tests first to capture the acceptance criteria, then implement to make them pass. This keeps features focused, avoids scope drift, and ensures correctness from the start.
+
+Exception: for spikes, prototypes, or proof-of-concept work the goal is learning rather than shipping — skip the spec gate and TDD overhead, but timebox the exploration and write up what was learned before starting the real implementation.
+
 **When to skip a feature branch:**
 Small, self-contained changes (typo fixes, doc tweaks, single-line config changes) can be committed directly to main — not everything needs a branch and PR. This is a judgement call each time; when in doubt, ask.
 

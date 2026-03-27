@@ -52,7 +52,14 @@ Always rebase the feature branch onto main before merging via GitHub — ensures
 6. **Never merge or raise a PR until the user explicitly says to** — propose it, then wait
 
 **Feature branch PRs:**
-When creating a PR for a feature branch, include a TODO checklist in the PR description (or as an early comment) listing the remaining steps to completion. Keep it updated as work progresses. This makes the PR a live tracker of what's left to do on the branch.
+PR descriptions follow the same philosophy as commit messages — explain the *why*, not just the *what*. Structure:
+
+1. **Summary** — one short paragraph: what this PR does, what problem it solves or capability it enables, and the reasoning behind the approach
+2. **Key changes** — brief bullet list of the significant files/areas touched (not exhaustive)
+3. **Gotchas / things to be aware of** — anything non-obvious: migration steps, dependencies, trade-offs made, things that might bite a reviewer or future contributor
+4. **Test plan** — checklist of how to verify the change works
+
+Include a TODO checklist for any remaining steps not yet done on the branch — this makes the PR a live tracker of what's left.
 
 **When to skip a feature branch:**
 Small, self-contained changes (typo fixes, doc tweaks, single-line config changes) can be committed directly to main — not everything needs a branch and PR. This is a judgement call each time; when in doubt, ask.

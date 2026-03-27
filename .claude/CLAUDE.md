@@ -46,7 +46,7 @@ Always rebase the feature branch onto main before merging via GitHub — ensures
 **Process:**
 1. **Always start on a feature branch** — never work directly on main, even for small changes. Create a branch before writing any code: `git checkout -b feature/<name>`
 2. Run `git status` and `git diff --stat` to survey all dirty changes
-3. Show the full diff (`git diff main...<branch>`) — not just the stat — so the user can review every line before anything is merged
+3. Show the full diff — not just the stat — so the user can review every line before anything is merged. For branches with many files, diff file-by-file or skip all-addition new files (they have no "what changed") and diff only modified files: `git diff main...<branch> -- file1 file2`
 4. Propose a grouping to the user and wait for approval
 5. Stage and commit each group sequentially
 6. **Never merge or raise a PR until the user explicitly says to** — propose it, then wait

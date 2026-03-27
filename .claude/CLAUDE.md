@@ -38,10 +38,12 @@ Changes accumulate as dirty working tree state during a session. Do **not** comm
 - Use a HEREDOC to pass the message to `git commit -m`
 
 **Merge strategy (feature branches → main):**
-- **Single commit** — rebase (fast-forward onto main, no merge commit)
-- **Multiple commits** — rebase the feature branch onto main first, then merge with `--no-ff` to preserve the commits grouped under a merge commit. Use a descriptive merge commit message that summarises the feature — title line says what the feature is, body explains what was built and why. This keeps the summary in the git history as well as on GitHub.
+- **Single commit** — rebase fast-forward: `gh pr merge <number> --rebase` (no merge commit, linear history)
+- **Multiple commits** — rebase the feature branch onto main first (`git rebase main` on the feature branch, push), then merge with `gh pr merge <number> --merge` to preserve the commits grouped under a descriptive merge commit. Merge commit title: `Merge feature/<name>: <what it does>`, body: what was built and why.
 
-Always rebase the feature branch onto main before merging via GitHub — ensures the history is linear and conflicts are resolved on the feature branch, not on main. When writing merge commit messages, include the feature name in the title, e.g. `Merge feature/auth: Add OAuth2 login flow`.
+Always rebase the feature branch onto main before merging — ensures the history is linear and conflicts are resolved on the feature branch, not on main.
+
+**Always merge via `gh pr merge`** — never push main directly. Pushing main bypasses GitHub's merge mechanism; the PR only appears merged by inference rather than being properly closed. `gh pr merge` closes the PR, records the merge event, and keeps the GitHub history canonical.
 
 **Process:**
 1. **Always start on a feature branch** — never work directly on main, even for small changes. Create a branch before writing any code: `git checkout -b feature/<name>`

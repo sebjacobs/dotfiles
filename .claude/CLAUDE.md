@@ -57,7 +57,8 @@ PR descriptions follow the same philosophy as commit messages — explain the *w
 1. **Summary** — one short paragraph: what this PR does, what problem it solves or capability it enables, and the reasoning behind the approach
 2. **Key changes** — brief bullet list of the significant files/areas touched (not exhaustive)
 3. **Gotchas / things to be aware of** — anything non-obvious: migration steps, dependencies, trade-offs made, things that might bite a reviewer or future contributor
-4. **Test plan** — checklist of how to verify the change works
+4. **References** — links to anything that informed the work: Claude session URLs, GitHub issues, external docs, research, prior art
+5. **Test plan** — checklist of how to verify the change works
 
 Include a TODO checklist for any remaining steps not yet done on the branch — this makes the PR a live tracker of what's left.
 

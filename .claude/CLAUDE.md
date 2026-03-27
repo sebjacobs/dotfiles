@@ -1,5 +1,7 @@
 # Claude global conventions
 
+> **Note:** This file (`~/.claude/CLAUDE.md`) is a symlink into `~/dotfiles`. Any changes must be committed in the `~/dotfiles` git repo, not here.
+
 ## Session start routine
 
 At the start of each conversation:
@@ -42,15 +44,27 @@ Changes accumulate as dirty working tree state during a session. Do **not** comm
 Always rebase the feature branch onto main before merging via GitHub — ensures the history is linear and conflicts are resolved on the feature branch, not on main. When writing merge commit messages, include the feature name in the title, e.g. `Merge feature/auth: Add OAuth2 login flow`.
 
 **Process:**
-1. Run `git status` and `git diff --stat` to survey all dirty changes
-2. Propose a grouping to the user and wait for approval
-3. Stage and commit each group sequentially
+1. **Always start on a feature branch** — never work directly on main, even for small changes. Create a branch before writing any code: `git checkout -b feature/<name>`
+2. Run `git status` and `git diff --stat` to survey all dirty changes
+3. Show the full diff (`git diff main...<branch>`) — not just the stat — so the user can review every line before anything is merged
+4. Propose a grouping to the user and wait for approval
+5. Stage and commit each group sequentially
+6. **Never merge or raise a PR until the user explicitly says to** — propose it, then wait
 
 **Feature branch PRs:**
 When creating a PR for a feature branch, include a TODO checklist in the PR description (or as an early comment) listing the remaining steps to completion. Keep it updated as work progresses. This makes the PR a live tracker of what's left to do on the branch.
 
 **When to skip a feature branch:**
 Small, self-contained changes (typo fixes, doc tweaks, single-line config changes) can be committed directly to main — not everything needs a branch and PR. This is a judgement call each time; when in doubt, ask.
+
+**Branch hygiene — keeping branches focused:**
+Feature branches sometimes accumulate unrelated changes as a session evolves. Before raising a PR, review what's on the branch with `git log main...<branch> --oneline` and `git diff main...<branch> --stat`. If unrelated changes have crept in, split them out:
+
+1. Create a new branch from main: `git checkout main && git checkout -b feature/housekeeping`
+2. Cherry-pick only the relevant commits: `git cherry-pick <sha> <sha>`
+3. Land the focused branch first, then continue feature work on a clean base
+
+The test for whether a branch is focused: can you describe every commit on it in a single sentence that starts with the feature name? If not, it probably needs splitting.
 
 **Branch cleanup:**
 When checking whether feature branches have been merged, `git branch --merged` only detects merge-commit merges — it misses branches that were fast-forward rebased onto main. Always verify with `git diff main...<branch> --stat` as well: if the diff is empty, the branch's changes are already on main regardless of how they got there.

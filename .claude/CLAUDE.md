@@ -38,6 +38,9 @@ Changes accumulate as dirty working tree state during a session. Do **not** comm
 - Use a HEREDOC to pass the message to `git commit -m`
 
 **Merge strategy (feature branches → main):**
+
+Before merging, always count commits: `git log main...<branch> --oneline | wc -l`
+
 - **Single commit** — rebase fast-forward: `gh pr merge <number> --rebase` (no merge commit, linear history)
 - **Multiple commits** — rebase the feature branch onto main first (`git rebase main` on the feature branch, push), then merge with `gh pr merge <number> --merge` to preserve the commits grouped under a descriptive merge commit. Merge commit title: `Merge feature/<name>: <what it does>`, body: what was built and why.
 

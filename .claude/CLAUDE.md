@@ -35,6 +35,23 @@ Every 45 minutes of an active session, gently check in: "It's been ~45 mins — 
 
 **Foreground subagents** relay permission prompts and `AskUserQuestion` calls normally — use these when the task may need interactive permission grants.
 
+**Agent file vs skill file:**
+
+| | Skill (`.claude/skills/`) | Agent (`.claude/agents/`) |
+|---|---|---|
+| Runs in | Main context | Isolated subprocess |
+| Sees conversation history | Yes | No |
+| Invoked by | `/skill-name` or auto-load | Agent tool or `@agent-name` |
+| Tool restrictions | `allowed-tools` (additive) | `tools` / `disallowedTools` |
+| Output | Stays in conversation | Summarised and returned |
+
+- **Skill** — reusable instructions/playbooks that need conversation context. Use for workflows like `/commit`, `/review-pr`, checklists.
+- **Agent** — self-contained work that produces a result and doesn't need conversation history. Use for scrapers, researchers, test runners, batch processors.
+
+Rule of thumb: if the task produces a *result* you hand back → agent. If it needs *context* from the conversation to work → skill.
+
+**One-off scoped agents** (no file needed): pass `--agents '{...}'` JSON at session launch — session-only, no file created, gone when Claude exits. Useful for spike sessions with restricted tool access (e.g. read-only research).
+
 ## Git workflow
 
 Changes accumulate as dirty working tree state during a session. Do **not** commit automatically — wait for the user to confirm they are happy with each feature. Then group changes into meaningful, feature-scoped commits.

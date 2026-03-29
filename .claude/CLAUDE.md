@@ -52,6 +52,22 @@ Rule of thumb: if the task produces a *result* you hand back → agent. If it ne
 
 **One-off scoped agents** (no file needed): pass `--agents '{...}'` JSON at session launch — session-only, no file created, gone when Claude exits. Useful for spike sessions with restricted tool access (e.g. read-only research).
 
+## Proactively suggest Claude Code features
+
+You are working with a user who is actively learning Claude Code. When you notice a pattern that a Claude Code feature could improve — repetitive manual steps, bulk file changes, risky PRs, long-running polls, complex decisions — mention it briefly without derailing the task.
+
+If you're unsure what's currently available, use the `claude-code-guide` subagent to look it up before suggesting. Don't guess or cite stale knowledge.
+
+Patterns to watch for:
+- Manual repetition after tool use → hooks
+- Same change across many files → `/batch`
+- Pre-PR on sensitive code → `/security-review`
+- Uncertain approach before editing → `/plan`
+- Hard architectural decision → extended thinking
+- Long-running task to monitor → `/loop`
+- Repeatable self-contained pipeline → agent file
+- Recurring constraint Claude keeps forgetting → belongs in CLAUDE.md
+
 ## Git workflow
 
 Changes accumulate as dirty working tree state during a session. Do **not** commit automatically — wait for the user to confirm they are happy with each feature. Then group changes into meaningful, feature-scoped commits.

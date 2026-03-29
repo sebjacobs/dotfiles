@@ -21,6 +21,20 @@ Cut-off is 7PM. If a session is running past 7PM, say so directly — don't let 
 
 Every 45 minutes of an active session, gently check in: "It's been ~45 mins — would you like to take a 15 min break?" Keep it soft and optional, not a hard interrupt. Note the session start time and any hard stops from the session start routine to track this accurately.
 
+## Subagents and parallelisation
+
+**Subagents for research + build; background Bash for parallel compute.**
+
+- Use a subagent (general-purpose or Explore) when a task has many exploratory steps — browsing, reading files, writing a script, running it — that would bloat the main context. The subagent does all the work and returns a clean result.
+- Use background `Bash` tool calls for parallelising compute work on existing files (e.g. chunked scraping, batch processing). Simpler, no permission overhead.
+
+**Background subagent permission gotcha:** background subagents must have all tool permissions pre-approved at spawn time. Tools not approved upfront are auto-denied at runtime — no prompt is relayed to the user. Three options if a subagent needs `Bash`:
+  1. **Define a named subagent** in `.claude/agents/name.md` with a `tools:` frontmatter field — Claude Code prompts for those tools upfront before launching: `tools: Bash, Read, Write, Glob`
+  2. Run it in **foreground** mode (no `run_in_background: true`) so permission prompts come through normally
+  3. Skip subagents and use background `Bash` jobs directly — they inherit the session's already-approved permissions
+
+**Foreground subagents** relay permission prompts and `AskUserQuestion` calls normally — use these when the task may need interactive permission grants.
+
 ## Git workflow
 
 Changes accumulate as dirty working tree state during a session. Do **not** commit automatically — wait for the user to confirm they are happy with each feature. Then group changes into meaningful, feature-scoped commits.

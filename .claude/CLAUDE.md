@@ -52,6 +52,18 @@ Rule of thumb: if the task produces a *result* you hand back → agent. If it ne
 
 **One-off scoped agents** (no file needed): pass `--agents '{...}'` JSON at session launch — session-only, no file created, gone when Claude exits. Useful for spike sessions with restricted tool access (e.g. read-only research).
 
+**Model routing — Haiku / Sonnet / Opus:**
+
+The Agent tool accepts a `model` parameter (`"haiku"`, `"sonnet"`, `"opus"`). Route tasks to the cheapest model that can handle them reliably.
+
+| Model | Use when |
+|---|---|
+| **Haiku** | High-volume, well-defined execution: classification, structured extraction, filtering/triage, scraping against a documented spec, batch tagging. Task is fully specified — no judgment needed. Add explicit "stop and report back" conditions for unexpected states. |
+| **Sonnet** | Default for most tasks: research, coding, multi-step workflows, anything requiring moderate judgment or adaptation. |
+| **Opus** | High-stakes reasoning: thesis construction, cross-source synthesis, ambiguous signal interpretation, decisions that affect capital allocation. Use when the output directly informs a buy/sell decision or requires extended reasoning over complex multi-signal inputs. |
+
+**The handoff pattern for Haiku:** Sonnet works out the details (schema, selectors, edge cases), documents them clearly in the agent prompt, then spawns Haiku to execute. Sonnet reviews output and decides next steps. If Haiku hits an unexpected state, it should stop and report rather than retry — build this into the prompt explicitly.
+
 ## Proactively suggest Claude Code features
 
 You are working with a user who is actively learning Claude Code. When you notice a pattern that a Claude Code feature could improve — repetitive manual steps, bulk file changes, risky PRs, long-running polls, complex decisions — mention it briefly without derailing the task.
@@ -67,6 +79,8 @@ Patterns to watch for:
 - Long-running task to monitor → `/loop`
 - Repeatable self-contained pipeline → agent file
 - Recurring constraint Claude keeps forgetting → belongs in CLAUDE.md
+- High-volume repetitive extraction or classification → "This is a good Haiku job — want me to spawn a Haiku subagent for the batch?"
+- Thesis construction, capital-allocation decision, or complex cross-source reasoning → "This feels like an Opus task given the stakes — worth switching?"
 
 ## Git workflow
 

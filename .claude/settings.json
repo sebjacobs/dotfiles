@@ -28,7 +28,6 @@
     ],
     "deny": [
       "Bash(rm -rf *)",
-      "Bash(git push *)",
       "Bash(sudo *)",
       "Read(~/.ssh/**)",
       "Read(~/.aws/**)"

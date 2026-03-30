@@ -17,10 +17,6 @@ Use the answers to pace the session — flag if a task looks too large to finish
 
 Cut-off is 7PM. If a session is running past 7PM, say so directly — don't let it slide quietly. Early starts are fine.
 
-## Pomodoro breaks
-
-Every 45 minutes of an active session, gently check in: "It's been ~45 mins — would you like to take a 15 min break?" Keep it soft and optional, not a hard interrupt. Note the session start time and any hard stops from the session start routine to track this accurately.
-
 ## Subagents and parallelisation
 
 **Subagents for research + build; background Bash for parallel compute.**
@@ -86,6 +82,18 @@ Patterns to watch for:
 
 Changes accumulate as dirty working tree state during a session. Do **not** commit automatically — wait for the user to confirm they are happy with each feature. Then group changes into meaningful, feature-scoped commits.
 
+**Before you commit — checklist:**
+> Re-read this before staging anything.
+- Has the user confirmed they're happy with the feature? Never commit automatically.
+- Is this the smallest unit of change that delivers value on its own? (atomic — could it be reverted independently without breaking anything?)
+- Does each commit have exactly one reason to change? (Single Responsibility Principle — if you can describe it with "and", split it)
+- Is the first line a short imperative summary of the *value*, not the implementation? (< 72 chars)
+- Does the body explain *why* — the motivation, not just what changed?
+- Are unrelated changes in separate commits?
+- For multi-file commits, is there a `Changes:` list in the body?
+- Are relevant links/references included? (Claude session URLs, GitHub issues, external docs)
+- Is the message being passed via HEREDOC?
+
 **Commit grouping rules:**
 - One commit per logical feature or change (not per file, not one big "various changes" commit)
 - Keep unrelated changes in separate commits
@@ -98,6 +106,17 @@ Changes accumulate as dirty working tree state during a session. Do **not** comm
 - Include links/references where relevant — e.g. Claude chat session URLs, GitHub issues, PRs, external docs, or research that informed the change
 - Always end with `Co-Authored-By: Claude Opus 4.6 <noreply@anthropic.com>`
 - Use a HEREDOC to pass the message to `git commit -m`
+
+**Before you merge — checklist:**
+> Re-read this before running any merge command.
+- Has the user explicitly said to merge? Never propose and proceed in the same step.
+- Has the full diff been reviewed (not just `--stat`)? Show modified files to the user before merging.
+- Is the branch focused — can every commit be described in one sentence starting with the feature name? If not, split it first.
+- Has the branch been rebased onto the latest main?
+- Is the PR description written (summary, key changes, gotchas, references, test plan)?
+- Is the `## TODO before merge` checklist in the PR description complete — no outstanding items?
+- Single commit → `--rebase`; multiple commits → `--merge` with a descriptive merge commit title
+- Never push main directly — always use `gh pr merge`
 
 **Merge strategy (feature branches → main):**
 
@@ -128,6 +147,8 @@ PR descriptions follow the same philosophy as commit messages — explain the *w
 5. **Test plan** — checklist of how to verify the change works
 
 Include a TODO checklist for any remaining steps not yet done on the branch — this makes the PR a live tracker of what's left.
+
+**Labels:** always add an appropriate label when creating a PR. Check available labels with `gh label list` and pick the best fit (e.g. `spike/idea`, `feature`, `spec`, `documentation`, `bug`).
 
 **Feature development approach:**
 Before starting a new feature, write a short spec (spec-kit style: `spec.md` for what/why, `plan.md` for how) and agree on it before writing any code. From the agreed spec, use TDD — write tests first to capture the acceptance criteria, then implement to make them pass. This keeps features focused, avoids scope drift, and ensures correctness from the start.

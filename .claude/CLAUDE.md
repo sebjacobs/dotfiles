@@ -52,6 +52,7 @@ Rule of thumb: if the task produces a *result* you hand back → agent. If it ne
 - Ensure no file appears in more than one agent's list — parallel writes to the same file will conflict
 - Give each agent the reference implementation to read first, so it applies the pattern consistently
 - Have agents edit only, no commits — review the diff and commit in the main context once all agents finish
+- Use **Haiku** for these agents when the pattern is fully specified — the task is mechanical execution, not judgment
 
 **Model routing — Haiku / Sonnet / Opus:**
 

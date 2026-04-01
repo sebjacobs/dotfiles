@@ -26,14 +26,6 @@ export CPPFLAGS="-I/opt/homebrew/opt/mysql@8.4/include"
 export DENO_INSTALL="$HOME/.deno"
 export PATH="$DENO_INSTALL/bin:$PATH"
 
-export PYENV_ROOT="$HOME/.pyenv"
-command -v pyenv >/dev/null || export PATH="$PYENV_ROOT/bin:$PATH"
-eval "$(pyenv init -)"
-
-# python poetry setup
-export PIP_REQUIRE_VIRTUAL_ENV=true
-export PATH="$HOME/.local/bin:$PATH"
-
 #dotnet setup
 export PATH="$PATH:$HOME/.dotnet/tools"
 

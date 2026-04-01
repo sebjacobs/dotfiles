@@ -7,8 +7,8 @@ alias mig="bundle exec rails db:migrate"
 alias ffs="bundle install && yarn install && bundle exec rails db:migrate"
 
 # python/django
-alias pyman="poetry run python manage.py"
-alias pyt="poetry run pytest"
+alias pyman="uv run python manage.py"
+alias pyt="uv run pytest"
 
 # nodejs
 alias node-init="rsync -r --exclude=\"package-lock.json\" --exclude=\"dist\" --exclude=\".git\" --exclude \"node_modules\"  $HOME/Tech/templates/nodejs-template/* $1"

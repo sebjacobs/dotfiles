@@ -48,6 +48,11 @@ Rule of thumb: if the task produces a *result* you hand back → agent. If it ne
 
 **One-off scoped agents** (no file needed): pass `--agents '{...}'` JSON at session launch — session-only, no file created, gone when Claude exits. Useful for spike sessions with restricted tool access (e.g. read-only research).
 
+**Partitioning work across parallel subagents:** when a task involves making the same change to N files (e.g. adding logging to 16 scripts, updating imports across a codebase), partition the files into groups of 4–6 and launch one background subagent per group. Each agent gets the full pattern/spec plus its specific file list. This is faster than sequential editing and keeps the main context clean. Rules:
+- Ensure no file appears in more than one agent's list — parallel writes to the same file will conflict
+- Give each agent the reference implementation to read first, so it applies the pattern consistently
+- Have agents edit only, no commits — review the diff and commit in the main context once all agents finish
+
 **Model routing — Haiku / Sonnet / Opus:**
 
 The Agent tool accepts a `model` parameter (`"haiku"`, `"sonnet"`, `"opus"`). Route tasks to the cheapest model that can handle them reliably.

@@ -1,21 +1,4 @@
-export SDKMAN_DIR="$HOME/.sdkman"
-[[ -s "$HOME/.sdkman/bin/sdkman-init.sh" ]] && source "/Users/sebjacobs/.sdkman/bin/sdkman-init.sh"
-
-# fix active storage local upload issue
-export OBJC_DISABLE_INITIALIZE_FORK_SAFETY=YES
-
-export ANDROID_HOME=$HOME/Library/Android/sdk
-export PATH=$PATH:$ANDROID_HOME/cmdline-tools/latest/bin
-export PATH=$PATH:$ANDROID_HOME/emulator
-export PATH=$PATH:$ANDROID_HOME/tools
-export PATH=$PATH:$ANDROID_HOME/tools/bin
-export PATH=$PATH:$ANDROID_HOME/platform-tools
-
 export PATH=$PATH:$HOME/bin
-
-
-#export RUBY_CONFIGURE_OPTS="--with-zlib-dir=$(brew --prefix zlib) --with-openssl-dir=$(brew --prefix openssl@1.1) --with-readline-dir=$(brew --prefix readline) --with-libyaml-dir=$(brew --prefix libyaml)"
-
 
 export PATH="/opt/homebrew/opt/postgresql@17/bin:$PATH"
 export PATH="/opt/homebrew/opt/mysql@8.4/bin:$PATH"
@@ -25,11 +8,6 @@ export CPPFLAGS="-I/opt/homebrew/opt/mysql@8.4/include"
 
 export DENO_INSTALL="$HOME/.deno"
 export PATH="$DENO_INSTALL/bin:$PATH"
-
-#dotnet setup
-export PATH="$PATH:$HOME/.dotnet/tools"
-
-export PATH="$PATH":"$HOME/.pub-cache/bin"
 
 export EDITOR='zed --wait'
 
@@ -43,17 +21,6 @@ export VOLTA_HOME="$HOME/.volta"
 export PATH="$VOLTA_HOME/bin:$PATH"
 unset _VOLTA_TOOL_RECURSION
 
-# bun completions
-[ -s "$HOME/.bun/_bun" ] && source "$HOME/.bun/_bun"
-
-# bun
-export BUN_INSTALL="$HOME/.bun"
-export PATH="$BUN_INSTALL/bin:$PATH"
-
 #golang
 export PATH="$HOME/go/bin:$PATH"
-
-# setup kubectl autocompletion
-source <(kubectl completion zsh)
-
 

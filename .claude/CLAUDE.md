@@ -107,11 +107,17 @@ Changes accumulate as dirty working tree state during a session. Do **not** comm
 
 **Commit message format:**
 - First line: short imperative summary (< 72 chars)
-- Blank line, then a body paragraph explaining **why** the change was made — the motivation, not just what changed
+- Blank line, then a body that answers three questions:
+  1. **Why** — what problem or need motivated this change?
+  2. **Benefit unlocked** — what does this enable that wasn't possible before?
+  3. **Trade-offs / approach rationale** — why this approach over the alternatives? What was consciously decided not to do?
+- A body that only describes *what* changed is incomplete — future contributors need the reasoning, not just the diff
 - If multiple files are involved, a brief `Changes:` list of what was done
 - Include links/references where relevant — e.g. Claude chat session URLs, GitHub issues, PRs, external docs, or research that informed the change
 - Always end with `Co-Authored-By: Claude Opus 4.6 <noreply@anthropic.com>`
 - Use a HEREDOC to pass the message to `git commit -m`
+
+**Branch cleanup before raising a PR and before merging:** review every commit with `git log main...<branch> --oneline`. Cleanup commits (renames, fixups, "oops" corrections) are noise — squash them into the commit they belong with. Every commit should tell one clear story. Do this twice: once before raising the PR, and again before merging in case review feedback triggered more fixup commits.
 
 **Before you merge — checklist:**
 > Re-read this before running any merge command.

@@ -23,7 +23,6 @@
       "Bash(git commit *)",
       "Bash(git checkout *)",
       "Bash(git fetch *)",
-      "Bash(git push *)",
       "Bash(git cherry-pick *)",
       "Bash(git show *)",
       "Bash(git branch *)",

@@ -1,4 +1,5 @@
 export PATH=$PATH:$HOME/bin
+export PATH="$HOME/.local/bin:$PATH"
 
 export PATH="/opt/homebrew/opt/postgresql@17/bin:$PATH"
 export PATH="/opt/homebrew/opt/mysql@8.4/bin:$PATH"

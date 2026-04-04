@@ -99,7 +99,7 @@ Changes accumulate as dirty working tree state during a session. Do **not** comm
 **Five principles (the why behind the rules below):**
 
 1. **Atomic commits** — each commit has one reason to exist. If you can describe it with "and", split it. Atomic commits can be reverted independently, bisected to find regressions, and reviewed in isolation.
-2. **Messages tell the story** — explain *why*, not just *what*. The diff shows the what; the message is for context, motivation, and alternatives ruled out. Future contributors need the reasoning to make good decisions.
+2. **Messages tell the story** — the body must answer three questions: **Why** (what problem motivated this?), **Benefit unlocked** (what does this enable?), **Trade-offs** (why this approach over alternatives?). The diff shows the what; the message is for reasoning. A body that only describes what changed is incomplete.
 3. **Revise before sharing** — your working history is a draft. Squash fixups, reorder for clarity, remove noise before pushing. The goal is a history someone else can read, not a truthful log of false starts.
 4. **Single-purpose branches** — keep branches focused. If development produced something independently useful, cherry-pick it out and land it early. Smaller PRs merge sooner, conflict less, and deliver value faster.
 5. **Linear history** — rebase feature branches onto main before merging. Group related commits under a descriptive merge commit. A readable history is a debugging tool.
@@ -112,7 +112,7 @@ See `~/.claude/docs/git_practices.md` for the full reference — FutureLearn eng
 - Is this the smallest unit of change that delivers value on its own? (atomic — could it be reverted independently without breaking anything?)
 - Does each commit have exactly one reason to change? (Single Responsibility Principle — if you can describe it with "and", split it)
 - Is the first line a short imperative summary of the *value*, not the implementation? (< 72 chars)
-- Does the body explain *why* — the motivation, not just what changed?
+- Does the body answer all three: **Why** (motivation), **Benefit unlocked** (what this enables), **Trade-offs** (why this approach)?
 - Are unrelated changes in separate commits?
 - For multi-file commits, is there a `Changes:` list in the body?
 - Are relevant links/references included? (Claude session URLs, GitHub issues, external docs)

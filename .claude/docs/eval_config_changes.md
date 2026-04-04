@@ -28,6 +28,7 @@ Good questions:
 - "I've just finished a feature — what should my commit messages look like?" (tests git conventions)
 - "I have a messy 20-commit branch — how do I clean it up before raising a PR?" (tests branch triage runbook)
 - "I'm starting a new session — walk me through the setup." (tests session skills)
+- "I'm about to merge a PR with two commits — what gh command should I use and why?" (tests single vs multi-commit merge strategy; correct answer: `--merge`, not `--rebase`, because multiple commits should be grouped under a descriptive merge commit)
 
 Bad questions (too broad, can't judge completeness):
 - "Tell me about the project"

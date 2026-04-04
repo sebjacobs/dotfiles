@@ -51,6 +51,7 @@ files=(
   ".claude/keybindings.json"
   ".claude/skills"
   ".claude/agents"
+  ".claude/docs"
 )
 
 for file in "${files[@]}"

@@ -96,13 +96,23 @@ Patterns to watch for:
 
 Changes accumulate as dirty working tree state during a session. Do **not** commit automatically — wait for the user to confirm they are happy with each feature. Then group changes into meaningful, feature-scoped commits.
 
+**Five principles (the why behind the rules below):**
+
+1. **Atomic commits** — each commit has one reason to exist. If you can describe it with "and", split it. Atomic commits can be reverted independently, bisected to find regressions, and reviewed in isolation.
+2. **Messages tell the story** — the body must answer three questions: **Why** (what problem motivated this?), **Benefit unlocked** (what does this enable?), **Trade-offs** (why this approach over alternatives?). The diff shows the what; the message is for reasoning. A body that only describes what changed is incomplete.
+3. **Revise before sharing** — your working history is a draft. Squash fixups, reorder for clarity, remove noise before pushing. The goal is a history someone else can read, not a truthful log of false starts.
+4. **Single-purpose branches** — keep branches focused. If development produced something independently useful, cherry-pick it out and land it early. Smaller PRs merge sooner, conflict less, and deliver value faster.
+5. **Linear history** — rebase feature branches onto main before merging. Group related commits under a descriptive merge commit. A readable history is a debugging tool.
+
+See `~/.claude/docs/git_practices.md` for the full reference — FutureLearn engineering post on commit hygiene and the branch triage runbook.
+
 **Before you commit — checklist:**
 > Re-read this before staging anything.
 - Has the user confirmed they're happy with the feature? Never commit automatically.
 - Is this the smallest unit of change that delivers value on its own? (atomic — could it be reverted independently without breaking anything?)
 - Does each commit have exactly one reason to change? (Single Responsibility Principle — if you can describe it with "and", split it)
 - Is the first line a short imperative summary of the *value*, not the implementation? (< 72 chars)
-- Does the body explain *why* — the motivation, not just what changed?
+- Does the body answer all three: **Why** (motivation), **Benefit unlocked** (what this enables), **Trade-offs** (why this approach)?
 - Are unrelated changes in separate commits?
 - For multi-file commits, is there a `Changes:` list in the body?
 - Are relevant links/references included? (Claude session URLs, GitHub issues, external docs)
@@ -126,6 +136,18 @@ Changes accumulate as dirty working tree state during a session. Do **not** comm
 - Use a HEREDOC to pass the message to `git commit -m`
 
 **Branch cleanup before raising a PR and before merging:** review every commit with `git log main...<branch> --oneline`. Cleanup commits (renames, fixups, "oops" corrections) are noise — squash them into the commit they belong with. Every commit should tell one clear story. Do this twice: once before raising the PR, and again before merging in case review feedback triggered more fixup commits.
+
+**Squashing without interactive rebase** (interactive rebase is not available in Claude Code sessions — use this instead):
+
+```bash
+git checkout -b feature/<name>-clean origin/main
+git cherry-pick <sha>                          # individual commits to keep as-is
+git cherry-pick --no-commit <sha1> <sha2>      # group commits to squash into one
+git commit -m "..."
+git push origin feature/<name>-clean:feature/<name> --force
+git checkout feature/<name> && git reset --hard origin/feature/<name>
+git branch -D feature/<name>-clean
+```
 
 **Before you merge — checklist:**
 > Re-read this before running any merge command.

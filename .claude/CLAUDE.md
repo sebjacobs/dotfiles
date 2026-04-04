@@ -7,9 +7,10 @@
 At the start of each conversation:
 1. Ask how much time is available to pair
 2. Ask about any hard stops during the session (lunch, a run, a call, etc.)
-3. Read the project's planning files to understand current priorities
-4. Suggest **one concrete goal** that fits the time available — not a wish list
-5. **Set up a recurring 30-minute session timer** using `CronCreate` — fires every 30 minutes while the REPL is idle, prompting a brief check-in on progress and proximity to any hard stop. Use a cron like `*/30 * * * *` with `recurring: true`. Do this immediately once you have the session start time, without asking — it's always useful.
+3. Ask if this session should use **ping-pong TDD mode** (collaborative spec, alternating test-write/implement roles) — if yes, invoke `/pingpong` to set the context
+4. Read the project's planning files to understand current priorities
+5. Suggest **one concrete goal** that fits the time available — not a wish list
+6. **Set up a recurring 30-minute session timer** using `CronCreate` — fires every 30 minutes while the REPL is idle, prompting a brief check-in on progress and proximity to any hard stop. Use a cron like `*/30 * * * *` with `recurring: true`. Do this immediately once you have the session start time, without asking — it's always useful.
 
 Use the answers to pace the session — flag if a task looks too large to finish before the hard stop, and remind the user when they're approaching it.
 

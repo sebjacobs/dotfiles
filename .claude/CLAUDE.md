@@ -2,6 +2,21 @@
 
 > **Note:** This file (`~/.claude/CLAUDE.md`) is a symlink into `~/dotfiles`. Any changes must be committed in the `~/dotfiles` git repo, not here.
 
+## Evaluating global and project config changes
+
+Before merging a change to CLAUDE.md, `~/.claude/docs/`, or a project skill, run a quick A/B eval to verify it improves agent responses rather than just adding noise.
+
+**Triggers:** new CLAUDE.md section, new docs file, significant rewrite, content removal, moving content from project → global, extracting a workflow into a skill, or creating/updating an agent definition.
+
+**Pattern:**
+1. Write a representative test question that directly exercises the changed content
+2. Spawn two parallel subagents — Setup A reads only the old files, Setup B reads the new setup
+3. Ask both the same question; launch in parallel
+4. Run an Opus eval agent scoring both on: **Completeness, Accuracy, Actionability, Gaps acknowledged** (0–3 each)
+5. Merge if Setup B scores +2 or more; investigate if neutral or negative
+
+See `~/.claude/docs/eval_config_changes.md` for the full rubric, agent prompt templates, and a worked example.
+
 ## Session start routine
 
 Run `/start` at the beginning of every session — the `start-session` skill has the full steps.

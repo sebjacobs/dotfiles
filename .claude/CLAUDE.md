@@ -13,6 +13,12 @@ At the start of each conversation:
 
 Use the answers to pace the session — flag if a task looks too large to finish before the hard stop, and remind the user when they're approaching it.
 
+## Session end routine
+
+At the end of every session:
+1. Update SESSION.md with what was done, any key decisions, and what's next — commit separately from code, on the feature branch. SESSION.md merges to main with the feature; it is not committed to main independently
+2. Check the project's CLAUDE.md for any additional session-end requirements and remind the user
+
 ## Working hours
 
 Cut-off is 7PM. If a session is running past 7PM, say so directly — don't let it slide quietly. Early starts are fine.

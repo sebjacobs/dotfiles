@@ -49,6 +49,8 @@ files=(
   ".claude/CLAUDE.md"
   ".claude/settings.json"
   ".claude/keybindings.json"
+  ".claude/skills"
+  ".claude/agents"
 )
 
 for file in "${files[@]}"

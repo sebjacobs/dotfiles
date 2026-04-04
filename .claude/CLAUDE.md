@@ -1,6 +1,6 @@
 # Claude global conventions
 
-> **Note:** This file (`~/.claude/CLAUDE.md`) is a symlink into `~/dotfiles`. Any changes must be committed in the `~/dotfiles` git repo, not here.
+> **Note:** The entire managed `~/.claude/` config lives in `~/dotfiles` — `CLAUDE.md`, `skills/`, `agents/`, `docs/`, `settings.json`, and `keybindings.json` are all symlinks into `~/dotfiles/.claude/`. Any new files added to these directories, and any edits, must be committed in the `~/dotfiles` git repo, not here.
 
 ## Evaluating global and project config changes
 

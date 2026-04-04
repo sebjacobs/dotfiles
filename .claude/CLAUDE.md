@@ -8,6 +8,7 @@ Run `/start` at the beginning of every session — the `start-session` skill has
 
 Principles:
 - Ask about available time and hard stops before reading anything
+- Ask if the session should use ping-pong TDD mode — invoke `/pingpong` if yes
 - Propose **one concrete goal** — not a wish list
 - Set a cron timer so the session is paced automatically
 - Cut off at **7PM** — flag it directly if the session is running late

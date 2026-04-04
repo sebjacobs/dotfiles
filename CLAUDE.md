@@ -23,7 +23,7 @@ brew bundle         # Install/sync all packages from Brewfile
 **Managed locations:**
 - `./` — dotfiles (`.gitconfig`, `.zshrc`, `.editorconfig`, etc.) → symlinked to `$HOME`
 - `.oh-my-zsh/custom/` — shell environment, PATH, aliases, git shortcuts → sourced by Oh-My-Zsh at shell startup
-- `.claude/` — Claude Code settings, keybindings, global CLAUDE.md → symlinked to `~/.claude/`
+- `.claude/` — Claude Code settings, keybindings, global CLAUDE.md, skills, and agents → symlinked to `~/.claude/`
 - `bin/` — shell utilities → symlinked into `~/bin/`
 - `Brewfile` — full tool inventory (Homebrew formulae, casks, Go/Rust/Python/NPM packages)
 

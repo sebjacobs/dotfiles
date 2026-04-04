@@ -4,20 +4,22 @@
 
 ## Session start routine
 
-At the start of each conversation:
-1. Ask how much time is available to pair
-2. Ask about any hard stops during the session (lunch, a run, a call, etc.)
-3. Read the project's planning files to understand current priorities
-4. Suggest **one concrete goal** that fits the time available — not a wish list
-5. **Set up a recurring 30-minute session timer** using `CronCreate` — fires every 30 minutes while the REPL is idle, prompting a brief check-in on progress and proximity to any hard stop. Use a cron like `*/30 * * * *` with `recurring: true`. Do this immediately once you have the session start time, without asking — it's always useful.
+Run `/start` at the beginning of every session — the `start-session` skill has the full steps.
 
-Use the answers to pace the session — flag if a task looks too large to finish before the hard stop, and remind the user when they're approaching it.
+Principles:
+- Ask about available time and hard stops before reading anything
+- Ask if the session should use ping-pong TDD mode — invoke `/pingpong` if yes
+- Propose **one concrete goal** — not a wish list
+- Set a cron timer so the session is paced automatically
+- Cut off at **7PM** — flag it directly if the session is running late
 
 ## Session end routine
 
-At the end of every session:
-1. Update SESSION.md with what was done, any key decisions, and what's next — commit separately from code, on the feature branch. SESSION.md merges to main with the feature; it is not committed to main independently
-2. Check the project's CLAUDE.md for any additional session-end requirements and remind the user
+Run `/finish` at the end of every session — the `finish-session` skill has the full steps. Also handles mid-session breaks (`/break`) in quick mode.
+
+Principles:
+- SESSION.md is the primary handoff — always leave a handover prompt for the next session
+- Check the project's CLAUDE.md for any additional session-end requirements
 
 ## Working hours
 

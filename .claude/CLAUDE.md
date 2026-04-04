@@ -163,9 +163,29 @@ Include a TODO checklist for any remaining steps not yet done on the branch — 
 **Labels:** always add an appropriate label when creating a PR. Check available labels with `gh label list` and pick the best fit (e.g. `spike/idea`, `feature`, `spec`, `documentation`, `bug`).
 
 **Feature development approach:**
-Before starting a new feature, write a short spec (spec-kit style: `spec.md` for what/why, `plan.md` for how) and agree on it before writing any code. From the agreed spec, use TDD — write tests first to capture the acceptance criteria, then implement to make them pass. This keeps features focused, avoids scope drift, and ensures correctness from the start.
+Before starting a new feature, write a short spec and agree on it before writing any code. From the agreed spec, use TDD — write tests first to capture the acceptance criteria, then implement to make them pass. This keeps features focused, avoids scope drift, and ensures correctness from the start.
 
 Exception: for spikes, prototypes, or proof-of-concept work the goal is learning rather than shipping — skip the spec gate and TDD overhead, but timebox the exploration and write up what was learned before starting the real implementation.
+
+**Docs and specs layout:**
+Projects follow this layout for documentation unless a project-specific process is already in place (check the project's CLAUDE.md first):
+
+```
+docs/
+  spec.md                  ← project-level: what/why, in/out scope, tech choices (lives on main)
+  specs/
+    feature_name/          ← one directory per feature, on its feature branch
+      00_research.md       ← (optional) background reading, spike findings
+      01_spec.md           ← what/why, behaviour, acceptance criteria, in/out scope
+      02_plan.md           ← how: implementation approach, design decisions
+      03_tasks.md          ← step-by-step tasks, maps to TDD test list
+    done/                  ← completed feature directories move here on merge
+```
+
+- `docs/spec.md` is committed to main before any features begin — it is the project's authoritative what/why
+- Feature subdirectories live on their feature branch and merge to main with the feature code
+- Stage files are numbered so the order of work is self-documenting; `00_research.md` is optional
+- On merge, move the feature directory into `docs/specs/done/` to keep the active list uncluttered
 
 **When to skip a feature branch:**
 Small, self-contained changes (typo fixes, doc tweaks, single-line config changes) can be committed directly to main — not everything needs a branch and PR. This is a judgement call each time; when in doubt, ask.

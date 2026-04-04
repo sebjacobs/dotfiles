@@ -107,6 +107,20 @@ Patterns to watch for:
 - High-volume repetitive extraction or classification → "This is a good Haiku job — want me to spawn a Haiku subagent for the batch?"
 - Thesis construction, capital-allocation decision, or complex cross-source reasoning → "This feels like an Opus task given the stakes — worth switching?"
 
+## Incremental delivery
+
+Break work into the smallest steps that can each be validated independently. Draft the artefact first, then wire it in, then remove what it replaces — separate steps, not one. This applies to code, docs, config changes, and refactors equally. Each step should leave the system in a working state and produce a diff you can read and reason about in isolation.
+
+The git principles below (atomic commits, single-purpose branches) are the downstream expression of this — small steps make atomic commits natural rather than effortful.
+
+**Spec before code.** Before starting a feature, write a short spec and agree on it. From the agreed spec, derive both the tests (acceptance criteria) and the implementation. This keeps features focused and avoids scope drift — you can't drift from a boundary you've already drawn.
+
+**Write tests as you go.** Tests define what "done" means for each step. Write them alongside the code, not after. A test written after the fact describes what the code does; a test written first describes what it should do — that's a meaningful difference when requirements are still being settled.
+
+**Keep the branch green.** Don't let failing tests accumulate. A red branch means you can't tell whether a new failure is from your current change or a previous one. If a test must be temporarily skipped, mark it explicitly (`skip`/`xfail`) with a reason — never silently ignore it.
+
+Exception: spikes and proof-of-concept work are exploration, not delivery — skip the test overhead, but timebox the spike and write up what was learned before starting the real implementation.
+
 ## Git workflow
 
 Changes accumulate as dirty working tree state during a session. Do **not** commit automatically — wait for the user to confirm they are happy with each feature. Then group changes into meaningful, feature-scoped commits.
@@ -206,11 +220,6 @@ PR descriptions follow the same philosophy as commit messages — explain the *w
 Include a TODO checklist for any remaining steps not yet done on the branch — this makes the PR a live tracker of what's left.
 
 **Labels:** always add an appropriate label when creating a PR. Check available labels with `gh label list` and pick the best fit (e.g. `spike/idea`, `feature`, `spec`, `documentation`, `bug`).
-
-**Feature development approach:**
-Before starting a new feature, write a short spec and agree on it before writing any code. From the agreed spec, use TDD — write tests first to capture the acceptance criteria, then implement to make them pass. This keeps features focused, avoids scope drift, and ensures correctness from the start.
-
-Exception: for spikes, prototypes, or proof-of-concept work the goal is learning rather than shipping — skip the spec gate and TDD overhead, but timebox the exploration and write up what was learned before starting the real implementation.
 
 **Docs and specs layout:**
 Projects follow this layout for documentation unless a project-specific process is already in place (check the project's CLAUDE.md first):

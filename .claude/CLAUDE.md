@@ -161,7 +161,7 @@ See `~/.claude/docs/git_practices.md` for the full reference — FutureLearn eng
 - A body that only describes *what* changed is incomplete — future contributors need the reasoning, not just the diff
 - If multiple files are involved, a brief `Changes:` list of what was done
 - Include links/references where relevant — e.g. Claude chat session URLs, GitHub issues, PRs, external docs, or research that informed the change
-- Always end with `Co-Authored-By: Claude Opus 4.6 <noreply@anthropic.com>`
+- Always end with `Co-Authored-By: Claude [model] <noreply@anthropic.com>` — use the actual model you're running on (available in your system context, e.g. `Claude Sonnet 4.6`)
 - Use a HEREDOC to pass the message to `git commit -m`
 
 **Branch cleanup before raising a PR and before merging:** review every commit with `git log main...<branch> --oneline`. Cleanup commits (renames, fixups, "oops" corrections) are noise — squash them into the commit they belong with. Every commit should tell one clear story. Do this twice: once before raising the PR, and again before merging in case review feedback triggered more fixup commits.

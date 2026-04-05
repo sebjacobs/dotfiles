@@ -135,6 +135,19 @@ Changes accumulate as dirty working tree state during a session. Do **not** comm
 
 See `~/.claude/docs/git_practices.md` for the full reference — FutureLearn engineering post on commit hygiene and the branch triage runbook.
 
+## Public files — no private references
+
+`~/.claude/` (CLAUDE.md, docs/, skills/, agents/) and dotfiles are committed to public repos. Never include in these files:
+
+- Private project names, repo names, or file paths
+- Personal details (name, email, employer, location)
+- Internal URLs, API endpoints, or credentials
+- Anything that would reveal information you wouldn't post publicly
+
+When referencing a pattern or example, describe it generically (e.g. "any repo with a `wrangler.toml`") rather than naming a specific project.
+
+---
+
 ## Web standards
 
 When building any static HTML page, follow `~/.claude/docs/web_standards.md`. Key points:

@@ -7,6 +7,7 @@
       "Bash(git status)",
       "Bash(git diff *)",
       "Bash(git log *)",
+      "Bash(git -C * log *)",
       "Bash(git add *)",
       "Bash(git mv *)",
       "Bash(git rm *)",
@@ -19,6 +20,7 @@
       "Bash(git branch *)",
       "Bash(gh *)",
       "Bash(wc *)",
+      "Bash(jq *)",
       "WebFetch",
       "WebSearch"
     ],

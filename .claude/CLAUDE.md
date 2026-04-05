@@ -40,6 +40,16 @@ Principles:
 
 Cut-off is 7PM. If a session is running past 7PM, say so directly — don't let it slide quietly. Early starts are fine.
 
+## Managing context
+
+**Use `/clear` liberally.** Context is the scarcest resource in a session — clearing it when a thread is done keeps later work sharp. SESSION.md exists precisely to make `/clear` cheap: one read at the start of the next thread gets you back up to speed.
+
+Within a session, the main levers for keeping context lean:
+
+- **`/clear`** — reset when a thread concludes or goes stale; SESSION.md is the handoff
+- **Subagents for exploratory work** — browsing, reading many files, running scripts; the subagent absorbs the cost and returns a summary, leaving the main context clean
+- **Background Bash for parallel compute** — chunked processing, batch jobs; simpler than subagents, inherits approved permissions
+
 ## Subagents and parallelisation
 
 **Subagents for research + build; background Bash for parallel compute.**

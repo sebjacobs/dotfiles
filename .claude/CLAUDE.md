@@ -135,6 +135,16 @@ Changes accumulate as dirty working tree state during a session. Do **not** comm
 
 See `~/.claude/docs/git_practices.md` for the full reference — FutureLearn engineering post on commit hygiene and the branch triage runbook.
 
+## Web standards
+
+When building any static HTML page, follow `~/.claude/docs/web_standards.md`. Key points:
+
+- **Aesthetic:** warm serif (`Times New Roman`), parchment background `#f5f1e8`, max-width 620px centred — editorial, not a dashboard
+- **Accessibility (non-negotiable):** WCAG AA contrast minimum, visible focus styles (`focus-visible`), `<nav aria-label>` for navigation, `lang="en"`, no `user-scalable=no`
+- **Dark mode:** always — use CSS custom properties so it's one `@media` block
+- **No frameworks:** plain HTML + CSS only; no React/Vue/Tailwind on read-only content pages
+- **Reference implementations:** any personal project with a `wrangler.toml` and `public/` directory in `~/Tech/Projects/personal/current/` — read the CSS there first
+
 **Before you commit — checklist:**
 > Re-read this before staging anything.
 - Has the user confirmed they're happy with the feature? Never commit automatically.

@@ -14,15 +14,15 @@ brew bundle         # Install/sync all packages from Brewfile
 ./bin/dotfiles-init # Wrapper for setup.sh — equivalent
 ```
 
-`setup.sh` requires Homebrew, Oh-My-Zsh, Chruby, and Volta to already be installed. It creates symlinks for dotfiles and all scripts under `bin/` into `~/bin/`.
+`setup.sh` requires Homebrew, Chruby, Volta, and Starship to already be installed. It creates symlinks for dotfiles and all scripts under `bin/` into `~/bin/`.
 
 ## Architecture
 
 **Symlink-based:** `setup.sh` symlinks individual files from this repo into `$HOME`. Nothing is copied — edits to `~/dotfiles/<file>` are the same as editing `~/<file>`.
 
 **Managed locations:**
-- `./` — dotfiles (`.gitconfig`, `.zshrc`, `.editorconfig`, etc.) → symlinked to `$HOME`
-- `.oh-my-zsh/custom/` — shell environment, PATH, aliases, git shortcuts → sourced by Oh-My-Zsh at shell startup
+- `./` — dotfiles (`.gitconfig`, `.editorconfig`, etc.) → symlinked to `$HOME`
+- `zsh/` — shell environment, PATH, aliases, git shortcuts → sourced directly from `~/.zshrc`
 - `.claude/` — Claude Code settings, keybindings, and global Claude config → symlinked to `~/.claude/`:
   - `CLAUDE.md` — always loaded at session start; principles and rules, kept concise
   - `skills/` — auto-discovered slash commands available in all projects
@@ -31,9 +31,9 @@ brew bundle         # Install/sync all packages from Brewfile
 - `bin/` — shell utilities → symlinked into `~/bin/`
 - `Brewfile` — full tool inventory (Homebrew formulae, casks, Go/Rust/Python/NPM packages)
 
-**Shell init load order:** `.zshrc` (Oh-My-Zsh) → `.oh-my-zsh/custom/00_brew.zsh` (Homebrew env) → `01_env.zsh` (PATH: PostgreSQL, MySQL, Volta, Go, Chruby) → `git_aliases.zsh` + `aliases.zsh`
+**Shell init load order:** `~/.zshrc` → `zsh/00_brew.zsh` (Homebrew env) → `zsh/01_env.zsh` (PATH: PostgreSQL, MySQL, Volta, Go, Chruby, sdkman) → `zsh/git_aliases.zsh` + `zsh/aliases.zsh` → `~/.secrets.zsh` → Starship prompt
 
-**Tool versions:** Ruby via Chruby (`.ruby-version` in project dirs), Node via Volta, Python via `uv`, Go and Rust via Homebrew.
+**Tool versions:** Ruby via Chruby (`.ruby-version` in project dirs), Node via Volta, Python via `uv`, Go and Rust via Homebrew, Java via sdkman.
 
 ## Claude Code config
 

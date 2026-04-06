@@ -2,16 +2,7 @@
 
 DOTFILES_HOME=$HOME/dotfiles
 
-source $DOTFILES_HOME/.oh-my-zsh/custom/00_brew.zsh
-
-if [ ! -d "$HOME/.oh-my-zsh" ]; then
-  echo "please install oh-my-zsh"
-  exit
-fi
-
-if ! grep "^ZSH_CUSTOM" ~/.zshrc > /dev/null; then
-  awk '1;/# ZSH_CUSTOM/{print "ZSH_CUSTOM=$DOTFILES_HOME/.oh-my-zsh/custom"}' $HOME/.zshrc > $HOME/.zshrc.tmp && mv $HOME/.zshrc.tmp $HOME/.zshrc
-fi
+source $DOTFILES_HOME/zsh/00_brew.zsh
 
 if ! command -v brew &> /dev/null; then
   echo "please install homebrew"
@@ -25,6 +16,11 @@ fi
 
 if ! command -v volta > /dev/null; then
   echo "please install volta"
+  exit
+fi
+
+if ! command -v starship > /dev/null; then
+  echo "please install starship (brew install starship)"
   exit
 fi
 

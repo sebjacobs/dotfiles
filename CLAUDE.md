@@ -42,6 +42,40 @@ brew bundle         # Install/sync all packages from Brewfile
 
 **Tool versions:** Ruby via Chruby (`.ruby-version` in project dirs), Node via Volta, Python via `uv`, Go and Rust via Homebrew, Java via sdkman.
 
+## Manual steps after setup
+
+Things not covered by `brew bundle` or `setup.sh`:
+
+```bash
+# Volta (Node version manager) — install before running setup.sh
+curl https://get.volta.sh | bash
+
+# Claude Code CLI
+# Download from https://claude.ai/download or install via:
+npm install -g @anthropic-ai/claude-code
+
+# Java via sdkman (after brew bundle installs sdkman)
+sdk install java 21.0.7-tem
+sdk install java 11.0.x-amzn   # for Android
+
+# Ruby
+ruby-install ruby 3.4.5
+chruby ruby-3.4.5
+
+# Secrets — create manually, never commit
+cp /path/to/backup/.secrets.zsh ~/.secrets.zsh
+# or recreate: see secrets template in ~/.secrets.zsh structure:
+# export GITHUB_USERNAME=...
+# export NPM_AUTH_TOKEN=...
+# export BUNDLE_RUBYGEMS__PKG__GITHUB__COM=$GITHUB_USERNAME:$NPM_AUTH_TOKEN
+# export NODE_AUTH_TOKEN=$NPM_AUTH_TOKEN
+# export ANTHROPIC_API_KEY=...
+
+# SSH keys — generate or restore from backup
+ssh-keygen -t ed25519 -C "me@sebjacobs.com"
+# then add to GitHub: https://github.com/settings/keys
+```
+
 ## Claude Code config
 
 `~/.claude/settings.json` whitelists specific tools only — notably `git push` is **not** in the allow-list (requires explicit user approval each time). The deny-list blocks `rm -rf`, `sudo`, and credential paths (`~/.ssh/**`, `~/.aws/**`).

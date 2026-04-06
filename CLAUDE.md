@@ -13,10 +13,16 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 git clone git@github.com:sebjacobs/dotfiles.git ~/Tech/Projects/personal/2026/dotfiles
 cd ~/Tech/Projects/personal/2026/dotfiles
 
-# 2. Install prerequisites
+# 2. Install Xcode CLI tools
+xcode-select --install
+
+# 3. Install Homebrew
+/bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
+
+# 4. Install prerequisites
 brew install chruby ruby-install volta starship zsh-autosuggestions zsh-syntax-highlighting
 
-# 3. Run setup
+# 5. Run setup
 ./setup.sh          # Creates ~/dotfiles symlink + all $HOME symlinks; idempotent
 brew bundle         # Install/sync all packages from Brewfile
 ```

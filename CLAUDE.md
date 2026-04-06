@@ -19,12 +19,12 @@ xcode-select --install
 # 3. Install Homebrew
 /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
 
-# 4. Install prerequisites
-brew install chruby ruby-install volta starship zsh-autosuggestions zsh-syntax-highlighting
+# 4. Install Volta (not in Brewfile — has its own installer)
+curl https://get.volta.sh | bash
 
 # 5. Run setup
 ./setup.sh          # Creates ~/dotfiles symlink + all $HOME symlinks; idempotent
-brew bundle         # Install/sync all packages from Brewfile
+brew bundle         # Installs all packages including chruby, starship, zsh plugins
 ```
 
 `setup.sh` requires Homebrew, Chruby, Volta, and Starship to already be installed. It creates a `~/dotfiles` symlink pointing to the repo, then symlinks all config files into `$HOME` and all scripts under `bin/` into `~/bin/`.
@@ -53,9 +53,6 @@ brew bundle         # Install/sync all packages from Brewfile
 Things not covered by `brew bundle` or `setup.sh`:
 
 ```bash
-# Volta (Node version manager) — install before running setup.sh
-curl https://get.volta.sh | bash
-
 # Claude Code CLI
 # Download from https://claude.ai/download or install via:
 npm install -g @anthropic-ai/claude-code

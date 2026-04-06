@@ -1,6 +1,12 @@
 #!/usr/bin/env sh
 
-DOTFILES_HOME=$HOME/dotfiles
+DOTFILES_HOME="$(cd "$(dirname "$0")" && pwd)"
+
+# Ensure ~/dotfiles always points here (paths in .zshrc are hardcoded to ~/dotfiles)
+if [ "$DOTFILES_HOME" != "$HOME/dotfiles" ]; then
+  ln -snf "$DOTFILES_HOME" "$HOME/dotfiles"
+  echo "symlinked ~/dotfiles -> $DOTFILES_HOME"
+fi
 
 source $DOTFILES_HOME/zsh/00_brew.zsh
 

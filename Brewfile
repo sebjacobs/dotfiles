@@ -7,6 +7,11 @@ brew "readline"
 brew "xz"
 brew "zstd"
 
+# Shell
+brew "starship"
+brew "zsh-autosuggestions"
+brew "zsh-syntax-highlighting"
+
 # Cloud + infra
 brew "awscli"
 brew "hashicorp/tap/terraform"

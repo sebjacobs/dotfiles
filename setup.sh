@@ -35,6 +35,7 @@ do
 done
 
 files=(
+  ".zshrc"
   ".bundle/config"
   ".ssh/config"
   ".editorconfig"

@@ -158,6 +158,12 @@ When referencing a pattern or example, describe it generically (e.g. "any repo w
 
 ---
 
+## Python tooling
+
+Always use `uv` for Python projects — never `pip`, `pip3`, or bare `python3`.
+
+See `~/.claude/docs/python_tooling.md` for the full reference.
+
 ## Web standards
 
 When building any static HTML page, follow `~/.claude/docs/web_standards.md`. Key points:

@@ -1,9 +1,9 @@
 .claude/worktrees
 .oh-my-zsh/custom/secrets.zsh
 .venv
+.env
 .DS_Store
 config/database.yml
-.env
 .bundle
 node_modules
 .next

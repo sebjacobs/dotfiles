@@ -9,12 +9,19 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 ## Bootstrap & installation
 
 ```bash
-./setup.sh          # Creates all symlinks into $HOME; idempotent
+# 1. Clone the repo (anywhere — setup.sh creates ~/dotfiles symlink automatically)
+git clone git@github.com:sebjacobs/dotfiles.git ~/Tech/Projects/personal/2026/dotfiles
+cd ~/Tech/Projects/personal/2026/dotfiles
+
+# 2. Install prerequisites
+brew install chruby ruby-install volta starship zsh-autosuggestions zsh-syntax-highlighting
+
+# 3. Run setup
+./setup.sh          # Creates ~/dotfiles symlink + all $HOME symlinks; idempotent
 brew bundle         # Install/sync all packages from Brewfile
-./bin/dotfiles-init # Wrapper for setup.sh — equivalent
 ```
 
-`setup.sh` requires Homebrew, Chruby, Volta, and Starship to already be installed. It creates symlinks for dotfiles and all scripts under `bin/` into `~/bin/`.
+`setup.sh` requires Homebrew, Chruby, Volta, and Starship to already be installed. It creates a `~/dotfiles` symlink pointing to the repo, then symlinks all config files into `$HOME` and all scripts under `bin/` into `~/bin/`.
 
 ## Architecture
 

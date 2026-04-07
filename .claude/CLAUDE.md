@@ -22,6 +22,7 @@ See `~/.claude/docs/eval_config_changes.md` for the full rubric, agent prompt te
 Run `/start` at the beginning of every session — the `start-session` skill has the full steps.
 
 Principles:
+- **Read `SESSION.md` first** if it exists in the project root — even when not running `/start`. It's the primary handoff document and contains context that CLAUDE.md and TODO.md won't have.
 - Ask about available time and hard stops before reading anything
 - Ask if the session should use ping-pong TDD mode — invoke `/pingpong` if yes
 - Propose **one concrete goal** — not a wish list
@@ -133,7 +134,7 @@ Exception: spikes and proof-of-concept work are exploration, not delivery — sk
 
 ## Git workflow
 
-Changes accumulate as dirty working tree state during a session. Do **not** commit automatically — wait for the user to confirm they are happy with each feature. Then group changes into meaningful, feature-scoped commits.
+Changes accumulate as dirty working tree state during a session. Do **not** commit mid-feature without checking. When a task is complete and there are uncommitted changes, propose commit groupings and wait for the user to confirm they make sense — then commit. Don't wait to be asked whether to commit; take the initiative to propose, then act after approval.
 
 **Five principles (the why behind the rules below):**
 

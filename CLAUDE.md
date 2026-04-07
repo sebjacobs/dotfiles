@@ -10,8 +10,8 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ```bash
 # 1. Clone the repo (anywhere — setup.sh creates ~/dotfiles symlink automatically)
-git clone git@github.com:sebjacobs/dotfiles.git ~/Tech/Projects/personal/2026/dotfiles
-cd ~/Tech/Projects/personal/2026/dotfiles
+git clone git@github.com:sebjacobs/dotfiles.git ~/Tech/Projects/personal/dotfiles
+cd ~/Tech/Projects/personal/dotfiles
 
 # 2. Install Xcode CLI tools
 xcode-select --install

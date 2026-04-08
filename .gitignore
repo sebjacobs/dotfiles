@@ -1,6 +1,6 @@
 .claude/rag
 .claude/worktrees
-.oh-my-zsh/custom/secrets.zsh
+.secrets.zsh
 .venv
 .env
 .DS_Store

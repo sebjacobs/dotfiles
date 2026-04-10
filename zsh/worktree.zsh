@@ -6,7 +6,7 @@
 #        gwt rm <name>          Remove a worktree
 #        gwt root               cd back to the main worktree root
 
-__gwt_root() { git rev-parse --show-toplevel 2>/dev/null; }
+__gwt_root() { git worktree list --porcelain 2>/dev/null | head -1 | sed 's/^worktree //'; }
 
 __gwt_short() {
   local name="$1"

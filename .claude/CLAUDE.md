@@ -25,6 +25,7 @@ SESSION.md is scoped to the current feature branch. It exists for continuity acr
 - **Create it** at the start of a feature branch with the goal, approach, and any key decisions made upfront
 - **Update it often** — after each meaningful chunk of work, not just at the end of a session; include what was done, what was decided, and what's next
 - **Always end with a handover prompt** — a blockquote that summarises what was just done, names the next task, the approach, and what "done" looks like; a fresh Claude session should be able to read it cold and pick up exactly where this one left off
+- **Heading formats:** session notes use `## YYYY-MM-DD HH:MM | branch-name`; mid-session checkpoints use `### Checkpoint — HH:MM` nested under the session note
 - **Commit it separately** from code changes — this makes it easy to drop or squash SESSION.md commits when cleaning up history before a merge
 - **Archive before merging** — append to `docs/session_log.md`, then reset SESSION.md to a single "next up" line so the next branch starts fresh
 

@@ -27,7 +27,7 @@ Read `SESSION.md` to understand the existing session note structure. If there's 
 
 ### 2 — Write the checkpoint
 
-In `SESSION.md`, update the current session note block (`## Session note — YYYY-MM-DD`) with a `### Checkpoint — HH:MM` sub-heading. Under it, write:
+In `SESSION.md`, update the current session note block (`## YYYY-MM-DD HH:MM | branch-name`) with a `### Checkpoint — HH:MM` sub-heading. Under it, write:
 
 - **Progress so far** — what's been built, fixed, or changed since the session started (or since the last checkpoint)
 - **Decisions made** — any choices settled during this segment, with brief reasoning

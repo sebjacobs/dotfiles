@@ -16,7 +16,7 @@ Runs the end-of-session checklist from CLAUDE.md. Ensures every session ends cle
 ### 0 — Get the current time
 
 Run `date` to get the actual current time before doing anything else. Use this to:
-- Label the session note accurately (morning / afternoon / evening suffix if multiple notes on the same day)
+- Label the session note with the canonical heading format: `## YYYY-MM-DD HH:MM | branch-name`
 - Check whether the session is running past 7PM — if so, flag it
 - Confirm the correct date for all file edits
 
@@ -24,7 +24,7 @@ Run `date` to get the actual current time before doing anything else. Use this t
 
 ### 1 — Update the session note
 
-At the top of `SESSION.md`, update (or create) the `## Session note — YYYY-MM-DD` block for today:
+At the top of `SESSION.md`, update (or create) the `## YYYY-MM-DD HH:MM | branch-name` block for today:
 
 - What was built or fixed
 - Key decisions made and the reasoning

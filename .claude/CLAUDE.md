@@ -17,12 +17,23 @@ Before merging a change to CLAUDE.md, `~/.claude/docs/`, or a project skill, run
 
 See `~/.claude/docs/eval_config_changes.md` for the full rubric, agent prompt templates, and a worked example.
 
+## SESSION.md
+
+SESSION.md is scoped to the current feature branch. It exists for continuity across multiple pairing sessions and to survive session crashes — so that anyone (including Claude) picking up mid-flow can read it and know exactly where things stand.
+
+- **Read it first** — even when not running `/start`. It's the primary handoff document and contains context that CLAUDE.md and TODO.md won't have.
+- **Create it** at the start of a feature branch with the goal, approach, and any key decisions made upfront
+- **Update it often** — after each meaningful chunk of work, not just at the end of a session; include what was done, what was decided, and what's next
+- **Always end with a handover prompt** — a blockquote that summarises what was just done, names the next task, the approach, and what "done" looks like; a fresh Claude session should be able to read it cold and pick up exactly where this one left off
+- **Heading formats:** session notes use `## YYYY-MM-DD HH:MM | branch-name`; mid-session checkpoints use `### Checkpoint — HH:MM` nested under the session note
+- **Commit it separately** from code changes — this makes it easy to drop or squash SESSION.md commits when cleaning up history before a merge
+- **Archive before merging** — append to `docs/session_log.md`, then reset SESSION.md to a single "next up" line so the next branch starts fresh
+
 ## Session start routine
 
 Run `/start` at the beginning of every session — the `start-session` skill has the full steps.
 
 Principles:
-- **Read `SESSION.md` first** if it exists in the project root — even when not running `/start`. It's the primary handoff document and contains context that CLAUDE.md and TODO.md won't have.
 - Ask about available time and hard stops before reading anything
 - Ask if the session should use ping-pong TDD mode — invoke `/pingpong` if yes
 - Propose **one concrete goal** — not a wish list
@@ -34,7 +45,6 @@ Principles:
 Run `/finish` at the end of every session — the `finish-session` skill has the full steps. Also handles mid-session breaks (`/break`) in quick mode.
 
 Principles:
-- SESSION.md is the primary handoff — always leave a handover prompt for the next session
 - Check the project's CLAUDE.md for any additional session-end requirements
 
 ## Working hours
@@ -43,11 +53,11 @@ Cut-off is 7PM. If a session is running past 7PM, say so directly — don't let 
 
 ## Managing context
 
-**Use `/clear` liberally.** Context is the scarcest resource in a session — clearing it when a thread is done keeps later work sharp. SESSION.md exists precisely to make `/clear` cheap: one read at the start of the next thread gets you back up to speed.
+**Use `/clear` liberally.** Context is the scarcest resource in a session — clearing it when a thread is done keeps later work sharp. SESSION.md makes `/clear` cheap: one read at the start of the next thread gets you back up to speed.
 
 Within a session, the main levers for keeping context lean:
 
-- **`/clear`** — reset when a thread concludes or goes stale; SESSION.md is the handoff
+- **`/clear`** — reset when a thread concludes or goes stale
 - **Subagents for exploratory work** — browsing, reading many files, running scripts; the subagent absorbs the cost and returns a summary, leaving the main context clean
 - **Background Bash for parallel compute** — chunked processing, batch jobs; simpler than subagents, inherits approved permissions
 

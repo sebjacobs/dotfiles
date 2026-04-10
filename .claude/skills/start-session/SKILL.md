@@ -11,12 +11,32 @@ Runs the session start routine documented in CLAUDE.md. Ensures every session be
 
 ## Steps
 
-### 0 — Get the current time
+### 0 — Get the current time and check for stale sessions
 
 Run `date` to get the actual current time before doing anything else. Use this to:
 - Confirm the correct date for session note labelling
 - Accurately compute cron expressions for hard stop warnings and break reminders
 - Check whether the session start is already past 7PM
+
+Then check whether the previous session ended cleanly by comparing `SESSION.md` mtime against the most recent JSONL transcript:
+
+```bash
+PROJECT_DIR="$HOME/.claude/projects/$(pwd | sed 's|/|-|g')"
+LATEST_JSONL=$(ls -t "$PROJECT_DIR"/*.jsonl 2>/dev/null | head -1)
+if [ -n "$LATEST_JSONL" ] && [ -f "SESSION.md" ]; then
+  JSONL_MTIME=$(stat -f "%m" "$LATEST_JSONL")
+  SESSION_MTIME=$(stat -f "%m" "SESSION.md")
+  if [ "$JSONL_MTIME" -gt "$SESSION_MTIME" ]; then
+    echo "⚠️  SESSION.md is older than the last session transcript — previous session may not have run /finish"
+  fi
+fi
+```
+
+If the check fires, tell the user:
+
+> "It looks like the last session didn't run `/finish` — SESSION.md is older than the most recent transcript. Want me to run `/recover` to reconstruct what happened, or skip and continue from the current SESSION.md?"
+
+Wait for their answer. If they say recover, invoke `/recover` before continuing with step 1.
 
 ---
 

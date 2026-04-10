@@ -7,6 +7,7 @@ source $(brew --prefix)/share/zsh-syntax-highlighting/zsh-syntax-highlighting.zs
 source ~/dotfiles/zsh/01_env.zsh
 source ~/dotfiles/zsh/aliases.zsh
 source ~/dotfiles/zsh/git_aliases.zsh
+source ~/dotfiles/zsh/worktree.zsh
 
 # Secrets (gitignored)
 [ -f ~/.secrets.zsh ] && source ~/.secrets.zsh

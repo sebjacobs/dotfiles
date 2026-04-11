@@ -1,40 +1,49 @@
 ---
 name: recover-session
-description: Recover context from a crashed or unfinished session by reading the most recent JSONL transcript. Use when the user says "/recover", "recover session", "what was I doing", or when /start detects that SESSION.md is stale relative to the last session transcript.
+description: Recover context from a crashed or unfinished session by reading the most recent JSONL transcript. Use when the user says "/recover", "recover session", "what was I doing", or when /start detects the last entry isn't a finish.
 ---
 
 # Recover Session
 
-Retrospective summary from Claude Code's JSONL session transcript. Use after a crash, unexpected exit, or any session that ended without running `/finish` — reconstructs what happened and writes it into SESSION.md so the next session can pick up cleanly.
+Retrospective summary from Claude Code's JSONL session transcript. Use after a crash, unexpected exit, or any session that ended without running `/finish` — reconstructs what happened and writes a recovery entry to the session log so the next session can pick up cleanly.
 
 ---
 
 ## Steps
 
-### 0 — Identify the project hash
+### 0 — Detect the situation
 
-The current project's sessions are stored under `~/.claude/projects/`. The directory name is the absolute path with `/` replaced by `-` and leading `-`. For the current working directory, construct the path:
+Determine the project name and branch:
 
 ```bash
-# Derive the project hash from cwd
-PROJECT_DIR="$HOME/.claude/projects/$(pwd | sed 's|/|-|g')"
-echo "$PROJECT_DIR"
-ls -lt "$PROJECT_DIR"/*.jsonl | head -5
+basename "$(git rev-parse --show-toplevel)"
+git rev-parse --abbrev-ref HEAD
 ```
 
-This lists the most recent JSONL files by modification time. The most recent one is likely the crashed session.
+Check the last session log entry:
+
+```bash
+session_logger.py tail --project <project> --branch <branch> --limit 1
+```
+
+If the last entry is a `finish`, the session ended cleanly — nothing to recover. Tell the user and stop.
+
+If the last entry is `start`, `checkpoint`, or `break` (or there are no entries), the previous session likely crashed or the user forgot `/finish`.
 
 ---
 
-### 1 — Confirm the right session
+### 1 — Find the transcript
 
-Show the user the timestamp and first user message from the most recent JSONL file so they can confirm it's the right session to recover:
+```bash
+PROJECT_DIR="$HOME/.claude/projects/$(pwd | sed 's|/|-|g')"
+ls -lt "$PROJECT_DIR"/*.jsonl | head -5
+```
+
+Show the user the timestamp and first user message from the most recent transcript so they can confirm it's the right session:
 
 ```bash
 LATEST=$(ls -t "$PROJECT_DIR"/*.jsonl | head -1)
-# Show file modification time
 stat -f "%Sm" "$LATEST"
-# Show first user message
 python3 -c "
 import json, sys
 for line in open('$LATEST'):
@@ -60,7 +69,7 @@ Wait for confirmation before proceeding.
 
 ### 2 — Extract the conversation
 
-Filter the JSONL to only human and assistant text turns — skip `tool_use`, `tool_result`, `file-history-snapshot`, `permission-mode`, and `attachment` entries. This dramatically reduces noise.
+Filter the JSONL to only human and assistant text turns — skip `tool_use`, `tool_result`, `file-history-snapshot`, `permission-mode`, and `attachment` entries:
 
 ```bash
 python3 -c "
@@ -97,35 +106,25 @@ Read the extracted conversation to understand what happened.
 
 ---
 
-### 3 — Synthesise into SESSION.md format
+### 3 — Write the recovery entry
 
-From the extracted conversation, write a session note covering:
+From the extracted conversation, synthesise a recovery entry:
 
-- **What was built or fixed** — concrete outcomes, not process
-- **Key decisions made** — with reasoning where recoverable
-- **Where things stopped** — what was in progress when the session ended
-- **Decisions for next session** — priorities inferred from the trajectory
-- **Handover prompt** — a self-contained paragraph the next session can read cold
+```bash
+session_logger.py write \
+  --project <project> \
+  --branch <branch> \
+  --type finish \
+  --content "<what was built/fixed, key decisions, where things stopped>" \
+  --next "<priorities inferred from the session trajectory>"
+```
 
-This follows the same format as `/finish` step 1, but reconstructed rather than live.
-
----
-
-### 4 — Archive the old SESSION.md and write the recovery
-
-If `SESSION.md` already exists and has content:
-
-1. Check whether the existing content is stale (predates the recovered session). If so, it's from an even earlier session — preserve it by appending to `docs/session_log.md` before overwriting.
-2. If the existing content is from the same date, merge the recovery into it rather than replacing.
-
-Write the recovered session note to `SESSION.md`.
+Use `--type finish` so the log correctly marks the session as closed.
 
 ---
 
-### 5 — Report
+### 4 — Report
 
-Summarise what was recovered:
+> "Recovered session from [date/time]. Key context: [1-2 sentence summary]. Ready to continue with `/start`."
 
-> "Recovered session from [date/time]. Key context: [1-2 sentence summary]. Written to SESSION.md — ready to continue with `/start` or pick up directly."
-
-Flag anything that couldn't be recovered (e.g. if the session was very short or mostly tool output with little conversation).
+Flag anything that couldn't be recovered (very short session, mostly tool output with little conversation).

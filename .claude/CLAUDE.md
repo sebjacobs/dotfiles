@@ -17,17 +17,16 @@ Before merging a change to CLAUDE.md, `~/.claude/docs/`, or a project skill, run
 
 See `~/.claude/docs/eval_config_changes.md` for the full rubric, agent prompt templates, and a worked example.
 
-## SESSION.md
+## Session logging
 
-SESSION.md is scoped to the current feature branch. It exists for continuity across multiple pairing sessions and to survive session crashes — so that anyone (including Claude) picking up mid-flow can read it and know exactly where things stand.
+Session notes are stored in a private data repo via `session_logger.py`, not in project repos. This eliminates the merge-time cleanup ceremony that SESSION.md required (prefix commits, manual resets, archiving).
 
-- **Read it first** — even when not running `/start`. It's the primary handoff document and contains context that CLAUDE.md and TODO.md won't have.
-- **Create it** at the start of a feature branch with the goal, approach, and any key decisions made upfront
-- **Update it often** — after each meaningful chunk of work, not just at the end of a session; include what was done, what was decided, and what's next
-- **Always end with a handover prompt** — a blockquote that summarises what was just done, names the next task, the approach, and what "done" looks like; a fresh Claude session should be able to read it cold and pick up exactly where this one left off
-- **Heading formats:** session notes use `## YYYY-MM-DD HH:MM | branch-name`; mid-session checkpoints use `### Checkpoint — HH:MM` nested under the session note
-- **Commit it separately** from code changes — this makes it easy to drop or squash SESSION.md commits when cleaning up history before a merge
-- **Archive before merging** — append to `docs/session_log.md`, then reset SESSION.md to a single "next up" line so the next branch starts fresh
+- **Storage:** JSONL entries at `$SESSION_LOGS_DATA/logs/<project>/<branch>.jsonl`, one JSON object per line
+- **Branch names:** `/` replaced with `+` in filenames (e.g. `feature+auth.jsonl`)
+- **Commands:** `write` (append entry), `tail` (read recent), `ls` (list projects/branches), `search` (content search)
+- **Git integration:** every `write` auto-commits in the data repo; `--type finish` also pushes to remote
+- **Skills handle it:** `/start`, `/save`, `/finish`, `/break` call `session_logger.py` — no manual session note management needed
+- **Context restoration:** `/start` runs `tail --limit 5` to restore context from the last few entries; the most recent finish entry's `**Next:**` field is the handover prompt
 
 ## Session start routine
 
@@ -53,7 +52,7 @@ Cut-off is 7PM. If a session is running past 7PM, say so directly — don't let 
 
 ## Managing context
 
-**Use `/clear` liberally.** Context is the scarcest resource in a session — clearing it when a thread is done keeps later work sharp. SESSION.md makes `/clear` cheap: one read at the start of the next thread gets you back up to speed.
+**Use `/clear` liberally.** Context is the scarcest resource in a session — clearing it when a thread is done keeps later work sharp. Session logs make `/clear` cheap: `/start` restores context from the data repo automatically.
 
 Within a session, the main levers for keeping context lean:
 

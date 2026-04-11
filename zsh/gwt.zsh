@@ -3,7 +3,7 @@
 #        gwt add -b <branch>    Create branch + worktree and cd into it
 #        gwt cd <name>          cd into an existing worktree
 #        gwt ls                 List worktrees
-#        gwt rm <name>          Remove a worktree
+#        gwt rm <name>          Remove a worktree (with confirmation)
 #        gwt root               cd back to the main worktree root
 
 __gwt_root() { git worktree list --porcelain 2>/dev/null | head -1 | sed 's/^worktree //'; }
@@ -50,9 +50,30 @@ gwt() {
     cd)
       local name="$1"
       if [[ -z "$name" ]]; then echo "Usage: gwt cd <name>" >&2; return 1; fi
-      local wt_dir="$wt_base/$name"
-      if [[ ! -d "$wt_dir" ]]; then echo "No worktree: $name" >&2; return 1; fi
-      cd "$wt_dir"
+
+      # Exact match
+      if [[ -d "$wt_base/$name" ]]; then
+        cd "$wt_base/$name"
+        return 0
+      fi
+
+      # Fuzzy: prefix then substring
+      if [[ ! -d "$wt_base" ]]; then echo "No worktree matching: $name" >&2; return 1; fi
+      local -a matches
+      matches=("$wt_base"/${name}*(N/:t))
+      if (( ${#matches} == 0 )); then
+        matches=("$wt_base"/*${name}*(N/:t))
+      fi
+
+      case ${#matches} in
+        0) echo "No worktree matching: $name" >&2; return 1 ;;
+        1) cd "$wt_base/$matches[1]" ;;
+        *)
+          echo "Multiple worktrees match '$name':" >&2
+          for m in $matches; do echo "  $m" >&2; done
+          return 1
+          ;;
+      esac
       ;;
 
     ls)
@@ -77,6 +98,14 @@ gwt() {
       if [[ -z "$name" ]]; then echo "Usage: gwt rm <name>" >&2; return 1; fi
       local wt_dir="$wt_base/$name"
       if [[ ! -d "$wt_dir" ]]; then echo "No worktree: $name" >&2; return 1; fi
+
+      echo "Remove worktree '$name'? [y/N] "
+      read -q || { echo; return 1; }
+      echo
+
+      # cd out if we're inside the worktree being removed
+      if [[ "$PWD" == "$wt_dir"* ]]; then cd "$root"; fi
+
       git worktree remove "$wt_dir"
       ;;
 

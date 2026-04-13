@@ -59,3 +59,8 @@ function create_excalidraw_file() {
   touch $name.excalidraw
 }
 alias genex="create_excalidraw_file"
+
+# directories
+alias media="cd ~/Media"
+alias tv="cd ~/Media/TV/ENGLISH"
+alias films="cd ~/Media/Films/ENGLISH"

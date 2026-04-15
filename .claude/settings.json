@@ -24,6 +24,7 @@
       "Bash(gh *)",
       "Bash(wc *)",
       "Bash(jq *)",
+      "Bash(jotter *)",
       "WebFetch",
       "WebSearch"
     ],
@@ -35,7 +36,7 @@
     ],
     "defaultMode": "default"
   },
-  "model": "sonnet",
+  "model": "opus[1m]",
   "extraKnownMarketplaces": {
     "claude-plugins-official": {
       "source": {
@@ -44,5 +45,8 @@
       }
     }
   },
-  "voiceEnabled": true
+  "voiceEnabled": true,
+  "enabledPlugins": {
+    "gopls-lsp@claude-plugins-official": true
+  }
 }

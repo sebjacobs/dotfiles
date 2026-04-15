@@ -28,7 +28,7 @@ git rev-parse --abbrev-ref HEAD
 Then check whether the previous session ended cleanly:
 
 ```bash
-session_logger.py tail --project <project> --branch <branch> --limit 1
+jotter tail --project <project> --branch <branch> --limit 1
 ```
 
 If the last entry is **not** a `finish` type (i.e. it's a `start`, `checkpoint`, or `break`), the previous session likely crashed or the user forgot `/finish`. Tell the user:
@@ -62,13 +62,13 @@ Report the job ID so it can be cancelled if plans change.
 Read the last few entries to understand where things left off:
 
 ```bash
-session_logger.py tail --project <project> --branch <branch> --limit 5
+jotter tail --project <project> --branch <branch> --limit 5
 ```
 
 If no entries exist for this branch, check if there's context from the project's main branch:
 
 ```bash
-session_logger.py tail --project <project> --branch main --limit 3
+jotter tail --project <project> --branch main --limit 3
 ```
 
 Surface the most recent finish entry's `**Next:**` field — that's the handover from last session. Present it verbatim (or a tight summary) before proposing a goal, so the user knows you've picked up exactly where things left off.
@@ -140,7 +140,7 @@ If the session is running past **7PM**, say so directly:
 ### 7 — Write the start entry
 
 ```bash
-session_logger.py write \
+jotter write \
   --project <project> \
   --branch <branch> \
   --type start \

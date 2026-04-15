@@ -27,7 +27,7 @@ git rev-parse --abbrev-ref HEAD
 ### 1 — Read recent context
 
 ```bash
-session_logger.py tail --project <project> --branch <branch> --limit 3
+jotter tail --project <project> --branch <branch> --limit 3
 ```
 
 Review the last few entries to understand what's already been captured — avoid duplicating.
@@ -35,7 +35,7 @@ Review the last few entries to understand what's already been captured — avoid
 ### 2 — Write the checkpoint
 
 ```bash
-session_logger.py write \
+jotter write \
   --project <project> \
   --branch <branch> \
   --type checkpoint \

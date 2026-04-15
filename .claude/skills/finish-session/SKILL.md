@@ -31,7 +31,7 @@ git rev-parse --abbrev-ref HEAD
 Summarise the session — what was built or fixed, key decisions, anything discovered that changed the plan. The `--next` field is the handover: the 2-3 most important things to pick up next session, in priority order.
 
 ```bash
-session_logger.py write \
+jotter write \
   --project <project> \
   --branch <branch> \
   --type finish \

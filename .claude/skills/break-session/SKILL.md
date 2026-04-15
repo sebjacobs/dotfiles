@@ -27,7 +27,7 @@ git rev-parse --abbrev-ref HEAD
 Summarise current progress in a few bullet points, then write it:
 
 ```bash
-session_logger.py write \
+jotter write \
   --project <project> \
   --branch <branch> \
   --type break \

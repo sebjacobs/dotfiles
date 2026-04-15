@@ -23,7 +23,7 @@ git rev-parse --abbrev-ref HEAD
 Check the last session log entry:
 
 ```bash
-session_logger.py tail --project <project> --branch <branch> --limit 1
+jotter tail --project <project> --branch <branch> --limit 1
 ```
 
 If the last entry is a `finish`, the session ended cleanly — nothing to recover. Tell the user and stop.
@@ -111,7 +111,7 @@ Read the extracted conversation to understand what happened.
 From the extracted conversation, synthesise a recovery entry:
 
 ```bash
-session_logger.py write \
+jotter write \
   --project <project> \
   --branch <branch> \
   --type finish \

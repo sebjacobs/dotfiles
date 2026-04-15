@@ -19,13 +19,13 @@ See `~/.claude/docs/eval_config_changes.md` for the full rubric, agent prompt te
 
 ## Session logging
 
-Session notes are stored in a private data repo via `session_logger.py`, not in project repos. This eliminates the merge-time cleanup ceremony that SESSION.md required (prefix commits, manual resets, archiving).
+Session notes are stored in a private data repo via `jotter`, not in project repos. This eliminates the merge-time cleanup ceremony that SESSION.md required (prefix commits, manual resets, archiving).
 
-- **Storage:** JSONL entries at `$SESSION_LOGS_DATA/logs/<project>/<branch>.jsonl`, one JSON object per line
+- **Storage:** JSONL entries at `$JOTTER_DATA/logs/<project>/<branch>.jsonl`, one JSON object per line
 - **Branch names:** `/` replaced with `+` in filenames (e.g. `feature+auth.jsonl`)
 - **Commands:** `write` (append entry), `tail` (read recent), `ls` (list projects/branches), `search` (content search)
 - **Git integration:** every `write` auto-commits in the data repo; `--type finish` also pushes to remote
-- **Skills handle it:** `/start`, `/save`, `/finish`, `/break` call `session_logger.py` — no manual session note management needed
+- **Skills handle it:** `/start`, `/save`, `/finish`, `/break` call `jotter` — no manual session note management needed
 - **Context restoration:** `/start` runs `tail --limit 5` to restore context from the last few entries; the most recent finish entry's `**Next:**` field is the handover prompt
 
 ## Session start routine

@@ -1,4 +1,5 @@
 .claude/rag
+.claude/scheduled_tasks.lock
 .claude/worktrees
 .secrets.zsh
 .venv

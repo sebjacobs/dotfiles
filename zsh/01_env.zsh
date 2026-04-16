@@ -30,3 +30,6 @@ export SDKMAN_DIR="$HOME/.sdkman"
 
 
 export JOTTER_DATA=~/Tech/Projects/personal/session-logs
+
+export CLAUDE_CODE_DISABLE_AUTO_MEMORY=1
+

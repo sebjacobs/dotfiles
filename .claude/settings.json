@@ -37,6 +37,9 @@
     "defaultMode": "default"
   },
   "model": "opus[1m]",
+  "enabledPlugins": {
+    "gopls-lsp@claude-plugins-official": true
+  },
   "extraKnownMarketplaces": {
     "claude-plugins-official": {
       "source": {
@@ -46,7 +49,5 @@
     }
   },
   "voiceEnabled": true,
-  "enabledPlugins": {
-    "gopls-lsp@claude-plugins-official": true
-  }
+  "effortLevel": "medium"
 }

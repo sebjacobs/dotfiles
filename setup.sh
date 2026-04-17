@@ -49,6 +49,7 @@ files=(
   ".gitattributes"
   ".gitconfig"
   ".gitignore"
+  ".jotter"
   ".claude/CLAUDE.md"
   ".claude/settings.json"
   ".claude/keybindings.json"

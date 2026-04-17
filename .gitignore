@@ -1,6 +1,7 @@
 .claude/rag
 .claude/scheduled_tasks.lock
 .claude/worktrees
+.claude/skills/android-cli/
 .secrets.zsh
 .venv
 .env

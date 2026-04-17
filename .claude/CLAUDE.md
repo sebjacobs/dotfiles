@@ -141,6 +141,19 @@ The git principles below (atomic commits, single-purpose branches) are the downs
 
 Exception: spikes and proof-of-concept work are exploration, not delivery — skip the test overhead, but timebox the spike and write up what was learned before starting the real implementation.
 
+## Workspace hygiene — prefer project-local scratch dirs
+
+For temporary files, scratch data, and log output, use a **project-local directory** (`./tmp/`, `./log/`, `./scratch/`) rather than `/tmp`, `$TMPDIR`, or the user's home dir. Benefits:
+
+- Artefacts are visible in the project tree, easier to find and clean up
+- Gitignore them once per repo (`tmp/`, `log/`) instead of juggling system paths
+- No cross-project pollution (two projects writing to `/tmp/output.log` collide silently)
+- Survives shell invocations and terminal sessions
+
+Only use system temp dirs (`/tmp`, `t.TempDir()` in Go, `tempfile` in Python) for genuinely ephemeral single-invocation fixtures — test scaffolding, throwaway subprocesses. Anything you might want to inspect afterward belongs in-tree.
+
+If the project doesn't have a `tmp/` or `log/` directory yet, just `mkdir` it — no need to ask. Add the directory to `.gitignore` in the same pass (`tmp/`, `log/`). Don't commit empty `.gitkeep` placeholders unless the project convention elsewhere establishes that.
+
 ## Git workflow
 
 Changes accumulate as dirty working tree state during a session. Do **not** commit mid-feature without checking. When a task is complete and there are uncommitted changes, propose commit groupings and wait for the user to confirm they make sense — then commit. Don't wait to be asked whether to commit; take the initiative to propose, then act after approval.

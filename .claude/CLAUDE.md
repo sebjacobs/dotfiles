@@ -286,6 +286,13 @@ Always rebase the feature branch onto main before merging — ensures the histor
 5. Stage and commit each group sequentially
 6. **Never merge or raise a PR until the user explicitly says to** — propose it, then wait
 
+**Before you push — checklist:**
+> Re-read this before every `git push`, especially to main.
+- Run `git log origin/<branch>..HEAD --oneline` and confirm every listed commit is intended to ship. `git push` pushes *all* ahead-commits, not just the one you just made.
+- **Never push WIP commits to main.** If a commit message starts with `WIP`, `fixup!`, `squash!`, `tmp`, or similar, it doesn't belong on main — rebase/squash it first, or move it to a branch.
+- If you find unexpected ahead-commits on main (e.g. from a previous session), pause and surface them to the user before pushing. Don't assume they're safe to ship.
+- Never `git push --force` to main.
+
 **Feature branch PRs:**
 PR descriptions follow the same philosophy as commit messages — explain the *why*, not just the *what*. Structure:
 

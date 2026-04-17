@@ -6,6 +6,7 @@
 #        gwt rm <name>          Remove a worktree (with confirmation)
 #        gwt root               cd back to the main worktree root
 #        gwt status             Overview of all worktrees
+#        gwt path [<name>]      Echo the absolute path of a worktree (current if no name)
 
 __gwt_root() { git worktree list --porcelain 2>/dev/null | head -1 | sed 's/^worktree //'; }
 
@@ -69,6 +70,42 @@ gwt() {
       case ${#matches} in
         0) echo "No worktree matching: $name" >&2; return 1 ;;
         1) cd "$wt_base/$matches[1]" ;;
+        *)
+          echo "Multiple worktrees match '$name':" >&2
+          for m in $matches; do echo "  $m" >&2; done
+          return 1
+          ;;
+      esac
+      ;;
+
+    path)
+      local name="$1"
+      if [[ -z "$name" ]]; then
+        # No arg: echo current worktree path if we're inside one
+        if [[ "$PWD" == "$wt_base"/* ]]; then
+          local rel="${PWD#$wt_base/}"
+          echo "$wt_base/${rel%%/*}"
+          return 0
+        fi
+        echo "Usage: gwt path [<name>]" >&2
+        return 1
+      fi
+
+      if [[ -d "$wt_base/$name" ]]; then
+        echo "$wt_base/$name"
+        return 0
+      fi
+
+      if [[ ! -d "$wt_base" ]]; then echo "No worktree matching: $name" >&2; return 1; fi
+      local -a matches
+      matches=("$wt_base"/${name}*(N/:t))
+      if (( ${#matches} == 0 )); then
+        matches=("$wt_base"/*${name}*(N/:t))
+      fi
+
+      case ${#matches} in
+        0) echo "No worktree matching: $name" >&2; return 1 ;;
+        1) echo "$wt_base/$matches[1]" ;;
         *)
           echo "Multiple worktrees match '$name':" >&2
           for m in $matches; do echo "  $m" >&2; done
@@ -142,7 +179,7 @@ gwt() {
       ;;
 
     *)
-      echo "Usage: gwt <add|cd|ls|rm|root|status> [args]"
+      echo "Usage: gwt <add|cd|ls|rm|root|status|path> [args]"
       echo ""
       echo "  add [-b] <branch>    Create worktree and cd into it"
       echo "  cd <name>           cd into an existing worktree"
@@ -150,6 +187,7 @@ gwt() {
       echo "  rm <name>           Remove a worktree"
       echo "  root                cd back to the main worktree root"
       echo "  status              Overview of all worktrees"
+      echo "  path [<name>]       Echo absolute path of a worktree (current if no name)"
       return 1
       ;;
   esac
@@ -162,10 +200,10 @@ _gwt() {
   local wt_base="$root/.claude/worktrees"
 
   if (( CURRENT == 2 )); then
-    compadd -- add cd ls rm root status
+    compadd -- add cd ls rm root status path
   elif (( CURRENT == 3 )); then
     case "${words[2]}" in
-      cd|rm)
+      cd|rm|path)
         if [[ -d "$wt_base" ]]; then
           compadd -- "$wt_base"/*(/:t)
         fi

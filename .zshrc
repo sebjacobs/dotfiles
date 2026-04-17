@@ -1,6 +1,9 @@
 # Config
 source ~/dotfiles/zsh/00_brew.zsh
 
+# Completions (must be on fpath before compinit runs)
+fpath=(~/dotfiles/zsh/completions $fpath)
+
 # Plugins
 source $(brew --prefix)/share/zsh-autosuggestions/zsh-autosuggestions.zsh
 source $(brew --prefix)/share/zsh-syntax-highlighting/zsh-syntax-highlighting.zsh

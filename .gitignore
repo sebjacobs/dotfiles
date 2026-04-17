@@ -29,3 +29,8 @@ tags
 
 ### Maven ###
 target/
+
+tmp/*
+!tmp/.gitkeep
+log/*
+!log/.gitkeep

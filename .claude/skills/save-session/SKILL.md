@@ -1,6 +1,6 @@
 ---
 name: save-session
-description: Mid-session checkpoint — snapshot current decisions and progress without archiving or cleaning up. Use when the user says "/save", "checkpoint", "save progress", or before risky operations like schema migrations, large refactors, or long-running tasks.
+description: Mid-session checkpoint — snapshot current decisions and progress without archiving or cleaning up. Use when the user says "/save", "checkpoint", "save progress", "jot it down", "jot that down", "make a note", "note that", or before risky operations like schema migrations, large refactors, or long-running tasks.
 ---
 
 # Save Session
@@ -9,9 +9,14 @@ Mid-session checkpoint. Captures current progress and decisions without the full
 
 Use before risky operations (migrations, large refactors) or when you want to preserve state before a `/clear`.
 
+## Two modes
+
+- **Checkpoint** (`/save`, "checkpoint", "save progress") — snapshot of progress so far plus what's next. Use `--type checkpoint` with `--next`.
+- **Note** ("jot it down", "jot that down", "make a note", "note that") — a single observation, idea, or reminder to capture without the full checkpoint ceremony. Use `--type note`, skip `--next`, skip the recent-context read. Just write it and confirm.
+
 ---
 
-## Steps
+## Steps (checkpoint mode)
 
 ### 0 — Get context
 
@@ -50,3 +55,19 @@ Keep it concise — a few bullet points per topic. This is a snapshot, not a ses
 > "Checkpoint saved at HH:MM. Safe to `/clear` or continue."
 
 Do **not** propose commits, update the roadmap, or archive anything. That's `/finish`'s job.
+
+## Steps (note mode)
+
+For "jot it down" / "make a note" style requests, skip the tail read and write a single-line note:
+
+```bash
+jotter write \
+  --project <project> \
+  --branch <branch> \
+  --type note \
+  --content "<the thing to remember>"
+```
+
+Then confirm: `> "Noted."`
+
+No `--next`, no progress summary — just capture the thought and move on.

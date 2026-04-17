@@ -1,5 +1,4 @@
 export PATH=$PATH:$HOME/bin
-export PATH="$HOME/.local/bin:$PATH"
 
 export PATH="/opt/homebrew/opt/postgresql@17/bin:$PATH"
 export PATH="/opt/homebrew/opt/mysql@8.4/bin:$PATH"
@@ -21,6 +20,9 @@ unset _VOLTA_TOOL_RECURSION
 
 #golang
 export PATH="$HOME/go/bin:$PATH"
+
+# User-local binaries take precedence over language-managed bin dirs (go, volta, etc.)
+export PATH="$HOME/.local/bin:$PATH"
 
 export OLLAMA_KEEP_ALIVE=-1
 

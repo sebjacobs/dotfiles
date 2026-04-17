@@ -1,5 +1,6 @@
 .claude/rag
 .claude/scheduled_tasks.lock
+.claude/settings.local.json
 .claude/skills/android-cli/
 .claude/worktrees
 .secrets.zsh

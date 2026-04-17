@@ -1,6 +1,6 @@
 ---
 name: start-session
-description: Run the session start routine — ask about available time and hard stops, read recent session logs and ROADMAP.md priorities, propose a realistic goal. Use when the user says "/start", "/start-session", "let's start", "start session", "begin session", or at the start of any longer session. Skip for quick focused tasks where the goal is already clear.
+description: Run the session start routine — ask about available time and hard stops, read recent session logs and ROADMAP.md priorities, propose a realistic goal. Use when the user says "/start", "/start-session", "let's start", "start session", "begin session", "continue session", or at the start of any longer session. Skip for quick focused tasks where the goal is already clear.
 ---
 
 # Start Session

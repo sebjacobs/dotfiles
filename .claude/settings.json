@@ -61,6 +61,7 @@
       }
     }
   },
-  "voiceEnabled": true,
-  "effortLevel": "medium"
+  "effortLevel": "medium",
+  "skipAutoPermissionPrompt": true,
+  "voiceEnabled": true
 }

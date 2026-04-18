@@ -43,9 +43,11 @@ Wait for their answer. If they say recover, invoke `/recover` before continuing 
 
 Before reading anything else, ask:
 
-> "How much time do we have today, and any hard stops during the session?"
+> "How much time do we have, and any hard stops? Already have a goal in mind? Or skip?"
 
 Wait for the answer. Use it to calibrate everything that follows — a 30-minute session gets one small task, a 2-hour session can tackle the next sprint item.
+
+If the user already has a goal in mind, skip the time-budget calibration and cron pacing — go straight to step 2 for context restoration, then work toward their stated goal.
 
 **If the user mentions a hard stop at a specific time** (e.g. "lunch at 1pm", "run at 2:30"), schedule a one-shot warning 15 minutes before using CronCreate:
 

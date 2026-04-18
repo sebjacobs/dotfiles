@@ -59,17 +59,25 @@ Report the job ID so it can be cancelled if plans change.
 
 ### 2 — Restore context from session logs
 
-Read the last few entries to understand where things left off:
+First check which branches have logs — cheaper than letting `tail` error when nothing exists:
+
+```bash
+jotter ls --project <project>
+```
+
+If the current branch has a log, read its last few entries:
 
 ```bash
 jotter tail --project <project> --branch <branch> --limit 5
 ```
 
-If no entries exist for this branch, check if there's context from the project's main branch:
+If the current branch isn't in `jotter ls` but `main` is, fall back to that for broader project context:
 
 ```bash
 jotter tail --project <project> --branch main --limit 3
 ```
+
+If neither exists, skip straight to step 3 — no prior context to restore.
 
 Surface the most recent finish entry's `**Next:**` field — that's the handover from last session. Present it verbatim (or a tight summary) before proposing a goal, so the user knows you've picked up exactly where things left off.
 

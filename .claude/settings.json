@@ -39,7 +39,8 @@
       "Read",
       "WebFetch",
       "WebSearch",
-      "Write"
+      "Write",
+      "Bash(jotter:*)"
     ],
     "deny": [
       "Bash(rm -rf *)",

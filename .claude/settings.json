@@ -64,5 +64,18 @@
   },
   "effortLevel": "medium",
   "skipAutoPermissionPrompt": true,
-  "voiceEnabled": true
+  "voiceEnabled": true,
+  "hooks": {
+    "PreCompact": [
+      {
+        "matcher": "auto",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "echo '{\"continue\": false, \"stopReason\": \"Auto-compact blocked. Run /save-session to checkpoint, then /clear — or /compact manually if you really want to compact.\"}'"
+          }
+        ]
+      }
+    ]
+  }
 }

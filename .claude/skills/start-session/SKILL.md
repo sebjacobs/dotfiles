@@ -43,9 +43,11 @@ Wait for their answer. If they say recover, invoke `/recover` before continuing 
 
 Before reading anything else, ask:
 
-> "How much time do we have today, and any hard stops during the session?"
+> "How much time do we have, and any hard stops? Already have a goal in mind? Or skip?"
 
 Wait for the answer. Use it to calibrate everything that follows — a 30-minute session gets one small task, a 2-hour session can tackle the next sprint item.
+
+If the user already has a goal in mind, skip the time-budget calibration and cron pacing — go straight to step 2 for context restoration, then work toward their stated goal.
 
 **If the user mentions a hard stop at a specific time** (e.g. "lunch at 1pm", "run at 2:30"), schedule a one-shot warning 15 minutes before using CronCreate:
 
@@ -59,17 +61,25 @@ Report the job ID so it can be cancelled if plans change.
 
 ### 2 — Restore context from session logs
 
-Read the last few entries to understand where things left off:
+First check which branches have logs — cheaper than letting `tail` error when nothing exists:
+
+```bash
+jotter ls --project <project>
+```
+
+If the current branch has a log, read its last few entries:
 
 ```bash
 jotter tail --project <project> --branch <branch> --limit 5
 ```
 
-If no entries exist for this branch, check if there's context from the project's main branch:
+If the current branch isn't in `jotter ls` but `main` is, fall back to that for broader project context:
 
 ```bash
 jotter tail --project <project> --branch main --limit 3
 ```
+
+If neither exists, skip straight to step 3 — no prior context to restore.
 
 Surface the most recent finish entry's `**Next:**` field — that's the handover from last session. Present it verbatim (or a tight summary) before proposing a goal, so the user knows you've picked up exactly where things left off.
 

@@ -31,6 +31,14 @@ git rev-parse --abbrev-ref HEAD
 
 ### 1 — Read recent context
 
+First check whether a log exists for this project/branch — cheaper than letting `tail` error:
+
+```bash
+jotter ls --project <project>
+```
+
+If the branch isn't listed, skip the read (nothing to duplicate) and go straight to step 2. Otherwise:
+
 ```bash
 jotter tail --project <project> --branch <branch> --limit 3
 ```

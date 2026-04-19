@@ -25,8 +25,8 @@ Run `date` to get the current time.
 Determine the project name and branch:
 
 ```bash
-basename "$(git rev-parse --show-toplevel)"
-git rev-parse --abbrev-ref HEAD
+PROJECT=$(jotter project)
+BRANCH=$(jotter branch)
 ```
 
 ### 1 — Read recent context
@@ -34,13 +34,13 @@ git rev-parse --abbrev-ref HEAD
 First check whether a log exists for this project/branch — cheaper than letting `tail` error:
 
 ```bash
-jotter ls --project <project>
+jotter ls --project "$PROJECT"
 ```
 
 If the branch isn't listed, skip the read (nothing to duplicate) and go straight to step 2. Otherwise:
 
 ```bash
-jotter tail --project <project> --branch <branch> --limit 3
+jotter tail --project "$PROJECT" --branch "$BRANCH" --limit 3
 ```
 
 Review the last few entries to understand what's already been captured — avoid duplicating.
@@ -49,8 +49,8 @@ Review the last few entries to understand what's already been captured — avoid
 
 ```bash
 jotter write \
-  --project <project> \
-  --branch <branch> \
+  --project "$PROJECT" \
+  --branch "$BRANCH" \
   --type checkpoint \
   --content "<progress since last entry, decisions made, current state>" \
   --next "<what you're about to do next>"
@@ -70,8 +70,8 @@ For "jot it down" / "make a note" style requests, skip the tail read and write a
 
 ```bash
 jotter write \
-  --project <project> \
-  --branch <branch> \
+  --project "$PROJECT" \
+  --branch "$BRANCH" \
   --type note \
   --content "<the thing to remember>"
 ```

@@ -21,14 +21,14 @@ Run `date` to get the actual current time before doing anything else. Use this t
 Determine the project name and branch:
 
 ```bash
-basename "$(git rev-parse --show-toplevel)"
-git rev-parse --abbrev-ref HEAD
+PROJECT=$(jotter project)
+BRANCH=$(jotter branch)
 ```
 
 Then check whether the previous session ended cleanly:
 
 ```bash
-jotter tail --project <project> --branch <branch> --limit 1
+jotter tail --project "$PROJECT" --branch "$BRANCH" --limit 1
 ```
 
 If the last entry is **not** a `finish` type (i.e. it's a `start`, `checkpoint`, or `break`), the previous session likely crashed or the user forgot `/finish`. Tell the user:
@@ -64,19 +64,19 @@ Report the job ID so it can be cancelled if plans change.
 First check which branches have logs — cheaper than letting `tail` error when nothing exists:
 
 ```bash
-jotter ls --project <project>
+jotter ls --project "$PROJECT"
 ```
 
 If the current branch has a log, read its last few entries:
 
 ```bash
-jotter tail --project <project> --branch <branch> --limit 5
+jotter tail --project "$PROJECT" --branch "$BRANCH" --limit 5
 ```
 
 If the current branch isn't in `jotter ls` but `main` is, fall back to that for broader project context:
 
 ```bash
-jotter tail --project <project> --branch main --limit 3
+jotter tail --project "$PROJECT" --branch main --limit 3
 ```
 
 If neither exists, skip straight to step 3 — no prior context to restore.
@@ -151,8 +151,8 @@ If the session is running past **7PM**, say so directly:
 
 ```bash
 jotter write \
-  --project <project> \
-  --branch <branch> \
+  --project "$PROJECT" \
+  --branch "$BRANCH" \
   --type start \
   --content "<session goal, available time, approach>"
 ```

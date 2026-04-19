@@ -20,8 +20,8 @@ Run `date` to get the actual current time. Check whether the session is running 
 Determine the project name and branch:
 
 ```bash
-basename "$(git rev-parse --show-toplevel)"
-git rev-parse --abbrev-ref HEAD
+PROJECT=$(jotter project)
+BRANCH=$(jotter branch)
 ```
 
 ---
@@ -32,8 +32,8 @@ Summarise the session — what was built or fixed, key decisions, anything disco
 
 ```bash
 jotter write \
-  --project <project> \
-  --branch <branch> \
+  --project "$PROJECT" \
+  --branch "$BRANCH" \
   --type finish \
   --content "<session summary: what shipped, decisions made, gotchas/debt>" \
   --next "<top priorities for next session, in order>"

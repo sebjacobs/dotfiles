@@ -18,8 +18,8 @@ Run `date` to get the current time.
 Determine the project name and branch:
 
 ```bash
-basename "$(git rev-parse --show-toplevel)"
-git rev-parse --abbrev-ref HEAD
+PROJECT=$(jotter project)
+BRANCH=$(jotter branch)
 ```
 
 ### 1 — Write the break entry
@@ -28,8 +28,8 @@ Summarise current progress in a few bullet points, then write it:
 
 ```bash
 jotter write \
-  --project <project> \
-  --branch <branch> \
+  --project "$PROJECT" \
+  --branch "$BRANCH" \
   --type break \
   --content "<what's been done, current state, anything half-finished>" \
   --next "<what to pick up on return>"

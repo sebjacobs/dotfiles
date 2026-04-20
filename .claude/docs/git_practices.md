@@ -149,6 +149,10 @@ git checkout feature/<name> && git reset --hard origin/feature/<name>
 git branch -D feature/<name>-clean
 ```
 
+**Conflict handling during `--no-commit` picks:** if a pick conflicts, do **not** run `git cherry-pick --continue` — that finalises the pick as its own commit, which breaks the squash. Instead: resolve the conflict, `git add` the resolved files, then let the remaining `--no-commit` picks run. Only after all picks in the group have staged their changes do you run `git commit -m "..."` once to produce the single squashed commit.
+
+Pick SHAs in chronological order (oldest → newest). Out-of-order picks produce conflicts that would have been clean otherwise.
+
 ---
 
 ## Docs and specs layout

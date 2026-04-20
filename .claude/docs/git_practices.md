@@ -148,3 +148,42 @@ git push origin feature/<name>-clean:feature/<name> --force
 git checkout feature/<name> && git reset --hard origin/feature/<name>
 git branch -D feature/<name>-clean
 ```
+
+---
+
+## Docs and specs layout
+
+Projects follow this layout for documentation unless a project-specific process is already in place (check the project's CLAUDE.md first):
+
+```
+docs/
+  spec.md                  ← project-level: what/why, in/out scope, tech choices (lives on main)
+  specs/
+    feature_name/          ← one directory per feature, on its feature branch
+      00_research.md       ← (optional) background reading, spike findings
+      01_spec.md           ← what/why, behaviour, acceptance criteria, in/out scope
+      02_plan.md           ← how: implementation approach, design decisions
+      03_tasks.md          ← step-by-step tasks, maps to TDD test list
+    done/                  ← completed feature directories move here on merge
+```
+
+- `docs/spec.md` is committed to main before any features begin — it is the project's authoritative what/why
+- Feature subdirectories live on their feature branch and merge to main with the feature code
+- Stage files are numbered so the order of work is self-documenting; `00_research.md` is optional
+- On merge, move the feature directory into `docs/specs/done/` to keep the active list uncluttered
+
+---
+
+## Branch hygiene — keeping branches focused
+
+Feature branches sometimes accumulate unrelated changes as a session evolves. Before raising a PR, review what's on the branch with `git log main...<branch> --oneline` and `git diff main...<branch> --stat`. If unrelated changes have crept in, split them out:
+
+1. Create a new branch from main: `git checkout main && git checkout -b feature/housekeeping`
+2. Cherry-pick only the relevant commits: `git cherry-pick <sha> <sha>`
+3. Land the focused branch first, then continue feature work on a clean base
+
+The test for whether a branch is focused: can you describe every commit on it in a single sentence that starts with the feature name? If not, it probably needs splitting.
+
+## Detecting merged branches
+
+When checking whether feature branches have been merged, `git branch --merged` only detects merge-commit merges — it misses branches that were fast-forward rebased onto main. Always verify with `git diff main...<branch> --stat` as well: if the diff is empty, the branch's changes are already on main regardless of how they got there.

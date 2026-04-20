@@ -165,17 +165,7 @@ When building any static HTML page, follow `~/.claude/docs/web_standards.md`. Ke
 
 **Branch cleanup before raising a PR and before merging:** review every commit with `git log main...<branch> --oneline`. Cleanup commits (renames, fixups, "oops" corrections) are noise — squash them into the commit they belong with. Every commit should tell one clear story. Do this twice: once before raising the PR, and again before merging in case review feedback triggered more fixup commits.
 
-**Squashing without interactive rebase** (interactive rebase is not available in Claude Code sessions — use this instead):
-
-```bash
-git checkout -b feature/<name>-clean origin/main
-git cherry-pick <sha>                          # individual commits to keep as-is
-git cherry-pick --no-commit <sha1> <sha2>      # group commits to squash into one
-git commit -m "..."
-git push origin feature/<name>-clean:feature/<name> --force
-git checkout feature/<name> && git reset --hard origin/feature/<name>
-git branch -D feature/<name>-clean
-```
+**Squashing without interactive rebase:** interactive rebase isn't available in Claude Code — rebuild the branch with `git cherry-pick --no-commit` instead. See `~/.claude/docs/git_practices.md` for the exact recipe.
 
 **Before you merge — checklist:**
 > Re-read this before running any merge command.
@@ -227,37 +217,11 @@ Include a TODO checklist for any remaining steps not yet done on the branch — 
 
 **Labels:** always add an appropriate label when creating a PR. Check available labels with `gh label list` and pick the best fit (e.g. `spike/idea`, `feature`, `spec`, `documentation`, `bug`).
 
-**Docs and specs layout:**
-Projects follow this layout for documentation unless a project-specific process is already in place (check the project's CLAUDE.md first):
-
-```
-docs/
-  spec.md                  ← project-level: what/why, in/out scope, tech choices (lives on main)
-  specs/
-    feature_name/          ← one directory per feature, on its feature branch
-      00_research.md       ← (optional) background reading, spike findings
-      01_spec.md           ← what/why, behaviour, acceptance criteria, in/out scope
-      02_plan.md           ← how: implementation approach, design decisions
-      03_tasks.md          ← step-by-step tasks, maps to TDD test list
-    done/                  ← completed feature directories move here on merge
-```
-
-- `docs/spec.md` is committed to main before any features begin — it is the project's authoritative what/why
-- Feature subdirectories live on their feature branch and merge to main with the feature code
-- Stage files are numbered so the order of work is self-documenting; `00_research.md` is optional
-- On merge, move the feature directory into `docs/specs/done/` to keep the active list uncluttered
-
 **When to skip a feature branch:**
 Small, self-contained changes (typo fixes, doc tweaks, single-line config changes) can be committed directly to main — not everything needs a branch and PR. This is a judgement call each time; when in doubt, ask.
 
-**Branch hygiene — keeping branches focused:**
-Feature branches sometimes accumulate unrelated changes as a session evolves. Before raising a PR, review what's on the branch with `git log main...<branch> --oneline` and `git diff main...<branch> --stat`. If unrelated changes have crept in, split them out:
+**Branch hygiene:** if unrelated changes crept into a feature branch, split them out before raising a PR — focused branches merge sooner and conflict less. The test: can every commit be described in one sentence starting with the feature name?
 
-1. Create a new branch from main: `git checkout main && git checkout -b feature/housekeeping`
-2. Cherry-pick only the relevant commits: `git cherry-pick <sha> <sha>`
-3. Land the focused branch first, then continue feature work on a clean base
+**Detecting merged branches:** `git branch --merged` misses fast-forward rebased branches — always verify with `git diff main...<branch> --stat`. Empty diff = already on main.
 
-The test for whether a branch is focused: can you describe every commit on it in a single sentence that starts with the feature name? If not, it probably needs splitting.
-
-**Branch cleanup:**
-When checking whether feature branches have been merged, `git branch --merged` only detects merge-commit merges — it misses branches that were fast-forward rebased onto main. Always verify with `git diff main...<branch> --stat` as well: if the diff is empty, the branch's changes are already on main regardless of how they got there.
+See `~/.claude/docs/git_practices.md` for the docs/specs directory layout, the full branch hygiene split-out recipe, and the branch triage runbook.

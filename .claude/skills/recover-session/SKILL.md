@@ -1,6 +1,6 @@
 ---
 name: recover-session
-description: Recover context from a crashed or unfinished session by reading the most recent JSONL transcript. Use when the user says "/recover", "recover session", "what was I doing", or when /start detects the last entry isn't a finish.
+description: Recover context from a crashed or unfinished session — check jotter logs first, fall back to Claude Code's raw JSONL transcript only if the jotter entries don't cover what happened. Use when the user says "/recover", "recover session", "what was I doing", or when /start detects the last entry isn't a finish.
 ---
 
 # Recover Session
@@ -32,7 +32,32 @@ If the last entry is `start`, `checkpoint`, or `break` (or there are no entries)
 
 ---
 
-### 1 — Find the transcript
+### 1 — Try jotter first
+
+Before reaching for the raw Claude Code transcript, check whether jotter already has enough to reconstruct the session. A checkpoint entry usually captures the substance — `/save` writes one whenever a thread concludes.
+
+Pull recent entries for the branch:
+
+```bash
+jotter tail --project "$PROJECT" --branch "$BRANCH" --limit 3
+```
+
+If the session spans a known date, widen the window across the whole project to catch work on other branches:
+
+```bash
+jotter ls --project "$PROJECT" --since YYYY-MM-DD --until YYYY-MM-DD
+jotter search --project "$PROJECT" --since YYYY-MM-DD --until YYYY-MM-DD ""
+```
+
+(`--since`/`--until` accept `YYYY-MM-DD` or `YYYY-MM-DDTHH:MM:SS`.)
+
+If the jotter entries fully cover what happened — you can answer "what was built, what decisions were made, where did it stop" without the transcript — **skip straight to step 3** and write the recovery entry from the jotter content. Tell the user you're doing so.
+
+Only fall back to the transcript (step 2) when jotter is thin: no checkpoint was written, the checkpoint stops well before the crash, or you need the literal back-and-forth to reconstruct a decision.
+
+---
+
+### 2 — Find the transcript (fallback)
 
 ```bash
 PROJECT_DIR="$HOME/.claude/projects/$(pwd | sed 's|/|-|g')"
@@ -67,7 +92,7 @@ Wait for confirmation before proceeding.
 
 ---
 
-### 2 — Extract the conversation
+### 2a — Extract the conversation (fallback)
 
 Filter the JSONL to only human and assistant text turns — skip `tool_use`, `tool_result`, `file-history-snapshot`, `permission-mode`, and `attachment` entries:
 

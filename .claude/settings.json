@@ -2,6 +2,8 @@
   "permissions": {
     "allow": [
       "Bash(chafa *)",
+      "Bash(date)",
+      "Bash(date *)",
       "Bash(ffprobe *)",
       "Bash(gh api *)",
       "Bash(gh auth status)",

@@ -68,18 +68,5 @@
   "statusLine": {
     "type": "command",
     "command": "bash ~/.claude/statusline.sh"
-  },
-  "hooks": {
-    "PreCompact": [
-      {
-        "matcher": "auto",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "echo '{\"decision\": \"block\", \"reason\": \"Auto-compact blocked. Run /save-session to checkpoint, then /clear — or /compact manually if you really want to compact.\"}'"
-          }
-        ]
-      }
-    ]
   }
 }

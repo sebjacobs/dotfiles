@@ -19,31 +19,11 @@ See `~/.claude/docs/eval_config_changes.md` for the full rubric, agent prompt te
 
 ## Session logging
 
-Session notes are stored in a private data repo via `jotter`, not in project repos. This eliminates the merge-time cleanup ceremony that SESSION.md required (prefix commits, manual resets, archiving).
+Session notes live in a private data repo via `jotter`, not in project repos. Skills handle it: `/start`, `/save`, `/finish`, `/break` call `jotter` — no manual session note management needed.
 
-- **Storage:** JSONL entries at `$JOTTER_DATA/logs/<project>/<branch>.jsonl`, one JSON object per line
-- **Branch names:** `/` replaced with `+` in filenames (e.g. `feature+auth.jsonl`)
-- **Commands:** `write` (append entry), `tail` (read recent), `ls` (list projects/branches), `search` (content search)
-- **Git integration:** every `write` auto-commits in the data repo; `--type finish` also pushes to remote
-- **Skills handle it:** `/start`, `/save`, `/finish`, `/break` call `jotter` — no manual session note management needed
-- **Context restoration:** `/start` runs `tail --limit 5` to restore context from the last few entries; the most recent finish entry's `**Next:**` field is the handover prompt
+For retrospective queries ("what did we do yesterday?"), reach for `jotter ls` / `jotter search` (both support `--since`/`--until`) before diving into Claude Code's raw transcripts (`~/.claude/projects/*.jsonl`).
 
-### Retrospective queries — reach for `jotter ls` / `jotter search` first
-
-Both `ls` and `search` accept `--since` and `--until` filters (`YYYY-MM-DD` or `YYYY-MM-DDTHH:MM:SS`, inclusive). Use these to reconstruct what happened over a window before diving into Claude Code's raw transcripts (`~/.claude/projects/*.jsonl`).
-
-- **"What did we do yesterday across this project?"**
-  ```bash
-  jotter ls --project "$(jotter project)" --since 2026-04-19 --until 2026-04-19
-  jotter search --project "$(jotter project)" --since 2026-04-19 --until 2026-04-19 ""
-  ```
-  `ls` gives branch-level entry counts; `search` with an empty term dumps the entries themselves.
-
-- **Narrow to a time window:** `--since 2026-04-19T14:00:00 --until 2026-04-19T19:00:00`.
-
-- **Find every mention of X in this project:** `jotter search --project "$(jotter project)" "X"` — also accepts `--branch`, `--type`, and the date filters.
-
-Rule of thumb: if the answer is likely in a checkpoint/finish entry, jotter is enough. Only fall back to the Claude Code transcript for moment-to-moment reconstruction (crashed mid-session with no checkpoint, or need the literal conversation).
+See `~/.claude/docs/jotter.md` for the full reference — storage layout, commands, git integration, and retrospective query patterns with examples.
 
 ## Session start routine
 
@@ -79,52 +59,9 @@ Within a session, the main levers for keeping context lean:
 
 ## Subagents and parallelisation
 
-**Subagents for research + build; background Bash for parallel compute.**
+**Subagents for research + build; background Bash for parallel compute.** Use a subagent when a task has many exploratory steps that would bloat the main context. Use background `Bash` for parallel compute on existing files. Route by cost: **Haiku** for mechanical execution, **Sonnet** default, **Opus** for high-stakes reasoning.
 
-- Use a subagent (general-purpose or Explore) when a task has many exploratory steps — browsing, reading files, writing a script, running it — that would bloat the main context. The subagent does all the work and returns a clean result.
-- Use background `Bash` tool calls for parallelising compute work on existing files (e.g. chunked scraping, batch processing). Simpler, no permission overhead.
-
-**Background subagent permission gotcha:** background subagents must have all tool permissions pre-approved at spawn time. Tools not approved upfront are auto-denied at runtime — no prompt is relayed to the user. Three options if a subagent needs `Bash`:
-  1. **Define a named subagent** in `.claude/agents/name.md` with a `tools:` frontmatter field — Claude Code prompts for those tools upfront before launching: `tools: Bash, Read, Write, Glob`
-  2. Run it in **foreground** mode (no `run_in_background: true`) so permission prompts come through normally
-  3. Skip subagents and use background `Bash` jobs directly — they inherit the session's already-approved permissions
-
-**Foreground subagents** relay permission prompts and `AskUserQuestion` calls normally — use these when the task may need interactive permission grants.
-
-**Agent file vs skill file:**
-
-| | Skill (`.claude/skills/`) | Agent (`.claude/agents/`) |
-|---|---|---|
-| Runs in | Main context | Isolated subprocess |
-| Sees conversation history | Yes | No |
-| Invoked by | `/skill-name` or auto-load | Agent tool or `@agent-name` |
-| Tool restrictions | `allowed-tools` (additive) | `tools` / `disallowedTools` |
-| Output | Stays in conversation | Summarised and returned |
-
-- **Skill** — reusable instructions/playbooks that need conversation context. Use for workflows like `/commit`, `/review-pr`, checklists.
-- **Agent** — self-contained work that produces a result and doesn't need conversation history. Use for scrapers, researchers, test runners, batch processors.
-
-Rule of thumb: if the task produces a *result* you hand back → agent. If it needs *context* from the conversation to work → skill.
-
-**One-off scoped agents** (no file needed): pass `--agents '{...}'` JSON at session launch — session-only, no file created, gone when Claude exits. Useful for spike sessions with restricted tool access (e.g. read-only research).
-
-**Partitioning work across parallel subagents:** when a task involves making the same change to N files (e.g. adding logging to 16 scripts, updating imports across a codebase), partition the files into groups of 4–6 and launch one background subagent per group. Each agent gets the full pattern/spec plus its specific file list. This is faster than sequential editing and keeps the main context clean. Rules:
-- Ensure no file appears in more than one agent's list — parallel writes to the same file will conflict
-- Give each agent the reference implementation to read first, so it applies the pattern consistently
-- Have agents edit only, no commits — review the diff and commit in the main context once all agents finish
-- Use **Haiku** for these agents when the pattern is fully specified — the task is mechanical execution, not judgment
-
-**Model routing — Haiku / Sonnet / Opus:**
-
-The Agent tool accepts a `model` parameter (`"haiku"`, `"sonnet"`, `"opus"`). Route tasks to the cheapest model that can handle them reliably.
-
-| Model | Use when |
-|---|---|
-| **Haiku** | High-volume, well-defined execution: classification, structured extraction, filtering/triage, scraping against a documented spec, batch tagging. Task is fully specified — no judgment needed. Add explicit "stop and report back" conditions for unexpected states. |
-| **Sonnet** | Default for most tasks: research, coding, multi-step workflows, anything requiring moderate judgment or adaptation. |
-| **Opus** | High-stakes reasoning: thesis construction, cross-source synthesis, ambiguous signal interpretation, decisions that affect capital allocation. Use when the output directly informs a buy/sell decision or requires extended reasoning over complex multi-signal inputs. |
-
-**The handoff pattern for Haiku:** Sonnet works out the details (schema, selectors, edge cases), documents them clearly in the agent prompt, then spawns Haiku to execute. Sonnet reviews output and decides next steps. If Haiku hits an unexpected state, it should stop and report rather than retry — build this into the prompt explicitly.
+See `~/.claude/docs/subagents.md` for the full reference — background permission gotcha, agent-vs-skill table, partitioning pattern, and the model routing rubric.
 
 ## Proactively suggest Claude Code features
 
@@ -132,17 +69,7 @@ You are working with a user who is actively learning Claude Code. When you notic
 
 If you're unsure what's currently available, use the `claude-code-guide` subagent to look it up before suggesting. Don't guess or cite stale knowledge.
 
-Patterns to watch for:
-- Manual repetition after tool use → hooks
-- Same change across many files → `/batch`
-- Pre-PR on sensitive code → `/security-review`
-- Uncertain approach before editing → `/plan`
-- Hard architectural decision → extended thinking
-- Long-running task to monitor → `/loop`
-- Repeatable self-contained pipeline → agent file
-- Recurring constraint Claude keeps forgetting → belongs in CLAUDE.md
-- High-volume repetitive extraction or classification → "This is a good Haiku job — want me to spawn a Haiku subagent for the batch?"
-- Thesis construction, capital-allocation decision, or complex cross-source reasoning → "This feels like an Opus task given the stakes — worth switching?"
+Common patterns: manual repetition after tool use → hooks; same change across many files → `/batch` or partitioned subagents; uncertain approach → `/plan`; long-running task to monitor → `/loop`; repeatable self-contained pipeline → agent file; recurring constraint Claude keeps forgetting → belongs in CLAUDE.md; high-volume mechanical work → Haiku subagent; high-stakes reasoning → Opus.
 
 ## Incremental delivery
 
@@ -160,32 +87,9 @@ Exception: spikes and proof-of-concept work are exploration, not delivery — sk
 
 ## Workspace hygiene — prefer project-local scratch dirs
 
-For temporary files and log output, use a **project-local directory** (`./tmp/`, `./log/`) rather than `/tmp`, `$TMPDIR`, or the user's home dir. Benefits:
+For temporary files and log output, use a **project-local directory** (`./tmp/`, `./log/`) rather than `/tmp`, `$TMPDIR`, or the user's home dir. Only use system temp dirs for genuinely ephemeral single-invocation fixtures — anything you might want to inspect afterward belongs in-tree.
 
-- Artefacts are visible in the project tree, easier to find and clean up
-- Gitignore them once per repo instead of juggling system paths
-- No cross-project pollution (two projects writing to `/tmp/output.log` collide silently)
-- Survives shell invocations and terminal sessions
-
-Only use system temp dirs (`/tmp`, `t.TempDir()` in Go, `tempfile` in Python) for genuinely ephemeral single-invocation fixtures — test scaffolding, throwaway subprocesses. Anything you might want to inspect afterward belongs in-tree.
-
-If the project doesn't have a `tmp/` or `log/` directory yet, create it with a `.gitkeep` placeholder and commit both:
-
-```bash
-mkdir -p tmp log
-touch tmp/.gitkeep log/.gitkeep
-```
-
-Then add to `.gitignore`:
-
-```
-tmp/*
-!tmp/.gitkeep
-log/*
-!log/.gitkeep
-```
-
-This keeps the directories present on every clone (so tooling can write to them without an explicit `mkdir` step) while still ignoring the contents. Commit the `.gitkeep` files and the `.gitignore` entries in the same commit.
+See `~/.claude/docs/workspace.md` for the setup recipe (`.gitkeep` + `.gitignore` pattern).
 
 ## Git workflow
 

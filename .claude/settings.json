@@ -65,6 +65,10 @@
   "effortLevel": "medium",
   "skipAutoPermissionPrompt": true,
   "voiceEnabled": true,
+  "statusLine": {
+    "type": "command",
+    "command": "bash ~/.claude/statusline.sh"
+  },
   "hooks": {
     "PreCompact": [
       {

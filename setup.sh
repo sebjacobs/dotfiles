@@ -52,6 +52,7 @@ files=(
   ".jotter"
   ".claude/CLAUDE.md"
   ".claude/settings.json"
+  ".claude/statusline.sh"
   ".claude/keybindings.json"
   ".claude/skills"
   ".claude/agents"

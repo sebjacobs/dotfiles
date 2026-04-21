@@ -30,6 +30,11 @@ proj() {
   fi
 
   if [[ -z "$name" ]]; then
+    # Bare `proj` inside a project prints its path.
+    if [[ -n "$_proj_root" ]]; then
+      echo "$_proj_root"
+      return 0
+    fi
     echo "Usage: proj <name>"
     echo ""
     print -l "$PROJ_DIR"/*(/:t) "$PROJ_DIR"/private/*(/:t) | grep -Ev '^(ARCHIVE|private)$' | sort

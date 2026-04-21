@@ -11,6 +11,20 @@
 .env
 .venv
 
+# Signing credentials — never commit
+*.p12
+*.pfx            # same format as .p12, different extension (Windows convention)
+*.cer            # the downloaded Apple cert (public, but no reason to commit)
+*.crt
+*.pem            # often contains private keys
+*.key
+*.p8             # App Store Connect API keys
+*.mobileprovision
+*.provisionprofile
+*.certSigningRequest
+*.keychain
+*.keychain-db
+
 # macOS
 .DS_Store
 

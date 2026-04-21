@@ -5,6 +5,8 @@
 .claude/skills/android-cli/
 .claude/worktrees
 
+.jotter
+
 # Secrets & env
 .secrets.zsh
 .secrets/*

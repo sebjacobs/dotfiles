@@ -6,7 +6,7 @@
 
 Hi! This is my personal dotfiles repo — the bits and pieces that make a fresh Mac feel like home.
 
-It's looked after by **Dennis**, a very smooth miniature dachshund with strong opinions about terminal prompts.
+It's looked after by **Dennis** 🐶, a very smooth miniature dachshund with strong opinions about terminal prompts.
 
 ## What's in the box
 

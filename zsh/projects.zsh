@@ -5,7 +5,36 @@ PROJ_DIR="$HOME/Tech/Projects/personal"
 
 proj() {
   local name="$1"
+
+  # Resolve the current project root if cwd is inside $PROJ_DIR.
+  local _proj_root=""
+  if [[ "$PWD/" == "$PROJ_DIR"/*/* ]]; then
+    local rel="${PWD#$PROJ_DIR/}"
+    local first="${rel%%/*}"
+    if [[ "$first" == "private" ]]; then
+      local rest="${rel#private/}"
+      _proj_root="$PROJ_DIR/private/${rest%%/*}"
+    elif [[ "$first" != "ARCHIVE" ]]; then
+      _proj_root="$PROJ_DIR/$first"
+    fi
+  fi
+
+  # `proj .` — cd to current project root.
+  if [[ "$name" == "." ]]; then
+    if [[ -z "$_proj_root" ]]; then
+      echo "proj: not inside a project under $PROJ_DIR" >&2
+      return 1
+    fi
+    cd "$_proj_root"
+    return 0
+  fi
+
   if [[ -z "$name" ]]; then
+    # Bare `proj` inside a project prints its path.
+    if [[ -n "$_proj_root" ]]; then
+      echo "$_proj_root"
+      return 0
+    fi
     echo "Usage: proj <name>"
     echo ""
     print -l "$PROJ_DIR"/*(/:t) "$PROJ_DIR"/private/*(/:t) | grep -Ev '^(ARCHIVE|private)$' | sort

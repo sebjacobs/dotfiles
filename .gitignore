@@ -1,38 +1,70 @@
+# Claude Code
 .claude/rag
 .claude/scheduled_tasks.lock
 .claude/settings.local.json
 .claude/skills/android-cli/
 .claude/worktrees
+
+# Secrets & env
 .secrets.zsh
-.venv
+.secrets/*
 .env
+.venv
+
+# Signing credentials — never commit
+*.p12
+*.pfx            # same format as .p12, different extension (Windows convention)
+*.cer            # the downloaded Apple cert (public, but no reason to commit)
+*.crt
+*.pem            # often contains private keys
+*.key
+*.p8             # App Store Connect API keys
+*.mobileprovision
+*.provisionprofile
+*.certSigningRequest
+*.keychain
+*.keychain-db
+
+# macOS
 .DS_Store
-config/database.yml
-.bundle
+
+# Editors & IDEs
+.idea
+.vscode
+*.swp
+
+# Node / Yarn
 node_modules
 .next
-.idea
-.gradle
-.vscode
 yarn-error.log
 .yarn
 .yarnrc
 .pnp
 .pnp.js
-vendor/cache
+
+# Python
 __pycache__
 .pytest_cache/
-.byebug_history
-public/sitemaps
-tags
-.foreman
-*.swp
 
-### Maven ###
+# Ruby / Rails
+.bundle
+.byebug_history
+.foreman
+config/database.yml
+public/sitemaps
+vendor/cache
+
+# Java / Gradle / Maven
+.gradle
 target/
 
+# ctags
+tags
+
+# Scratch output dirs
 nanobanana-output/
 
+# Project-local scratch (keep the dir, ignore contents)
 tmp/*
 !tmp/.gitkeep
 log/*

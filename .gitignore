@@ -63,10 +63,10 @@ target/
 # ctags
 tags
 
-# Scratch output dirs
+# Gemini
 nanobanana-output/
 
-# Project-local scratch (keep the dir, ignore contents)
+# Temp/Log files (keep the dir, ignore contents)
 tmp/*
 !tmp/.gitkeep
 log/*

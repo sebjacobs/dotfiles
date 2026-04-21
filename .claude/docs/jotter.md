@@ -1,5 +1,15 @@
 # Jotter — session logging reference
 
+> **`jotter search` with no search term returns every entry.** Combine with `--project`, `--branch`, `--since`, `--until` to dump a whole project, branch, or date window as full entries — not just counts. This is the fastest way to read back previous sessions in full. Easy to forget because "search" implies a query is required; it isn't.
+>
+> ```bash
+> jotter search --project "$(jotter project)"                       # everything, this project
+> jotter search --project "$(jotter project)" --branch main         # everything on main
+> jotter search --project "$(jotter project)" --since 2026-04-19    # everything from a date onwards
+> jotter search --project "$(jotter project)" --until 2026-04-19    # everything up to a date
+> jotter search --project "$(jotter project)" --since 2026-04-15 --until 2026-04-19   # windowed
+> ```
+
 Session notes are stored in a private data repo via `jotter`, not in project repos. This eliminates the merge-time cleanup ceremony that SESSION.md required (prefix commits, manual resets, archiving).
 
 ## Storage layout

@@ -11,9 +11,9 @@ proj() {
   if [[ "$PWD/" == "$PROJ_DIR"/*/* ]]; then
     local rel="${PWD#$PROJ_DIR/}"
     local first="${rel%%/*}"
-    if [[ "$first" == "private" ]]; then
-      local rest="${rel#private/}"
-      _proj_root="$PROJ_DIR/private/${rest%%/*}"
+    if [[ "$first" == "PRIVATE" ]]; then
+      local rest="${rel#PRIVATE/}"
+      _proj_root="$PROJ_DIR/PRIVATE/${rest%%/*}"
     elif [[ "$first" != "ARCHIVE" ]]; then
       _proj_root="$PROJ_DIR/$first"
     fi
@@ -37,25 +37,25 @@ proj() {
     fi
     echo "Usage: proj <name>"
     echo ""
-    print -l "$PROJ_DIR"/*(/:t) "$PROJ_DIR"/private/*(/:t) | grep -Ev '^(ARCHIVE|private)$' | sort
+    print -l "$PROJ_DIR"/*(/:t) "$PROJ_DIR"/PRIVATE/*(/:t) | grep -Ev '^(ARCHIVE|PRIVATE)$' | sort
     return 1
   fi
   # Exact match
   if [[ -d "$PROJ_DIR/$name" ]]; then
     cd "$PROJ_DIR/$name"
     return 0
-  elif [[ -d "$PROJ_DIR/private/$name" ]]; then
-    cd "$PROJ_DIR/private/$name"
+  elif [[ -d "$PROJ_DIR/PRIVATE/$name" ]]; then
+    cd "$PROJ_DIR/PRIVATE/$name"
     return 0
   fi
 
   # Lazy match: prefix then substring (across both dirs)
   local -a matches
-  matches=("$PROJ_DIR"/${name}*(N/:t) "$PROJ_DIR"/private/${name}*(N/:t))
-  matches=(${matches:#(ARCHIVE|private)})
+  matches=("$PROJ_DIR"/${name}*(N/:t) "$PROJ_DIR"/PRIVATE/${name}*(N/:t))
+  matches=(${matches:#(ARCHIVE|PRIVATE)})
   if (( ${#matches} == 0 )); then
-    matches=("$PROJ_DIR"/*${name}*(N/:t) "$PROJ_DIR"/private/*${name}*(N/:t))
-    matches=(${matches:#(ARCHIVE|private)})
+    matches=("$PROJ_DIR"/*${name}*(N/:t) "$PROJ_DIR"/PRIVATE/*${name}*(N/:t))
+    matches=(${matches:#(ARCHIVE|PRIVATE)})
   fi
 
   case ${#matches} in
@@ -64,7 +64,7 @@ proj() {
       if [[ -d "$PROJ_DIR/$matches[1]" ]]; then
         cd "$PROJ_DIR/$matches[1]"
       else
-        cd "$PROJ_DIR/private/$matches[1]"
+        cd "$PROJ_DIR/PRIVATE/$matches[1]"
       fi
       ;;
     *)
@@ -77,8 +77,8 @@ proj() {
 
 _proj() {
   local -a dirs
-  dirs=("$PROJ_DIR"/*(/:t) "$PROJ_DIR"/private/*(/:t))
-  dirs=(${dirs:#(ARCHIVE|private)})
+  dirs=("$PROJ_DIR"/*(/:t) "$PROJ_DIR"/PRIVATE/*(/:t))
+  dirs=(${dirs:#(ARCHIVE|PRIVATE)})
   compadd -- $dirs
 }
 compdef _proj proj

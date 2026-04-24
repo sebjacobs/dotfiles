@@ -100,7 +100,7 @@ Changes accumulate as dirty working tree state during a session. Do **not** comm
 **Five principles (the why behind the rules below):**
 
 1. **Atomic commits** — each commit has one reason to exist. If you can describe it with "and", split it. Atomic commits can be reverted independently, bisected to find regressions, and reviewed in isolation.
-2. **Messages tell the story** — the body must answer three questions: **Why** (what problem motivated this?), **Benefit unlocked** (what does this enable?), **Trade-offs** (why this approach over alternatives?). The diff shows the what; the message is for reasoning. A body that only describes what changed is incomplete.
+2. **Messages tell the story** — the body must answer three questions: **Why** (what problem motivated this?), **Benefit unlocked** (what does this enable?), **Trade-offs** (why this approach over alternatives?). The diff shows the what; the message is for reasoning. A body that only describes what changed is incomplete. **If the motivation isn't clear from context, ask before writing the message — don't guess.**
 3. **Revise before sharing** — your working history is a draft. Squash fixups, reorder for clarity, remove noise before pushing. The goal is a history someone else can read, not a truthful log of false starts.
 4. **Single-purpose branches** — keep branches focused. If development produced something independently useful, cherry-pick it out and land it early. Smaller PRs merge sooner, conflict less, and deliver value faster.
 5. **Linear history** — rebase feature branches onto main before merging. Group related commits under a descriptive merge commit. A readable history is a debugging tool.

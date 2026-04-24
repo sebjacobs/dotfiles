@@ -60,6 +60,8 @@ files=(
   ".claude/docs"
   ".config/opencode/opencode.json"
   ".config/opencode/package.json"
+  ".config/opencode/package-lock.json"
+  ".config/opencode/bun.lock"
 )
 
 for file in "${files[@]}"

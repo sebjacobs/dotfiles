@@ -33,6 +33,7 @@ fi
 dirs=(
   ".bundle"
   ".claude"
+  ".config/opencode"
 )
 
 for dir in "${dirs[@]}"
@@ -57,6 +58,8 @@ files=(
   ".claude/skills"
   ".claude/agents"
   ".claude/docs"
+  ".config/opencode/opencode.json"
+  ".config/opencode/package.json"
 )
 
 for file in "${files[@]}"

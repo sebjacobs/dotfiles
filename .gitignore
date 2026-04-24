@@ -1,3 +1,7 @@
+# opencode
+.config/opencode/bun.lock
+.config/opencode/package-lock.json
+
 # Claude Code
 .claude/rag
 .claude/scheduled_tasks.lock

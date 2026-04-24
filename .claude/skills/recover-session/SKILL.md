@@ -28,7 +28,9 @@ jotter tail --project "$PROJECT" --branch "$BRANCH" --limit 1
 
 If the last entry is a `finish`, the session ended cleanly — nothing to recover. Tell the user and stop.
 
-If the last entry is `start`, `checkpoint`, or `break` (or there are no entries), the previous session likely crashed or the user forgot `/finish`.
+If the last entry is `start`, `checkpoint`, or `break`, the previous session likely crashed or the user forgot `/finish` — proceed to step 1.
+
+**If there are no jotter entries at all for this project/branch, skip step 1 and go straight to step 2.** There is nothing for jotter to cover, so the transcript is the only source. Do not interpret "no entries" as "nothing to recover" — the whole point of `/recover` is that `/finish` didn't run.
 
 ---
 
@@ -53,81 +55,30 @@ jotter search --project "$PROJECT" --since YYYY-MM-DD --until YYYY-MM-DD ""
 
 If the jotter entries fully cover what happened — you can answer "what was built, what decisions were made, where did it stop" without the transcript — **skip straight to step 3** and write the recovery entry from the jotter content. Tell the user you're doing so.
 
-Only fall back to the transcript (step 2) when jotter is thin: no checkpoint was written, the checkpoint stops well before the crash, or you need the literal back-and-forth to reconstruct a decision.
+Otherwise fall back to the transcript (step 2). The bar for "jotter covers it" is high — if there's no checkpoint, the checkpoint stops well before the crash, or you're unsure whether it covers the full session, go to step 2. When in doubt, read the transcript; skipping it is the failure mode this skill exists to prevent.
 
 ---
 
-### 2 — Find the transcript (fallback)
+### 2 — Find and extract the transcript (fallback)
+
+The skill ships a helper at `scripts/transcript.py` that lists recent JSONLs and extracts human/assistant turns. Use it — do not re-derive the project-dir path or re-implement the filter inline.
+
+List recent transcripts for the current repo, with modified time and first user message:
 
 ```bash
-PROJECT_DIR="$HOME/.claude/projects/$(pwd | sed 's|/|-|g')"
-ls -lt "$PROJECT_DIR"/*.jsonl | head -5
+~/.claude/skills/recover-session/scripts/transcript.py list
 ```
 
-Show the user the timestamp and first user message from the most recent transcript so they can confirm it's the right session:
+Show the top result to the user and ask: "Is this the session to recover from, or should I look at an older one?" Wait for confirmation.
+
+Then extract the chosen transcript (skips `tool_use`, `tool_result`, snapshots, etc.) and read it:
 
 ```bash
-LATEST=$(ls -t "$PROJECT_DIR"/*.jsonl | head -1)
-stat -f "%Sm" "$LATEST"
-python3 -c "
-import json, sys
-for line in open('$LATEST'):
-    msg = json.loads(line)
-    if msg.get('type') == 'user':
-        content = msg.get('message', {}).get('content', '')
-        if isinstance(content, str):
-            print(content[:200])
-        elif isinstance(content, list):
-            for block in content:
-                if isinstance(block, dict) and block.get('type') == 'text':
-                    print(block['text'][:200])
-                    break
-        break
-"
+~/.claude/skills/recover-session/scripts/transcript.py extract <path-to-jsonl>
+# writes /tmp/recovered-session.md by default; pass --out to override
 ```
 
-Ask the user: "Is this the session to recover from, or should I look at an older one?"
-
-Wait for confirmation before proceeding.
-
----
-
-### 2a — Extract the conversation (fallback)
-
-Filter the JSONL to only human and assistant text turns — skip `tool_use`, `tool_result`, `file-history-snapshot`, `permission-mode`, and `attachment` entries:
-
-```bash
-python3 -c "
-import json, sys
-
-for line in open('$LATEST'):
-    msg = json.loads(line)
-    msg_type = msg.get('type')
-
-    if msg_type == 'user':
-        content = msg.get('message', {}).get('content', '')
-        if isinstance(content, str) and content.strip():
-            print(f'## User\n{content[:500]}\n')
-        elif isinstance(content, list):
-            for block in content:
-                if isinstance(block, dict) and block.get('type') == 'text':
-                    print(f'## User\n{block[\"text\"][:500]}\n')
-                    break
-
-    elif msg_type == 'assistant':
-        content = msg.get('message', {}).get('content', '')
-        if isinstance(content, str) and content.strip():
-            print(f'## Assistant\n{content[:500]}\n')
-        elif isinstance(content, list):
-            texts = [b.get('text','') for b in content if isinstance(b, dict) and b.get('type') == 'text']
-            combined = ' '.join(texts).strip()
-            if combined:
-                print(f'## Assistant\n{combined[:500]}\n')
-" > /tmp/recovered-session.md
-wc -l /tmp/recovered-session.md
-```
-
-Read the extracted conversation to understand what happened.
+Read `/tmp/recovered-session.md` to understand what happened.
 
 ---
 

@@ -52,7 +52,11 @@
     ],
     "defaultMode": "default"
   },
-  "model": "opus",
+  "model": "sonnet",
+  "statusLine": {
+    "type": "command",
+    "command": "bash ~/.claude/statusline.sh"
+  },
   "enabledPlugins": {
     "gopls-lsp@claude-plugins-official": true
   },
@@ -65,10 +69,7 @@
     }
   },
   "effortLevel": "medium",
-  "skipAutoPermissionPrompt": true,
-  "voiceEnabled": true,
-  "statusLine": {
-    "type": "command",
-    "command": "bash ~/.claude/statusline.sh"
-  }
+  "advisorModel": "opus",
+  "agentPushNotifEnabled": true,
+  "voiceEnabled": true
 }

@@ -23,6 +23,8 @@ Session notes live in a private data repo via `jotter`, not in project repos. Sk
 
 For retrospective queries ("what did we do yesterday?"), reach for `jotter ls` / `jotter search` (both support `--since`/`--until`) before diving into Claude Code's raw transcripts (`~/.claude/projects/*.jsonl`).
 
+**Before invoking `jotter` directly from the shell, read `~/.claude/docs/jotter.md` for the exact subcommand and flag forms — don't guess from memory.** The CLI uses `jotter write` (not `add`), requires `--project`, `--branch`, `--type`, `--content`, and the doc has copy-pasteable one-liners. Same rule applies to any tool this file points at a `~/.claude/docs/X.md` reference for: read the doc first, don't fall back to `--help` after a failed guess.
+
 See `~/.claude/docs/jotter.md` for the full reference — storage layout, commands, git integration, and retrospective query patterns with examples.
 
 ## Session start routine

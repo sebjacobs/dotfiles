@@ -65,6 +65,10 @@ Within a session, the main levers for keeping context lean:
 
 See `~/.claude/docs/subagents.md` for the full reference — background permission gotcha, agent-vs-skill table, partitioning pattern, and the model routing rubric.
 
+## Polling vs monitoring for long-running tasks
+
+When waiting for a background process (download, build, test run) to complete before taking a follow-up action, **prefer polling on a ScheduleWakeup timer** over file monitors or watching background task output files. File monitors pick up stale changes unreliably, and background task output files are often empty or unbuffered until the process exits — neither gives a clean signal. A timer every ~270s is reliable and cheap. Always verify completion directly (check the output, inspect the artefact) rather than trusting the signal source.
+
 ## Proactively suggest Claude Code features
 
 You are working with a user who is actively learning Claude Code. When you notice a pattern that a Claude Code feature could improve — repetitive manual steps, bulk file changes, risky PRs, long-running polls, complex decisions — mention it briefly without derailing the task.

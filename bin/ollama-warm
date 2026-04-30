@@ -1,0 +1,42 @@
+#!/usr/bin/env bash
+# Boot the Ollama daemon if not running, then pre-load a model with a long
+# keep_alive so the first real prompt doesn't pay the cold-start cost.
+#
+# Usage:
+#   ollama-warm                  # warms gemma4:e4b for 24h
+#   ollama-warm gemma3:4b        # warms a different model
+#   OLLAMA_KEEP_ALIVE=2h ollama-warm
+
+set -euo pipefail
+
+MODEL="${1:-gemma4:e4b}"
+KEEP_ALIVE="${OLLAMA_KEEP_ALIVE:-24h}"
+HOST="http://localhost:11434"
+LOG="$HOME/.ollama/serve.log"
+
+if ! curl -sf "$HOST/api/version" >/dev/null 2>&1; then
+  echo "ollama daemon not running — starting in background..."
+  mkdir -p "$(dirname "$LOG")"
+  nohup ollama serve >"$LOG" 2>&1 &
+  disown
+
+  for _ in $(seq 1 20); do
+    if curl -sf "$HOST/api/version" >/dev/null 2>&1; then
+      break
+    fi
+    sleep 0.5
+  done
+
+  if ! curl -sf "$HOST/api/version" >/dev/null 2>&1; then
+    echo "daemon failed to come up — check $LOG" >&2
+    exit 1
+  fi
+fi
+
+echo "pre-warming $MODEL (keep_alive=$KEEP_ALIVE)..."
+curl -sf "$HOST/api/generate" \
+  -d "{\"model\":\"$MODEL\",\"keep_alive\":\"$KEEP_ALIVE\"}" \
+  >/dev/null
+
+echo
+ollama ps

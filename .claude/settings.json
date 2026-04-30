@@ -52,7 +52,7 @@
     ],
     "defaultMode": "default"
   },
-  "model": "sonnet",
+  "model": "Opus",
   "statusLine": {
     "type": "command",
     "command": "bash ~/.claude/statusline.sh"

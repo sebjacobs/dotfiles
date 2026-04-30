@@ -1,0 +1,32 @@
+{
+  "$schema": "https://opencode.ai/config.json",
+  "provider": {
+    "mlx": {
+      "models": {
+        "unsloth/gemma-4-31b-it-UD-MLX-4bit": {
+          "name": "unsloth/gemma-4-31b-it-UD-MLX-4bit"
+        }
+      },
+      "name": "MLX",
+      "npm": "@ai-sdk/openai-compatible",
+      "options": {
+        "baseURL": "http://127.0.0.1:8080/v1"
+      }
+    },
+    "ollama": {
+      "models": {
+        "gemma4:e4b": {
+          "name": "gemma4:e4b"
+        },
+        "qwen3.5": {
+          "name": "qwen3.5"
+        }
+      },
+      "name": "Ollama",
+      "npm": "@ai-sdk/openai-compatible",
+      "options": {
+        "baseURL": "http://127.0.0.1:11434/v1"
+      }
+    }
+  }
+}

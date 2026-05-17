@@ -1,20 +1,22 @@
 ---
 name: finish-session
-description: Run the end-of-session checklist — write session summary to session log, move completed items to DONE.md, add new items to ROADMAP.md, check CLAUDE.md is current, review dirty git state and propose commits. Use when the user says "/finish", "/finish-session", "/end", "let's wrap up", "wrap up", "let's finish", "end this session", "let's call it", "that's enough for today", or similar.
+description: Run the end-of-session checklist — commit any dirty work, write a finish entry to the jotter log, cancel the session cron timer. Leaves a walk-away state. Use when the user says "/finish", "/finish-session", "/end", "let's wrap up", "wrap up", "let's finish", "end this session", "let's call it", "that's enough for today", or similar.
 ---
 
 # Finish Session
 
-End-of-session checklist. Captures the handoff and leaves a clean tree.
+End-of-session wrap-up. **Walk-away guarantee:** when this skill completes, the laptop can be closed — dirty work is committed, the log entry is written, the cron timer is cancelled, and no further actions follow.
 
 **Mid-session break (`/break`)?** Use `break-session` instead.
+
+**Want ROADMAP / DONE.md / CLAUDE.md curation?** That used to live here but is now out of scope — do it before invoking `/finish`, or run a dedicated `/tracker`-style skill if you have one.
 
 ---
 
 ## Defaults
 
-- **Tight by default.** Bullets, not prose. Short jotter content, short commit bodies. Expand only where something genuinely needs explanation.
-- **Detect, don't ask.** Probe for tracker files and remotes; skip irrelevant steps silently. Don't run a step just to confirm it doesn't apply.
+- **Tight by default.** Bullets, not prose. Short jotter content, short commit bodies.
+- **ASAP.** Minimal back-and-forth — one commit-grouping proposal, one log preview, done.
 
 ---
 
@@ -25,62 +27,44 @@ End-of-session checklist. Captures the handoff and leaves a clean tree.
 ```bash
 PROJECT=$(jotter project)
 BRANCH=$(jotter branch)
-[ -f ROADMAP.md ] && HAS_ROADMAP=1 || HAS_ROADMAP=0
-git remote -v | grep -q github.com && HAS_GITHUB=1 || HAS_GITHUB=0
 ```
 
-### 1 — Write the finish entry
-
-Bullets. Cover what shipped, key decisions, anything that changed the plan. `--next` is the handover — 2-3 priorities, in order.
-
-```bash
-jotter write --project "$PROJECT" --branch "$BRANCH" --type finish \
-  --content "<bullet summary>" --next "<top priorities>"
-```
-
-Auto-commits and pushes.
-
-### 2 — Update the project tracker (if `HAS_ROADMAP`)
-
-- Move completed items from `ROADMAP.md` to today's date in `DONE.md`
-- Add anything discovered this session (Now / Next / Later)
-- Move started **Next** items to **Now**; promote ready **Later** items if they have a spec
-
-Skip this step entirely if `ROADMAP.md` is absent — the project uses a different convention (e.g. `TODO.md`), and that's handled by the project's own CLAUDE.md.
-
-### 3 — Update project CLAUDE.md
-
-If anything changed — new script, renamed column, updated workflow, new skill, schema change — update the relevant section. Skip if nothing meaningful changed.
-
-### 4 — Open PR checklists (if `HAS_GITHUB`)
-
-```bash
-gh pr list --state open
-```
-
-For each open PR touched this session, refresh the `## TODO before merge` checklist. Skip the whole step when `HAS_GITHUB=0`.
-
-### 5 — Dirty state and commits
+### 1 — Commit dirty work
 
 ```bash
 git status
 git diff --stat
 ```
 
-Propose a grouping, wait for approval. One commit per logical change. Tight messages — long bodies are the exception, not the default.
+If the tree is clean, skip to step 2.
 
-### 6 — Final check
+Otherwise propose a grouping (one commit per logical change), wait for approval, commit. These are proper end-of-session commits — not WIP. Tight messages.
+
+### 2 — Preview the finish entry
+
+Render the draft back to the user as a quoted block. Bullets cover what shipped (referencing the commits just made), key decisions, anything that changed the plan. `--next` is the handover — 2-3 priorities, in order.
+
+> **Content:**
+> - <bullet 1: what shipped>
+> - <bullet 2: key decision>
+>
+> **Next:**
+> - <priority 1>
+> - <priority 2>
+
+### 3 — Write — final log action
 
 ```bash
-git status
+jotter write --project "$PROJECT" --branch "$BRANCH" --type finish \
+  --content "<bullets from preview>" --next "<priorities from preview>"
 ```
 
-Tree should be clean. Confirm push.
+Auto-commits and pushes the data repo.
 
-If this session set a cron timer (via `/start`), cancel it now. **Do not** call `CronList` to fish for one — only cancel if you already know the job-id from this session.
+### 4 — Cancel session timer
 
----
+If this session set a cron timer (via `/start`), cancel it now with `CronDelete <job-id>`. **Do not** call `CronList` to fish for one — only cancel if you already know the job-id from this session.
 
-## Sign-off
+### 5 — Sign-off
 
-> "Done. Today: [what shipped]. Next session: [top priority]."
+> "Done at HH:MM. Tree clean, log written, timer cancelled. Safe to close the laptop."

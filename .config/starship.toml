@@ -9,7 +9,11 @@ $python\
 $ruby\
 $golang\
 $line_break\
+$status\
 $character"""
+
+[status]
+disabled = false
 
 # Chruby exports RUBY_VERSION into every shell, so detect_variables fires
 # globally. Restrict detection to project files.

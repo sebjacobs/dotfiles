@@ -22,3 +22,5 @@ export PATH="$PATH:$HOME/.lmstudio/bin"
 
 # Prompt
 eval "$(starship init zsh)"
+
+export PATH="$HOME/.local/bin:$PATH"

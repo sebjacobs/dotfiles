@@ -5,117 +5,82 @@ description: Run the end-of-session checklist — write session summary to sessi
 
 # Finish Session
 
-Runs the end-of-session checklist. Ensures every session ends cleanly with the handoff state captured for next time.
+End-of-session checklist. Captures the handoff and leaves a clean tree.
 
-**Mid-session break (`/break`)?** Use the `break-session` skill instead.
+**Mid-session break (`/break`)?** Use `break-session` instead.
+
+---
+
+## Defaults
+
+- **Tight by default.** Bullets, not prose. Short jotter content, short commit bodies. Expand only where something genuinely needs explanation.
+- **Detect, don't ask.** Probe for tracker files and remotes; skip irrelevant steps silently. Don't run a step just to confirm it doesn't apply.
 
 ---
 
 ## Steps
 
-### 0 — Get context
-
-Run `date` to get the actual current time. Check whether the session is running past 7PM — if so, flag it.
-
-Determine the project name and branch:
+### 0 — Context
 
 ```bash
 PROJECT=$(jotter project)
 BRANCH=$(jotter branch)
+[ -f ROADMAP.md ] && HAS_ROADMAP=1 || HAS_ROADMAP=0
+git remote -v | grep -q github.com && HAS_GITHUB=1 || HAS_GITHUB=0
 ```
-
----
 
 ### 1 — Write the finish entry
 
-Summarise the session — what was built or fixed, key decisions, anything discovered that changed the plan. The `--next` field is the handover: the 2-3 most important things to pick up next session, in priority order.
+Bullets. Cover what shipped, key decisions, anything that changed the plan. `--next` is the handover — 2-3 priorities, in order.
 
 ```bash
-jotter write \
-  --project "$PROJECT" \
-  --branch "$BRANCH" \
-  --type finish \
-  --content "<session summary: what shipped, decisions made, gotchas/debt>" \
-  --next "<top priorities for next session, in order>"
+jotter write --project "$PROJECT" --branch "$BRANCH" --type finish \
+  --content "<bullet summary>" --next "<top priorities>"
 ```
 
-This auto-commits and pushes to the data repo remote.
+Auto-commits and pushes.
 
----
+### 2 — Update the project tracker (if `HAS_ROADMAP`)
 
-### 2 — Move completed items to DONE.md
+- Move completed items from `ROADMAP.md` to today's date in `DONE.md`
+- Add anything discovered this session (Now / Next / Later)
+- Move started **Next** items to **Now**; promote ready **Later** items if they have a spec
 
-Scan `ROADMAP.md` for any `- [x]` items (or items completed this session). Move them to the top of `DONE.md` under today's date heading. Remove them from `ROADMAP.md`.
+Skip this step entirely if `ROADMAP.md` is absent — the project uses a different convention (e.g. `TODO.md`), and that's handled by the project's own CLAUDE.md.
 
----
+### 3 — Update project CLAUDE.md
 
-### 3 — Add new items
+If anything changed — new script, renamed column, updated workflow, new skill, schema change — update the relevant section. Skip if nothing meaningful changed.
 
-Anything discovered during the session that needs doing:
-- New task for the active sprint → add to `ROADMAP.md` **Now**
-- Agreed next priority → add to `ROADMAP.md` **Next**
-- Backlog idea / later item → add to `ROADMAP.md` **Later** (or `BACKLOG.md` if detailed)
-
-Don't leave it to memory.
-
----
-
-### 4 — Update roadmap horizons
-
-In `ROADMAP.md`:
-- If a **Next** item was started this session, move it to **Now**
-- If priorities shifted, reorder accordingly
-- If a **Later** item is now ready to start, check it has a spec in `docs/specs/` before moving to **Next**
-
----
-
-### 5 — Update CLAUDE.md
-
-If anything changed — new script, renamed column, updated workflow, new skill, schema change — update the relevant section of the project's `CLAUDE.md`. Future sessions start by reading it; stale docs are worse than no docs.
-
----
-
-### 6 — Update open PR TODO checklists
-
-Check for any open PRs on the current branch or any feature branches worked on this session:
+### 4 — Open PR checklists (if `HAS_GITHUB`)
 
 ```bash
 gh pr list --state open
 ```
 
-For each open PR, review what's left to do and add any remaining TODOs as a checklist at the bottom of the PR description under a `## TODO before merge` heading. This makes the PR a live tracker of what's left, so the next session picks up exactly where things left off.
+For each open PR touched this session, refresh the `## TODO before merge` checklist. Skip the whole step when `HAS_GITHUB=0`.
 
----
-
-### 7 — Check dirty state and propose commits
+### 5 — Dirty state and commits
 
 ```bash
 git status
 git diff --stat
 ```
 
-Survey all uncommitted changes. Propose a grouping to the user — one commit per logical feature or change. Wait for approval before staging or committing.
+Propose a grouping, wait for approval. One commit per logical change. Tight messages — long bodies are the exception, not the default.
 
----
-
-### 8 — Final check
-
-Once commits are done:
+### 6 — Final check
 
 ```bash
 git status
 ```
 
-Tree should be clean. If not, flag any remaining uncommitted files and ask whether to commit, stash, or leave.
+Tree should be clean. Confirm push.
 
-Confirm push if not already done.
-
-Cancel the session cron timer if one is running (`CronDelete <job-id>`).
+If this session set a cron timer (via `/start`), cancel it now. **Do not** call `CronList` to fish for one — only cancel if you already know the job-id from this session.
 
 ---
 
 ## Sign-off
-
-End with a one-line summary of the session:
 
 > "Done. Today: [what shipped]. Next session: [top priority]."

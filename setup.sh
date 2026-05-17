@@ -58,6 +58,7 @@ files=(
   ".claude/skills"
   ".claude/agents"
   ".claude/docs"
+  ".config/starship.toml"
   ".config/opencode/opencode.json"
   ".config/opencode/package.json"
   ".config/opencode/package-lock.json"

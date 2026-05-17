@@ -10,14 +10,6 @@
 
 __gwt_root() { git worktree list --porcelain 2>/dev/null | head -1 | sed 's/^worktree //'; }
 
-__gwt_short() {
-  local name="$1"
-  name="${name#feature/}"
-  name="${name#bugfix/}"
-  name="${name#hotfix/}"
-  echo "$name"
-}
-
 gwt() {
   local root=$(__gwt_root)
   if [[ -z "$root" ]]; then echo "Not in a git repo" >&2; return 1; fi
@@ -32,8 +24,9 @@ gwt() {
       local branch="$1"
       if [[ -z "$branch" ]]; then echo "Usage: gwt add [-b] <branch>" >&2; return 1; fi
 
-      local short=$(__gwt_short "$branch")
-      local wt_dir="$wt_base/$short"
+      # Encode slashes so the worktree lives in a single folder
+      # (e.g. spike/twitter-classifier -> spike+twitter-classifier)
+      local wt_dir="$wt_base/${branch//\//+}"
 
       if [[ -d "$wt_dir" ]]; then
         echo "Worktree already exists, cd-ing into it"

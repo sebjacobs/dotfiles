@@ -68,8 +68,7 @@
       }
     }
   },
-  "effortLevel": "medium",
-  "advisorModel": "opus",
   "agentPushNotifEnabled": true,
+  "skipAutoPermissionPrompt": true,
   "voiceEnabled": true
 }

@@ -84,11 +84,28 @@ proj() {
   fi
 
   # Fuzzy: prefix then substring across display names.
+  # If the query contains `/`, match each segment independently against
+  # namespaced client keys — `proj nest/heat` resolves nesta/asf_visit_a_heat_pump.
   local -a keys=(${(k)projects})
   local -a matches
-  matches=(${(M)keys:#${name}*})
-  if (( ${#matches} == 0 )); then
-    matches=(${(M)keys:#*${name}*})
+  if [[ "$name" == */* ]]; then
+    local qc="${name%%/*}" qp="${name#*/}"
+    local k kc kp
+    for k in ${(M)keys:#*/*}; do
+      kc="${k%%/*}"; kp="${k#*/}"
+      [[ "$kc" == "$qc"* && "$kp" == "$qp"* ]] && matches+=("$k")
+    done
+    if (( ${#matches} == 0 )); then
+      for k in ${(M)keys:#*/*}; do
+        kc="${k%%/*}"; kp="${k#*/}"
+        [[ "$kc" == *"$qc"* && "$kp" == *"$qp"* ]] && matches+=("$k")
+      done
+    fi
+  else
+    matches=(${(M)keys:#${name}*})
+    if (( ${#matches} == 0 )); then
+      matches=(${(M)keys:#*${name}*})
+    fi
   fi
 
   case ${#matches} in

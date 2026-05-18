@@ -71,5 +71,6 @@
   "theme": "dark-daltonized",
   "agentPushNotifEnabled": true,
   "skipAutoPermissionPrompt": true,
-  "voiceEnabled": true
+  "voiceEnabled": true,
+  "effortLevel": "medium"
 }

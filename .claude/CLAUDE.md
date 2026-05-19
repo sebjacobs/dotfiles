@@ -221,6 +221,7 @@ PR descriptions follow the same philosophy as commit messages — explain the *w
 3. **Gotchas / things to be aware of** — anything non-obvious: migration steps, dependencies, trade-offs made, things that might bite a reviewer or future contributor
 4. **References** — links to anything that informed the work: Claude session URLs, GitHub issues, external docs, research, prior art. Every reference must include a URL (or commit SHA for in-repo references) — a bare name like "the upload-artifact release notes" isn't a reference, it's a chore for the reviewer. Footnote style (`[1]`, `[2]` with link definitions at the bottom of the section) reads well when there are more than two. **Don't link to predecessor/draft PRs from the live PR** — the live PR is the canonical one and a back-reference to a closed/draft is noise. The pointer always goes the other way: when a PR is closed or superseded, leave a comment on the closed PR linking to the live one (e.g. "Superseded by #646").
 5. **Test plan** — checklist of how to verify the change works
+6. **Questions / Feedback** — *optional*. A numbered list of specific questions for reviewers when there are open design decisions, judgement calls, or things you'd like a second opinion on. Better than a vague "thoughts?" — directs the reviewer's attention to where input is actually useful. Skip if there's nothing to ask.
 
 Include a TODO checklist for any remaining steps not yet done on the branch — this makes the PR a live tracker of what's left.
 

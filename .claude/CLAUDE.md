@@ -209,6 +209,7 @@ Always rebase the feature branch onto main before merging — ensures the histor
 > Re-read this before every `git push`, especially to main.
 - Run `git log origin/<branch>..HEAD --oneline` and confirm every listed commit is intended to ship. `git push` pushes *all* ahead-commits, not just the one you just made.
 - **Never push WIP commits to main.** If a commit message starts with `WIP`, `fixup!`, `squash!`, `tmp`, or similar, it doesn't belong on main — rebase/squash it first, or move it to a branch.
+- **Dummy / throwaway / test / verification commits on a feature branch must be prefixed `DO NOT MERGE:`.** Anything that's only on the branch to exercise CI, reproduce a bug, sanity-check a workflow change, or otherwise prove a point — and is not meant to ship — gets this prefix. Examples: a deliberately failing test to confirm an artifact upload, a temporary `puts` in production code to verify a log path, a hardcoded value to flush out a downstream behaviour. The prefix makes them impossible to miss during pre-merge branch cleanup — revert (or drop them with a rebase) before raising the PR for review, or at the very latest before merging.
 - If you find unexpected ahead-commits on main (e.g. from a previous session), pause and surface them to the user before pushing. Don't assume they're safe to ship.
 - Never `git push --force` to main.
 

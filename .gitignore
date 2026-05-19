@@ -1,5 +1,6 @@
 
 # Claude Code
+CLAUDE.local.md
 .claude/rag
 .claude/scheduled_tasks.lock
 .claude/settings.local.json

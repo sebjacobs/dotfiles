@@ -1,5 +1,7 @@
 # Claude global conventions
 
+> **MANDATORY FIRST ACTION (applies to subagents too):** before answering or calling any other tool, you **must** Read `./CLAUDE.local.md` if it exists at the root of the current working directory. This is not optional and is not skippable for "trivial" tasks. `CLAUDE.local.md` contains per-checkout overrides that take precedence over the project `CLAUDE.md` and this global file. If the file does not exist, proceed normally. If it exists, its instructions override any conflicting guidance — including defaults derived from your user-context (e.g. how to address the user).
+
 > **Note:** The entire managed `~/.claude/` config lives in `~/dotfiles` — `CLAUDE.md`, `skills/`, `agents/`, `docs/`, `settings.json`, and `keybindings.json` are all symlinks into `~/dotfiles/.claude/`. Any new files added to these directories, and any edits, must be committed in the `~/dotfiles` git repo, not here.
 
 ## Evaluating global and project config changes

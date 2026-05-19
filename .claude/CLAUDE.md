@@ -151,7 +151,7 @@ When building any static HTML page, follow `~/.claude/docs/web_standards.md`. Ke
 - Does the body answer all three: **Why** (motivation), **Benefit unlocked** (what this enables), **Trade-offs** (why this approach)?
 - Are unrelated changes in separate commits?
 - For multi-file commits, is there a `Changes:` list in the body?
-- Are relevant links/references included? (Claude session URLs, GitHub issues, external docs)
+- Are relevant references included, and does each one have a URL or commit SHA? Naming a doc/issue/commit without a link is dead weight to a future reader.
 - Is the message being passed via HEREDOC?
 
 **Commit grouping rules:**
@@ -167,7 +167,7 @@ When building any static HTML page, follow `~/.claude/docs/web_standards.md`. Ke
   3. **Trade-offs / approach rationale** — why this approach over the alternatives? What was consciously decided not to do?
 - A body that only describes *what* changed is incomplete — future contributors need the reasoning, not just the diff
 - If multiple files are involved, a brief `Changes:` list of what was done
-- Include links/references where relevant — e.g. Claude chat session URLs, GitHub issues, PRs, external docs, or research that informed the change
+- Include references where relevant — e.g. Claude chat session URLs, GitHub issues, PRs, external docs, or research that informed the change. **Every reference must carry a URL or commit SHA** — "see the upload-artifact release notes" with no link forces the reader to go hunting; "see the upload-artifact v7 release notes (https://github.com/actions/upload-artifact/releases/tag/v7.0.0)" answers itself. Same for in-repo references: cite the commit SHA, not just "as discussed in the earlier refactor".
 - Always end with `Co-Authored-By: Claude [model] <noreply@anthropic.com>` — use the actual model you're running on (available in your system context, e.g. `Claude Sonnet 4.6`)
 - Use a HEREDOC to pass the message to `git commit -m`
 
@@ -218,7 +218,7 @@ PR descriptions follow the same philosophy as commit messages — explain the *w
 1. **Summary** — one short paragraph: what this PR does, what problem it solves or capability it enables, and the reasoning behind the approach
 2. **Key changes** — brief bullet list of the significant files/areas touched (not exhaustive)
 3. **Gotchas / things to be aware of** — anything non-obvious: migration steps, dependencies, trade-offs made, things that might bite a reviewer or future contributor
-4. **References** — links to anything that informed the work: Claude session URLs, GitHub issues, external docs, research, prior art
+4. **References** — links to anything that informed the work: Claude session URLs, GitHub issues, external docs, research, prior art. Every reference must include a URL (or commit SHA for in-repo references) — a bare name like "the upload-artifact release notes" isn't a reference, it's a chore for the reviewer. Footnote style (`[1]`, `[2]` with link definitions at the bottom of the section) reads well when there are more than two.
 5. **Test plan** — checklist of how to verify the change works
 
 Include a TODO checklist for any remaining steps not yet done on the branch — this makes the PR a live tracker of what's left.

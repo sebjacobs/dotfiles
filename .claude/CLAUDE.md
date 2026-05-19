@@ -151,7 +151,7 @@ When building any static HTML page, follow `~/.claude/docs/web_standards.md`. Ke
 - Does the body answer all three: **Why** (motivation), **Benefit unlocked** (what this enables), **Trade-offs** (why this approach)?
 - Are unrelated changes in separate commits?
 - For multi-file commits, is there a `Changes:` list in the body?
-- Are relevant links/references included? (Claude session URLs, GitHub issues, external docs)
+- Are relevant references included, and does each one have a URL or commit SHA? Naming a doc/issue/commit without a link is dead weight to a future reader.
 - Is the message being passed via HEREDOC?
 
 **Commit grouping rules:**
@@ -167,7 +167,7 @@ When building any static HTML page, follow `~/.claude/docs/web_standards.md`. Ke
   3. **Trade-offs / approach rationale** — why this approach over the alternatives? What was consciously decided not to do?
 - A body that only describes *what* changed is incomplete — future contributors need the reasoning, not just the diff
 - If multiple files are involved, a brief `Changes:` list of what was done
-- Include links/references where relevant — e.g. Claude chat session URLs, GitHub issues, PRs, external docs, or research that informed the change
+- Include references where relevant — e.g. Claude chat session URLs, GitHub issues, PRs, external docs, or research that informed the change. **Every reference must carry a URL or commit SHA** — "see the upload-artifact release notes" with no link forces the reader to go hunting; "see the upload-artifact v7 release notes (https://github.com/actions/upload-artifact/releases/tag/v7.0.0)" answers itself. Same for in-repo references: cite the commit SHA, not just "as discussed in the earlier refactor".
 - Always end with `Co-Authored-By: Claude [model] <noreply@anthropic.com>` — use the actual model you're running on (available in your system context, e.g. `Claude Sonnet 4.6`)
 - Use a HEREDOC to pass the message to `git commit -m`
 
@@ -209,6 +209,7 @@ Always rebase the feature branch onto main before merging — ensures the histor
 > Re-read this before every `git push`, especially to main.
 - Run `git log origin/<branch>..HEAD --oneline` and confirm every listed commit is intended to ship. `git push` pushes *all* ahead-commits, not just the one you just made.
 - **Never push WIP commits to main.** If a commit message starts with `WIP`, `fixup!`, `squash!`, `tmp`, or similar, it doesn't belong on main — rebase/squash it first, or move it to a branch.
+- **Dummy / throwaway / test / verification commits on a feature branch must be prefixed `DO NOT MERGE:`.** Anything that's only on the branch to exercise CI, reproduce a bug, sanity-check a workflow change, or otherwise prove a point — and is not meant to ship — gets this prefix. Examples: a deliberately failing test to confirm an artifact upload, a temporary `puts` in production code to verify a log path, a hardcoded value to flush out a downstream behaviour. The prefix makes them impossible to miss during pre-merge branch cleanup — revert (or drop them with a rebase) before raising the PR for review, or at the very latest before merging.
 - If you find unexpected ahead-commits on main (e.g. from a previous session), pause and surface them to the user before pushing. Don't assume they're safe to ship.
 - Never `git push --force` to main.
 
@@ -218,10 +219,13 @@ PR descriptions follow the same philosophy as commit messages — explain the *w
 1. **Summary** — one short paragraph: what this PR does, what problem it solves or capability it enables, and the reasoning behind the approach
 2. **Key changes** — brief bullet list of the significant files/areas touched (not exhaustive)
 3. **Gotchas / things to be aware of** — anything non-obvious: migration steps, dependencies, trade-offs made, things that might bite a reviewer or future contributor
-4. **References** — links to anything that informed the work: Claude session URLs, GitHub issues, external docs, research, prior art
+4. **References** — links to anything that informed the work: Claude session URLs, GitHub issues, external docs, research, prior art. Every reference must include a URL (or commit SHA for in-repo references) — a bare name like "the upload-artifact release notes" isn't a reference, it's a chore for the reviewer. Footnote style (`[1]`, `[2]` with link definitions at the bottom of the section) reads well when there are more than two. **Don't link to predecessor/draft PRs from the live PR** — the live PR is the canonical one and a back-reference to a closed/draft is noise. The pointer always goes the other way: when a PR is closed or superseded, leave a comment on the closed PR linking to the live one (e.g. "Superseded by #646").
 5. **Test plan** — checklist of how to verify the change works
+6. **Questions / Feedback** — *optional*. A numbered list of specific questions for reviewers when there are open design decisions, judgement calls, or things you'd like a second opinion on. Better than a vague "thoughts?" — directs the reviewer's attention to where input is actually useful. Skip if there's nothing to ask.
 
 Include a TODO checklist for any remaining steps not yet done on the branch — this makes the PR a live tracker of what's left.
+
+**Editing PR descriptions, issues, comments — fetch live state first, edit in place, never regenerate from a remembered template.** The user is often editing the same artifact concurrently in the GitHub UI. Regenerating the whole body from your last-known version silently stomps their edits. The right pattern is always: `gh pr view <n> --json body --jq .body > /tmp/body.md` → `Edit` only the line that needs changing → `gh pr edit <n> --body-file /tmp/body.md`. Applies equally to issue bodies, PR comments, anywhere a human and you might both write. If a small targeted edit isn't possible (e.g. major restructure), confirm with the user before pushing a full rewrite.
 
 **Labels:** always add an appropriate label when creating a PR. Check available labels with `gh label list` and pick the best fit (e.g. `spike/idea`, `feature`, `spec`, `documentation`, `bug`).
 

@@ -7,8 +7,35 @@
 #        gwt root               cd back to the main worktree root
 #        gwt status             Overview of all worktrees
 #        gwt path [<name>]      Echo the absolute path of a worktree (current if no name)
+#
+# .worktreeinclude:
+#   If $repo_root/.worktreeinclude exists, paths listed in it (one per line, # for
+#   comments, blank lines ignored) are copied from the main worktree into a new
+#   worktree on `gwt add`. Useful for gitignored files like .env or
+#   .claude/settings.local.json that don't carry over via `git worktree add`.
 
 __gwt_root() { git worktree list --porcelain 2>/dev/null | head -1 | sed 's/^worktree //'; }
+
+__gwt_apply_include() {
+  local src_root="$1" dst_root="$2"
+  local include="$src_root/.worktreeinclude"
+  [[ -f "$include" ]] || return 0
+  local line entry src dst
+  while IFS= read -r line || [[ -n "$line" ]]; do
+    entry="${line%%#*}"
+    entry="${entry#"${entry%%[![:space:]]*}"}"
+    entry="${entry%"${entry##*[![:space:]]}"}"
+    [[ -z "$entry" ]] && continue
+    src="$src_root/$entry"
+    dst="$dst_root/$entry"
+    if [[ ! -e "$src" ]]; then
+      echo "gwt: .worktreeinclude entry not found, skipping: $entry" >&2
+      continue
+    fi
+    mkdir -p "$(dirname "$dst")"
+    cp -R "$src" "$dst"
+  done < "$include"
+}
 
 gwt() {
   local root=$(__gwt_root)
@@ -39,7 +66,10 @@ gwt() {
       else
         git worktree add "$wt_dir" "$branch"
       fi
-      if [[ $? -eq 0 ]]; then cd "$wt_dir"; fi
+      if [[ $? -eq 0 ]]; then
+        __gwt_apply_include "$root" "$wt_dir"
+        cd "$wt_dir"
+      fi
       ;;
 
     cd)

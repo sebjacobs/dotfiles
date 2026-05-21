@@ -28,7 +28,9 @@ jotter tail --project "$PROJECT" --branch "$BRANCH" --limit 1
 
 If the last entry is a `finish`, the session ended cleanly — nothing to recover. Tell the user and stop.
 
-If the last entry is `start`, `checkpoint`, or `break`, the previous session likely crashed or the user forgot `/finish` — proceed to step 1.
+If the last entry is a `checkpoint` or `break`, the session was intentionally paused — `checkpoint` via `/save` (typically before `/clear` to trim context), `break` via `/break` (stepping away briefly). Neither is a crash. Show the entry to the user and stop; they can continue the session normally. Only proceed to step 1 if the user explicitly says the session crashed or if the entry is clearly stale (e.g. >24h old with no further activity).
+
+If the last entry is a `start` with no follow-up, the previous session likely crashed before any checkpoint was written — proceed to step 1.
 
 **If there are no jotter entries at all for this project/branch, skip step 1 and go straight to step 2.** There is nothing for jotter to cover, so the transcript is the only source. Do not interpret "no entries" as "nothing to recover" — the whole point of `/recover` is that `/finish` didn't run.
 

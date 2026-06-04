@@ -13,6 +13,7 @@ CLAUDE.local.md
 .secrets.zsh
 .secrets/*
 .env
+.envrc
 .venv
 
 # Signing credentials — never commit

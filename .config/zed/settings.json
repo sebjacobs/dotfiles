@@ -64,7 +64,12 @@
     "**/Thumbs.db",
     "**/.classpath",
     "**/.settings",
-    "**/.bundle",
-    "**/.yarn"
-  ]
+    "**/.yarn",
+    "**/vendor"
+  ],
+  "languages": {
+    "Ruby": {
+      "language_servers": ["ruby-lsp"]
+    }
+  }
 }

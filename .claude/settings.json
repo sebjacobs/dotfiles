@@ -69,9 +69,10 @@
       }
     }
   },
+  "effortLevel": "medium",
   "theme": "dark-daltonized",
+  "inputNeededNotifEnabled": true,
   "agentPushNotifEnabled": true,
   "skipAutoPermissionPrompt": true,
-  "voiceEnabled": true,
-  "effortLevel": "medium"
+  "voiceEnabled": true
 }

@@ -9,10 +9,17 @@
 #        gwt path [<name>]      Echo the absolute path of a worktree (current if no name)
 #
 # .worktreeinclude:
-#   If $repo_root/.worktreeinclude exists, paths listed in it (one per line, # for
-#   comments, blank lines ignored) are copied from the main worktree into a new
-#   worktree on `gwt add`. Useful for gitignored files like .env or
-#   .claude/settings.local.json that don't carry over via `git worktree add`.
+#   If $repo_root/.worktreeinclude exists, matching gitignored files are copied from
+#   the main worktree into a new worktree on `gwt add`. Useful for gitignored files
+#   like .env or .claude/settings.local.json that don't carry over via
+#   `git worktree add`. Mirrors Claude Code's own .worktreeinclude behaviour:
+#     - entries are gitignore-style patterns (globs supported; blank lines and
+#       full-line # comments ignored) — git parses the file directly
+#     - only untracked, gitignored files are eligible; tracked files (which arrive
+#       via `git worktree add`) and non-ignored files are never copied
+#     - symlinks are skipped
+#   Divergence: directory matches are copied recursively via `cp -R`; Claude Code
+#   copies individual files only and skips whole directories.
 
 __gwt_root() { git worktree list --porcelain 2>/dev/null | head -1 | sed 's/^worktree //'; }
 
@@ -20,21 +27,33 @@ __gwt_apply_include() {
   local src_root="$1" dst_root="$2"
   local include="$src_root/.worktreeinclude"
   [[ -f "$include" ]] || return 0
-  local line entry src dst
-  while IFS= read -r line || [[ -n "$line" ]]; do
-    entry="${line%%#*}"
-    entry="${entry#"${entry%%[![:space:]]*}"}"
-    entry="${entry%"${entry##*[![:space:]]}"}"
-    [[ -z "$entry" ]] && continue
-    src="$src_root/$entry"
-    dst="$dst_root/$entry"
-    if [[ ! -e "$src" ]]; then
-      echo "gwt: .worktreeinclude entry not found, skipping: $entry" >&2
+
+  # Intersect two `git ls-files` sets so we copy exactly the files Claude Code would:
+  #   ignored  = untracked files ignored by the standard gitignore rules
+  #   matched  = untracked files matching the .worktreeinclude patterns (git parses
+  #              the file as a gitignore, giving us glob + comment handling for free)
+  # The overlap is the set that is both gitignored AND requested by .worktreeinclude.
+  local -a ignored matched copied
+  ignored=("${(@f)$(git -C "$src_root" ls-files --others --ignored --exclude-standard --directory)}")
+  matched=("${(@f)$(git -C "$src_root" ls-files --others --ignored --exclude-from="$include" --directory)}")
+
+  local rel src dst
+  for rel in "${matched[@]}"; do
+    [[ -z "$rel" ]] && continue
+    (( ${ignored[(Ie)$rel]} )) || continue   # keep only entries also in the gitignored set
+    rel="${rel%/}"                            # --directory adds a trailing slash to dirs
+    src="$src_root/$rel"
+    dst="$dst_root/$rel"
+    if [[ -L "$src" ]]; then
+      echo "gwt: skipping symlink in .worktreeinclude: $rel" >&2
       continue
     fi
     mkdir -p "$(dirname "$dst")"
     cp -R "$src" "$dst"
-  done < "$include"
+    copied+=("$rel")
+  done
+
+  (( ${#copied} )) && echo "gwt: copied ${#copied} entries from .worktreeinclude: ${copied[*]}"
 }
 
 gwt() {

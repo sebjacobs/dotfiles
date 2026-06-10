@@ -17,9 +17,14 @@
 #       full-line # comments ignored) — git parses the file directly
 #     - only untracked, gitignored files are eligible; tracked files (which arrive
 #       via `git worktree add`) and non-ignored files are never copied
-#     - symlinks are skipped
-#   Divergence: directory matches are copied recursively via `cp -R`; Claude Code
-#   copies individual files only and skips whole directories.
+#   Divergences from Claude Code (which only ever copies more, never less):
+#     - symlinks are dereferenced (`cp -RL`) so the worktree gets a real file —
+#       Claude Code skips symlinks. Needed for symlinked gitignored files like a
+#       per-checkout CLAUDE.local.md, which would otherwise be silently absent in
+#       every worktree (and its mandated rules lost). Trade-off: the worktree copy
+#       is a standalone snapshot and can drift from the canonical target.
+#     - directory matches are copied recursively via `cp -R`; Claude Code copies
+#       individual files only and skips whole directories.
 
 __gwt_root() { git worktree list --porcelain 2>/dev/null | head -1 | sed 's/^worktree //'; }
 
@@ -44,12 +49,8 @@ __gwt_apply_include() {
     rel="${rel%/}"                            # --directory adds a trailing slash to dirs
     src="$src_root/$rel"
     dst="$dst_root/$rel"
-    if [[ -L "$src" ]]; then
-      echo "gwt: skipping symlink in .worktreeinclude: $rel" >&2
-      continue
-    fi
     mkdir -p "$(dirname "$dst")"
-    cp -R "$src" "$dst"
+    cp -RL "$src" "$dst"                       # -L dereferences symlinks so the worktree gets real files
     copied+=("$rel")
   done
 

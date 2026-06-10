@@ -9,47 +9,47 @@
 {
   "cli_default_open_behavior": "existing_window",
   "project_panel": {
-    "dock": "right"
+    "dock": "right",
   },
   "outline_panel": {
-    "dock": "right"
+    "dock": "right",
   },
   "collaboration_panel": {
-    "dock": "right"
+    "dock": "right",
   },
   "git_panel": {
-    "dock": "right"
+    "dock": "right",
   },
   "disable_ai": true,
   "telemetry": {
     "diagnostics": false,
-    "metrics": false
+    "metrics": false,
   },
   "agent": {
     "dock": "left",
-    "default_profile": "ask"
+    "default_profile": "ask",
   },
   "agent_servers": {
     "your_agent": {
       "type": "custom",
       "command": "path_to_executable",
       "args": [],
-      "env": {}
-    }
+      "env": {},
+    },
   },
   "vim_mode": true,
   "autosave": "on_focus_change",
   "vim": {
     "use_system_clipboard": "on_yank",
     "use_smartcase_find": true,
-    "use_multiline_find": true
+    "use_multiline_find": true,
   },
   "ui_font_size": 16,
   "buffer_font_size": 16,
   "theme": {
     "mode": "system",
     "light": "Ayu Light",
-    "dark": "Ayu Dark"
+    "dark": "Ayu Dark",
   },
   "show_completions_on_input": false,
   "show_edit_predictions": false,
@@ -65,11 +65,26 @@
     "**/.classpath",
     "**/.settings",
     "**/.yarn",
-    "**/vendor"
+    "**/vendor",
   ],
+  "lsp": {
+    "ruby-lsp": {
+      "settings": {
+        "use_bundler": false,
+      },
+    },
+    "herb": {
+      "settings": {
+        "use_bundler": false,
+      },
+    },
+  },
   "languages": {
     "Ruby": {
-      "language_servers": ["ruby-lsp"]
-    }
-  }
+      "language_servers": ["ruby-lsp"],
+    },
+    "HTML+ERB": {
+      "language_servers": ["herb", "ruby-lsp"],
+    },
+  },
 }

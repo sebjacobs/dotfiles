@@ -4,7 +4,7 @@
 #        gwt cd <name>          cd into an existing worktree
 #        gwt ls                 List worktrees
 #        gwt rm <name>          Remove a worktree (with confirmation)
-#        gwt root               cd back to the main worktree root
+#        gwt root [-p|--path]   cd back to the main worktree root (or echo it with -p)
 #        gwt status             Overview of all worktrees
 #        gwt path [<name>]      Echo the absolute path of a worktree (current if no name)
 #
@@ -173,7 +173,11 @@ gwt() {
 
     root)
       local main_root=$(git worktree list --porcelain | head -1 | sed 's/^worktree //')
-      cd "$main_root"
+      if [[ "$1" == "-p" || "$1" == "--path" ]]; then
+        echo "$main_root"
+      else
+        cd "$main_root"
+      fi
       ;;
 
     status)
@@ -228,7 +232,7 @@ gwt() {
       echo "  cd <name>           cd into an existing worktree"
       echo "  ls                  List worktrees"
       echo "  rm <name>           Remove a worktree"
-      echo "  root                cd back to the main worktree root"
+      echo "  root [-p|--path]    cd back to the main worktree root (or echo it with -p)"
       echo "  status              Overview of all worktrees"
       echo "  path [<name>]       Echo absolute path of a worktree (current if no name)"
       return 1
@@ -254,6 +258,9 @@ _gwt() {
       add)
         # Complete branch names
         compadd -- $(git branch --format='%(refname:short)' 2>/dev/null)
+        ;;
+      root)
+        compadd -- -p --path
         ;;
     esac
   fi

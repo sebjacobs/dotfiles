@@ -34,6 +34,7 @@ dirs=(
   ".bundle"
   ".claude"
   ".config/opencode"
+  ".config/helix"
 )
 
 for dir in "${dirs[@]}"
@@ -63,6 +64,7 @@ files=(
   ".config/opencode/package.json"
   ".config/opencode/package-lock.json"
   ".config/opencode/bun.lock"
+  ".config/helix/config.toml"
 )
 
 for file in "${files[@]}"

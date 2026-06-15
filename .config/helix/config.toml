@@ -1,0 +1,13 @@
+theme = "gruvbox"
+
+[editor]
+line-number = "relative"
+cursorline = true
+bufferline = "multiple"
+
+[editor.cursor-shape]
+insert = "bar"
+normal = "block"
+
+[editor.lsp]
+display-inlay-hints = true

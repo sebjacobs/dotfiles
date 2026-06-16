@@ -108,7 +108,7 @@ Changes accumulate as dirty working tree state during a session. Do **not** comm
 **Five principles (the why behind the rules below):**
 
 1. **Atomic commits** — each commit has one reason to exist. If you can describe it with "and", split it. Atomic commits can be reverted independently, bisected to find regressions, and reviewed in isolation.
-2. **Messages tell the story** — the body must answer three questions: **Why** (what problem motivated this?), **Benefit unlocked** (what does this enable?), **Trade-offs** (why this approach over alternatives?). The diff shows the what; the message is for reasoning. A body that only describes what changed is incomplete. **If the motivation isn't clear from context, ask before writing the message — don't guess.**
+2. **Messages tell the story** — the body must *cover* three things: **Why** (what problem motivated this?), **Benefit unlocked** (what does this enable?), **Trade-offs** (why this approach over alternatives?). These three are a *content* checklist — don't turn them into literal `Why:`/`Benefit:`/`Trade-offs:` labels; weave them into flowing first-person prose matching the project's recent commits. (Section headers themselves are encouraged for longer bodies — see the format rules below — just not these three as the headers.) The diff shows the what; the message is for reasoning. A body that only describes what changed is incomplete. **If the motivation isn't clear from context, ask before writing the message — don't guess. Before writing, skim recent merged/individual commits in the repo and mirror their structure and tone.**
 3. **Revise before sharing** — your working history is a draft. Squash fixups, reorder for clarity, remove noise before pushing. The goal is a history someone else can read, not a truthful log of false starts.
 4. **Single-purpose branches** — keep branches focused. If development produced something independently useful, cherry-pick it out and land it early. Smaller PRs merge sooner, conflict less, and deliver value faster.
 5. **Linear history** — rebase feature branches onto main before merging. Group related commits under a descriptive merge commit. A readable history is a debugging tool.
@@ -149,10 +149,10 @@ When building any static HTML page, follow `~/.claude/docs/web_standards.md`. Ke
 - Has the user confirmed they're happy with the feature? Never commit automatically.
 - Is this the smallest unit of change that delivers value on its own? (atomic — could it be reverted independently without breaking anything?)
 - Does each commit have exactly one reason to change? (Single Responsibility Principle — if you can describe it with "and", split it)
-- Is the first line a short imperative summary of the *value*, not the implementation? (< 72 chars)
-- Does the body answer all three: **Why** (motivation), **Benefit unlocked** (what this enables), **Trade-offs** (why this approach)?
+- Is the first line a `<tag>: ` prefix (feat/fix/refactor/docs/chore/test/perf) followed by a short imperative summary of the *value*, not the implementation? (< 72 chars total)
+- Does the body *cover* all three (as prose, not headings): **Why** (motivation), **Benefit unlocked** (what this enables), **Trade-offs** (why this approach)?
+- Does the prose match the voice of the repo's recent commits? (skim them first)
 - Are unrelated changes in separate commits?
-- For multi-file commits, is there a `Changes:` list in the body?
 - Are relevant references included, and does each one have a URL or commit SHA? Naming a doc/issue/commit without a link is dead weight to a future reader.
 - Is the message being passed via HEREDOC?
 
@@ -162,14 +162,10 @@ When building any static HTML page, follow `~/.claude/docs/web_standards.md`. Ke
 - If a feature touches multiple files, those go in the **same** commit
 
 **Commit message format:**
-- First line: short imperative summary (< 72 chars)
-- Blank line, then a body that answers three questions:
-  1. **Why** — what problem or need motivated this change?
-  2. **Benefit unlocked** — what does this enable that wasn't possible before?
-  3. **Trade-offs / approach rationale** — why this approach over the alternatives? What was consciously decided not to do?
-- A body that only describes *what* changed is incomplete — future contributors need the reasoning, not just the diff
-- If multiple files are involved, a brief `Changes:` list of what was done
-- Include references where relevant — e.g. Claude chat session URLs, GitHub issues, PRs, external docs, or research that informed the change. **Every reference must carry a URL or commit SHA** — "see the upload-artifact release notes" with no link forces the reader to go hunting; "see the upload-artifact v7 release notes (https://github.com/actions/upload-artifact/releases/tag/v7.0.0)" answers itself. Same for in-repo references: cite the commit SHA, not just "as discussed in the earlier refactor".
+- **First line:** a conventional-commit tag prefix + short imperative summary, < 72 chars total. Format: `<tag>: <summary>` (e.g. `refactor: Move manufacturer list into a config YAML`, `fix: Correct mixed-case installer URLs`). Tags: `feat` (new capability), `fix` (bug fix), `refactor` (behaviour-preserving change), `docs`, `chore`, `test`, `perf`. Capitalise the summary after the tag.
+- **Body — flowing first-person prose** that provides *context and reasoning*, not a restatement of the diff. The diff already shows *what* changed; the body explains **why** it was needed, **what it unlocks**, the **trade-offs / approach rationale** (including what was consciously left out), and **any key bits that might not be obvious** from reading the code. Don't enumerate the changes — let the diff speak for that. Write it the way the project's recent commits read; **skim `git log` first and mirror their structure and tone**.
+- **Section headers are useful** — for anything beyond a short commit, group the prose under headers rather than leaving one long block. Match the project's existing convention; this repo's house style uses ascii-underlined bold headers, e.g. `** Background **`, `** Summary **` / `** Key Changes **`, `** Things to note **`, `** Out of scope **`. Short, single-idea commits can stay as plain prose.
+- Include references where relevant — Claude session URLs, issues, PRs, external docs, research. **Every reference must carry a URL or commit SHA.** The house style is footnote markers (`[1]`, `[2]`) in the prose with the link definitions collected at the foot of the message. Same for in-repo references: cite the commit SHA, not just "as discussed in the earlier refactor".
 - Always end with `Co-Authored-By: Claude [model] <noreply@anthropic.com>` — use the actual model you're running on (available in your system context, e.g. `Claude Sonnet 4.6`)
 - Use a HEREDOC to pass the message to `git commit -m`
 

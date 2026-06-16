@@ -2,6 +2,7 @@
 # Usage: gwt add <branch>       Create worktree and cd into it
 #        gwt add -b <branch>    Create branch + worktree and cd into it
 #        gwt cd <name>          cd into an existing worktree
+#        gwt zed [<name>]       Open a worktree in a new Zed window (current if no name)
 #        gwt ls                 List worktrees
 #        gwt rm <name>          Remove a worktree (with confirmation)
 #        gwt root [-p|--path]   cd back to the main worktree root (or echo it with -p)
@@ -157,6 +158,30 @@ gwt() {
       esac
       ;;
 
+    zed)
+      # Open a worktree in a NEW Zed window. Worktrees live under the repo root's
+      # .claude/worktrees/, so a plain `zed <path>` is a descendant of an
+      # already-open root window and Zed just refocuses it instead of opening
+      # the worktree. `-n` forces a fresh workspace. Path resolution (current
+      # worktree when no name, fuzzy match otherwise) is reused from `gwt path`.
+      if ! command -v zed >/dev/null 2>&1; then
+        echo "gwt zed: 'zed' CLI not found on PATH. Install Zed and enable its CLI (Zed → Install CLI)." >&2
+        return 1
+      fi
+      local target
+      if [[ -n "$1" ]]; then
+        # Named: resolve via `gwt path` (exact then fuzzy match).
+        target=$(gwt path "$@") || return 1
+      else
+        # No arg: open the current checkout — worktree root when inside one,
+        # main root when at the top. Muscle-memory: `gwt zed` always opens
+        # "here" in a new window, regardless of where in the repo I'm standing.
+        target=$(git rev-parse --show-toplevel 2>/dev/null) \
+          || { echo "gwt zed: not in a git working tree" >&2; return 1; }
+      fi
+      zed -n "$target"
+      ;;
+
     ls)
       if [[ ! -d "$wt_base" ]] || [[ -z "$(ls -A "$wt_base" 2>/dev/null)" ]]; then
         echo "No worktrees in .claude/worktrees/"
@@ -226,10 +251,11 @@ gwt() {
       ;;
 
     *)
-      echo "Usage: gwt <add|cd|ls|rm|root|status|path> [args]"
+      echo "Usage: gwt <add|cd|zed|ls|rm|root|status|path> [args]"
       echo ""
       echo "  add [-b] <branch>    Create worktree and cd into it"
       echo "  cd <name>           cd into an existing worktree"
+      echo "  zed [<name>]        Open a worktree in a new Zed window (current if no name)"
       echo "  ls                  List worktrees"
       echo "  rm <name>           Remove a worktree"
       echo "  root [-p|--path]    cd back to the main worktree root (or echo it with -p)"
@@ -247,10 +273,10 @@ _gwt() {
   local wt_base="$root/.claude/worktrees"
 
   if (( CURRENT == 2 )); then
-    compadd -- add cd ls rm root status path
+    compadd -- add cd zed ls rm root status path
   elif (( CURRENT == 3 )); then
     case "${words[2]}" in
-      cd|rm|path)
+      cd|rm|path|zed)
         if [[ -d "$wt_base" ]]; then
           compadd -- "$wt_base"/*(/:t)
         fi

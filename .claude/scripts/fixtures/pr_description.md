@@ -1,0 +1,18 @@
+## Summary
+
+Louis requested that we add a new **manufacturer** to our curated list. This list is used to populated the dropdown menu on the Host profile form.
+
+I have taken this opportunity to also:
+- make future requests easier to service.
+- clean up some dead code in the Host model.
+
+## Key changes
+
+- removed the unused `Host#installer_name_select` method.
+- `config/heat_pump_manufacturers.yml` — extracted from `Host::HP_MANUFACTURERS`.
+- `config/heat_pump_installers.yml` — extracted from `Host::HP_INSTALLERS` (for consistency).
+- added `Clivet` to the list of manufacturers.
+
+## Out-of-scope / Follow-ups
+
+I would like to audit the production hosts data to understand if there are any other key manufacturers missing from this list.

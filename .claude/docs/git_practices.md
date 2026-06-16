@@ -191,3 +191,28 @@ The test for whether a branch is focused: can you describe every commit on it in
 ## Detecting merged branches
 
 When checking whether feature branches have been merged, `git branch --merged` only detects merge-commit merges — it misses branches that were fast-forward rebased onto main. Always verify with `git diff main...<branch> --stat` as well: if the diff is empty, the branch's changes are already on main regardless of how they got there.
+
+## Pasting a PR description into the merge commit
+
+When merging a multi-commit branch with `gh pr merge --merge`, the merge commit body should carry the PR's reasoning so the story lives in the git history, not only on GitHub. But a PR description is Markdown — `##` headers, `**bold**`, `[links](url)`, unwrapped long lines — none of which reads well in `git log`.
+
+`~/.claude/scripts/md_to_commit.rb` converts a Markdown PR body into a commit-friendly one: `##` headers become house-style `** Header **` underlined with `=` (`###`+ use `-`), inline emphasis and links are flattened, and prose is hard-wrapped at 72 columns. Bullets keep a hanging indent so wrapped continuation lines align under the text; fenced code blocks and tables pass through untouched.
+
+Recipe (multiple commits → `--merge`; confirm the branch is rebased on main and CI is green first):
+
+```bash
+# 1. Pull the live PR body (don't reconstruct it from memory).
+gh pr view <n> --json body --jq .body > /tmp/pr_body.md
+
+# 2. Convert it to a commit-friendly body (optionally pass a width, default 72).
+ruby ~/.claude/scripts/md_to_commit.rb < /tmp/pr_body.md > /tmp/merge_body.txt
+
+# 3. Eyeball /tmp/merge_body.txt, then append the Co-Authored-By trailer.
+
+# 4. Merge with a descriptive subject + the converted body.
+gh pr merge <n> --merge \
+  --subject "Merge #<n>: <what it does>" \
+  --body-file /tmp/merge_body.txt
+```
+
+The script is `module MdToCommit` with a `convert(markdown, width:)` entry point; tests live alongside it (`md_to_commit_test.rb`, run with `ruby md_to_commit_test.rb`) and cover the transforms plus fixture snapshots in `fixtures/`.

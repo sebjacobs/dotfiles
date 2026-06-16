@@ -1,0 +1,26 @@
+** Top level **
+===============
+
+A paragraph that is comfortably longer than seventy-two columns so that
+the greedy word wrapper has to fold it onto a second physical line.
+
+** Sub heading **
+-----------------
+
+See the release notes (https://example.com/notes) and the docs
+(https://example.com/docs) for context.
+
+- a bullet point that also runs well past the seventy-two column
+  boundary to prove the continuation lines hang under the text rather
+  than the marker
+- short one
+
+```ruby
+def untouched(x)
+  x * 2   # this fenced block must not be reflowed even if it is very very very long
+end
+```
+
+| Canonical | Variants |
+|-----------|----------|
+| Foo | foo, FOO |

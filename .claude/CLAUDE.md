@@ -207,7 +207,7 @@ When building any static HTML page, follow `~/.claude/docs/web_standards.md`. Ke
 Before merging, always count commits: `git log main...<branch> --oneline | wc -l`
 
 - **Single commit** — rebase fast-forward: `gh pr merge <number> --rebase` (no merge commit, linear history)
-- **Multiple commits** — rebase the feature branch onto main first (`git rebase main` on the feature branch, push), then merge with `gh pr merge <number> --merge` to preserve the commits grouped under a descriptive merge commit. Merge commit title: `Merge feature/<name>: <what it does>`, body: what was built and why.
+- **Multiple commits** — rebase the feature branch onto main first (`git rebase main` on the feature branch, push), then merge with `gh pr merge <number> --merge` to preserve the commits grouped under a descriptive merge commit. Merge commit title: `Merge feature/<name>: <what it does>`, body: what was built and why. To carry the PR description into the merge-commit body, convert it with `~/.claude/scripts/md_to_commit.rb` (Markdown → house-style headers, wrapped at 72) — see the "Pasting a PR description into the merge commit" recipe in `~/.claude/docs/git_practices.md`.
 
 Always rebase the feature branch onto main before merging — ensures the history is linear and conflicts are resolved on the feature branch, not on main.
 

@@ -230,16 +230,46 @@ Always rebase the feature branch onto main before merging — ensures the histor
 - Never `git push --force` to main.
 
 **Feature branch PRs:**
-PR descriptions follow the same philosophy as commit messages — explain the *why*, not just the *what*. Structure:
+PR descriptions follow the same philosophy as commit messages — explain the *why*, not just the *what*, and **defer the per-change detail to the commit messages** rather than re-narrating the diff. The body orients the reviewer; the commits carry the specifics. Structure (use these exact `##` headings):
 
-1. **Summary** — one short paragraph: what this PR does, what problem it solves or capability it enables, and the reasoning behind the approach
-2. **Key changes** — brief bullet list of the significant files/areas touched (not exhaustive)
-3. **Gotchas / things to be aware of** — anything non-obvious: migration steps, dependencies, trade-offs made, things that might bite a reviewer or future contributor
-4. **References** — links to anything that informed the work: Claude session URLs, GitHub issues, external docs, research, prior art. Every reference must include a URL (or commit SHA for in-repo references) — a bare name like "the upload-artifact release notes" isn't a reference, it's a chore for the reviewer. Footnote style (`[1]`, `[2]` with link definitions at the bottom of the section) reads well when there are more than two. **Don't link to predecessor/draft PRs from the live PR** — the live PR is the canonical one and a back-reference to a closed/draft is noise. The pointer always goes the other way: when a PR is closed or superseded, leave a comment on the closed PR linking to the live one (e.g. "Superseded by #646").
-5. **Test plan** — checklist of how to verify the change works
-6. **Questions / Feedback** — include by default. A numbered list of specific questions for reviewers: open design decisions, judgement calls made along the way, things you considered and rejected, anything you'd like a second opinion on. Better than a vague "thoughts?" — directs the reviewer's attention to where their input is actually useful, and makes it easy for them to engage even when the PR otherwise looks fine. Only skip if there's genuinely nothing to ask. When in doubt, include at least one question — it's almost always possible to surface a real one (e.g. "is the scope of this change right, or should it be broader/narrower?", "I went with X over Y because Z — agree?").
+1. **## Motivation** — lead with the *why*, kept high-level: a paragraph or two on the problem this solves or the capability it unlocks, the reasoning behind the approach, and the scope boundary (what this part deliberately does *not* do). Don't enumerate the changes here. Illustrate the problem with one concrete example rather than listing every instance of it — e.g. "a `setup_geolocation` whose branches ran back-to-front" lands better than a full inventory of the tangles. For a stacked PR, open by naming the part it follows and linking it. If the PR is behaviour-preserving except for a deliberate change, call that exception out here — and note that it surfaces as a test edit rather than silent drift.
+2. **## Summary** — a short bullet list of the significant changes at a high level (not exhaustive, not file-by-file). Weave any gotchas, trade-offs, and "things to note" into the relevant bullet or a short following sentence rather than giving them their own heading. End with **"See individual commit messages for the details."** Fold references inline where they belong (every reference carries a URL or commit SHA; footnote style `[1]`/`[2]` when there are several). For a stacked PR, close with a line naming the base branch and a compare link to the part's own diff, plus the merge/rebase order. **Don't link to predecessor/draft PRs as predecessors** — but the part-N cross-links between live stacked PRs are the point, keep those.
+3. **## Questions/Feedback** — include by default. Specific questions for reviewers: naming calls, design decisions, judgement calls, anything you'd want a second opinion on. Better than a vague "thoughts?" — it directs attention where input is actually useful. Only skip if there is genuinely nothing to ask; when in doubt, surface at least one real question (e.g. "is the scope right?", "I went with X over Y because Z — agree?").
 
-Include a TODO checklist for any remaining steps not yet done on the branch — this makes the PR a live tracker of what's left.
+Do **not** add separate `Key changes`, `Gotchas`, `References`, or `Test plan` headings — that older six-heading template is retired. Their content folds into Motivation and Summary as above. Add a `## TODO` checklist only when there are remaining steps on the branch, so the PR tracks what's left.
+
+Example (a stacked, behaviour-preserving refactor PR):
+
+```markdown
+## Motivation
+
+With [part 3](…/pull/687)'s characterization net in place, this part untangles
+`HostsSearchController#index` — the slice's most tangled method. It read as one long
+procedure (e.g. a `setup_geolocation` whose branches ran back-to-front), and the proximity
+feature still to come needs it readable first.
+
+Every commit is behaviour-preserving and pinned by part 3's specs, **with one deliberate
+exception**: a repeat search now geocodes once, not twice. That surfaces as a test edit
+(the part 3 spec flips from `.twice` to `.once`) rather than as silent drift.
+
+## Summary
+
+- Extract the failed-geocode redirect into a `redirect_on_failed_geocode` guard.
+- Untangle `setup_geolocation` — nil-first ordering, named predicates, and rebuild cached
+  coordinates instead of re-geocoding them.
+- Extract `map_markers(query)` and `marker_popup_html(result)` from the inline builder.
+
+See individual commit messages for the details.
+
+This is stacked on [part 3](…/pull/687) — its base is `seb-hosts-search-p3`, so the diff
+here is only this part's commits ([compare](…/compare/seb-hosts-search-p3...seb-hosts-search-p4)).
+Merge after #687 lands (and rebase onto `main` at that point).
+
+## Questions/Feedback
+
+- Do `sorted` / `within_search_distance` / `redirect_on_failed_geocode` read ok?
+- The geocode-once-not-twice flip is the only behaviour change — happy folding it in here?
+```
 
 **Editing PR descriptions, issues, comments — fetch live state first, edit in place, never regenerate from a remembered template.** The user is often editing the same artifact concurrently in the GitHub UI. Regenerating the whole body from your last-known version silently stomps their edits. The right pattern is always: `gh pr view <n> --json body --jq .body > /tmp/body.md` → `Edit` only the line that needs changing → `gh pr edit <n> --body-file /tmp/body.md`. Applies equally to issue bodies, PR comments, anywhere a human and you might both write. If a small targeted edit isn't possible (e.g. major restructure), confirm with the user before pushing a full rewrite.
 

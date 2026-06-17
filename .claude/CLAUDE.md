@@ -81,6 +81,16 @@ If you're unsure what's currently available, use the `claude-code-guide` subagen
 
 Common patterns: manual repetition after tool use → hooks; same change across many files → `/batch` or partitioned subagents; uncertain approach → `/plan`; long-running task to monitor → `/loop`; repeatable self-contained pipeline → agent file; recurring constraint Claude keeps forgetting → belongs in CLAUDE.md; high-volume mechanical work → Haiku subagent; high-stakes reasoning → Opus.
 
+## Code comments — don't write them
+
+**The code, the commit message, and the tests should explain everything between them. Default to zero inline comments.** Intent has three durable homes: naming and structure say *what* the code does; the commit message says *why* (motivation, trade-offs, what was rejected), where it's durable and reviewable; the tests say *what the behaviour should be*. A comment that restates any of the three is noise that rots out of sync with the code.
+
+This applies to every language and every file, including tests and config. Do not narrate constants, methods, or steps "to be helpful" — a comment on `RESULTS_SESSION_KEY = :foo` or above a self-evident method is exactly the kind to drop.
+
+In tests, the test name and the assertions are where intent lives — not a comment above them. A descriptive test name states the behaviour being verified, and a clear assertion shows the expected outcome; a comment that restates either ("# checks the user is redirected" above a redirect assertion) is the same rot. If a test needs a comment to explain what it covers, rename it; if it needs one to explain a setup step, extract a well-named helper or fixture. The escape hatch is the same — a non-obvious external constraint in the arrange step may earn one line.
+
+Only write a comment when the reasoning genuinely cannot live in the code *or* the commit message — a non-obvious external constraint, a deliberate footgun, a workaround for a specific upstream bug (link it). Even then: one line, and prefer to first ask whether a better name or a tiny extracted method would remove the need. When in doubt, leave it out and put the explanation in the commit body.
+
 ## Incremental delivery
 
 Break work into the smallest steps that can each be validated independently. Draft the artefact first, then wire it in, then remove what it replaces — separate steps, not one. This applies to code, docs, config changes, and refactors equally. Each step should leave the system in a working state and produce a diff you can read and reason about in isolation.

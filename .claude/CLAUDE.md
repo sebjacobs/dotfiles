@@ -138,6 +138,14 @@ When referencing a pattern or example, describe it generically (e.g. "any repo w
 
 ---
 
+## Shell tooling — macOS `sed` silently ignores GNU extensions
+
+The default `sed` on macOS is BSD `sed`, which does **not** support GNU extensions like `\b` (word boundary), `\+`, `\|`, or `\w`. The dangerous part: it doesn't error on them — `s/@host\b/host/g` matches *nothing* and reports success, so a "no-op" edit looks like it ran. Don't trust a `sed` substitution with GNU syntax until you've grepped the result.
+
+- For word-boundary / GNU-regex work, use **`gsed`** (GNU sed, `brew install gnu-sed`) — it's the same syntax you'd reach for on Linux.
+- No `gsed`? Use `perl -pi -e 's/\b.../.../g'` (Perl regex is always available), or fall back to a plain literal replacement when the target string isn't a substring of anything else in the file.
+- Always verify the substitution actually fired (re-grep for the old pattern) rather than assuming.
+
 ## Python tooling
 
 Always use `uv` for Python projects — never `pip`, `pip3`, or bare `python3`.

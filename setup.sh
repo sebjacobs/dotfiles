@@ -35,6 +35,7 @@ dirs=(
   ".claude"
   ".config/opencode"
   ".config/helix"
+  "Library/LaunchAgents"
 )
 
 for dir in "${dirs[@]}"
@@ -65,6 +66,7 @@ files=(
   ".config/opencode/package-lock.json"
   ".config/opencode/bun.lock"
   ".config/helix/config.toml"
+  "Library/LaunchAgents/local.ruby-lsp-reap.plist"
 )
 
 for file in "${files[@]}"

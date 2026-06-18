@@ -12,6 +12,7 @@ from __future__ import annotations
 import argparse
 import json
 import os
+import re
 import subprocess
 import sys
 from pathlib import Path
@@ -19,8 +20,10 @@ from pathlib import Path
 
 def project_dir() -> Path:
     cwd = Path.cwd().resolve()
-    # Claude Code stores transcripts under ~/.claude/projects/<cwd with / → ->
-    slug = str(cwd).replace("/", "-")
+    # Claude Code slugs the cwd by replacing every non-alphanumeric char
+    # (/, ., _, etc.) with "-", so asf_visit_a_heat_pump/.claude becomes
+    # asf-visit-a-heat-pump--claude. Replacing only "/" misses dots/underscores.
+    slug = re.sub(r"[^a-zA-Z0-9]", "-", str(cwd))
     return Path.home() / ".claude" / "projects" / slug
 
 

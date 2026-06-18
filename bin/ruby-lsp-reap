@@ -1,0 +1,118 @@
+#!/usr/bin/env ruby
+# frozen_string_literal: true
+
+# Reap orphaned ruby-lsp processes (the `ruby-lsp` launcher and its
+# `ruby_lsp_rails/server.rb` child).
+#
+# Zed spawns one ruby-lsp per project/worktree but does not shut them down
+# gracefully on quit — it just closes the pipes, so the servers linger and
+# hold memory (zed-industries/zed#43864, #33328). When the Zed window dies the
+# orphaned server is reparented away from Zed (typically to launchd, PID 1).
+#
+# This kills ONLY servers whose parent chain no longer reaches a live Zed
+# process, so anything still attached to an open Zed window is left alone —
+# safe to run ad-hoc or on a launchd timer.
+#
+# Usage:
+#   ruby-lsp-reap        kill orphaned servers (no live Zed ancestor)
+#   ruby-lsp-reap -n     dry run: list what would be killed
+#   ruby-lsp-reap -l     list every server tagged zed/orphan, kill nothing
+#   ruby-lsp-reap -a     kill ALL servers, even in-use ones
+#   ruby-lsp-reap -a -n  dry run over all servers
+
+module RubyLspReap
+  Proc_ = Struct.new(:pid, :ppid, :command)
+
+  module_function
+
+  def parse_ps(output)
+    procs = {}
+    output.each_line do |line|
+      pid, ppid, command = line.strip.split(/\s+/, 3)
+      next unless pid =~ /\A\d+\z/ && ppid =~ /\A\d+\z/ && command
+
+      procs[pid.to_i] = Proc_.new(pid.to_i, ppid.to_i, command)
+    end
+    procs
+  end
+
+  def ruby_lsp?(command)
+    return false if command.include?("ruby-lsp-reap")
+
+    !!(command =~ %r{/bin/ruby-lsp(\s|$)}) || command.include?("ruby_lsp_rails/server.rb")
+  end
+
+  def zed_ancestor?(pid, procs)
+    seen = {}
+    while pid && pid > 1 && !seen[pid]
+      seen[pid] = true
+      proc = procs[pid]
+      break unless proc
+      return true if proc.command =~ /Zed\.app/ || proc.command =~ %r{/zed(\s|$)}
+
+      pid = proc.ppid
+    end
+    false
+  end
+
+  def candidates(procs, self_pid)
+    procs.values.reject { |p| p.pid == self_pid || !ruby_lsp?(p.command) }
+  end
+
+  def targets(procs, self_pid, reap_all)
+    found = candidates(procs, self_pid)
+    reap_all ? found : found.reject { |p| zed_ancestor?(p.pid, procs) }
+  end
+end
+
+if __FILE__ == $PROGRAM_NAME
+  dry_run = ARGV.include?("-n")
+  reap_all = ARGV.include?("-a")
+  list_all = ARGV.include?("-l")
+  unknown = ARGV - %w[-n -a -l]
+  unless unknown.empty?
+    warn "unknown option: #{unknown.first}"
+    exit 2
+  end
+
+  procs = RubyLspReap.parse_ps(`ps -axww -o pid=,ppid=,command=`)
+  self_pid = Process.pid
+
+  if list_all
+    found = RubyLspReap.candidates(procs, self_pid)
+    if found.empty?
+      puts "No ruby-lsp processes found."
+      exit 0
+    end
+    found.sort_by(&:pid).each do |p|
+      tag = RubyLspReap.zed_ancestor?(p.pid, procs) ? "zed   " : "orphan"
+      puts "#{tag}  #{p.pid}  #{p.command}"
+    end
+    exit 0
+  end
+
+  targets = RubyLspReap.targets(procs, self_pid, reap_all)
+  if targets.empty?
+    puts reap_all ? "No ruby-lsp processes found." : "No orphaned ruby-lsp processes found."
+    exit 0
+  end
+
+  label = reap_all ? "ruby-lsp processes (all)" : "orphaned ruby-lsp processes"
+  puts "Matched #{label}:"
+  targets.sort_by(&:pid).each { |p| puts "#{p.pid}  #{p.command}" }
+
+  if dry_run
+    puts "(dry run — nothing killed)"
+    exit 0
+  end
+
+  killed = targets.select do |p|
+    Process.kill("TERM", p.pid)
+    true
+  rescue Errno::ESRCH, Errno::EPERM => e
+    warn "could not kill #{p.pid}: #{e.message}"
+    false
+  end
+
+  puts "Killed: #{killed.map(&:pid).join(" ")}" unless killed.empty?
+end

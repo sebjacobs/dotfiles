@@ -1,8 +1,8 @@
 #!/usr/bin/env ruby
 # frozen_string_literal: true
 
-require "minitest/autorun"
-require_relative "md_to_commit"
+require_relative "test_helper"
+ScriptTest.load_script("md_to_commit.rb")
 
 class MdToCommitTest < Minitest::Test
   def convert(md, **opts) = MdToCommit.convert(md, **opts)

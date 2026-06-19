@@ -52,6 +52,8 @@ alias all-ac3-to-aac="all_ac3_to_aac"
 
 alias colima-start="colima start"
 
+alias brewup='brew update && brew upgrade --formula'
+
 alias genplan="mkdir -p docs && touch docs/plan.excalidraw"
 
 function create_excalidraw_file() {

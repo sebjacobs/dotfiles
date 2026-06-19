@@ -2,6 +2,11 @@ typeset -U path PATH
 
 source ~/dotfiles/zsh/00_brew.zsh
 
+# brew's shellenv rebuilds PATH via path_helper, which yields only Homebrew dirs
+# when PATH started empty (cold cron/launchd). Re-add the system base so chruby
+# and coreutils resolve; typeset -U dedupes and appending keeps Homebrew first.
+path+=(/usr/bin /bin /usr/sbin /sbin)
+
 export EDITOR='zed --wait'
 
 source /opt/homebrew/opt/chruby/share/chruby/chruby.sh

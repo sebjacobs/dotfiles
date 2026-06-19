@@ -97,7 +97,7 @@ Every `write` auto-commits in the data repo; `--type finish` also pushes to remo
 
 ## Skills that call jotter
 
-`/start`, `/save`, `/finish`, `/break` — no manual session note management needed.
+`/start`, `/save`, `/finish`, `/note` — no manual session note management needed.
 
 **Context restoration:** `/start` runs `tail --limit 5` to restore context from the last few entries. The most recent finish entry's `**Next:**` field is the handover prompt.
 

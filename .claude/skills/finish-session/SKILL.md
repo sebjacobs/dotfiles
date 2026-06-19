@@ -7,7 +7,7 @@ description: Run the end-of-session checklist — commit any dirty work, write a
 
 End-of-session wrap-up. **Walk-away guarantee:** when this skill completes, the laptop can be closed — dirty work is committed, the log entry is written, the cron timer is cancelled, and no further actions follow.
 
-**Mid-session break (`/break`)?** Use `break-session` instead.
+**Mid-session checkpoint or stepping away briefly?** Use `/save` instead. **Just jotting a note?** Use `/note`.
 
 **Want ROADMAP / DONE.md / CLAUDE.md curation?** That used to live here but is now out of scope — do it before invoking `/finish`, or run a dedicated `/tracker`-style skill if you have one.
 

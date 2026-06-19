@@ -45,6 +45,7 @@ done
 
 files=(
   ".zshrc"
+  ".zshenv"
   ".bundle/config"
   ".ssh/config"
   ".editorconfig"

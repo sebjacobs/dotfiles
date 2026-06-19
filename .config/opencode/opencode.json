@@ -5,6 +5,9 @@
       "models": {
         "unsloth/gemma-4-31b-it-UD-MLX-4bit": {
           "name": "unsloth/gemma-4-31b-it-UD-MLX-4bit"
+        },
+        "mlx-community/gemma-4-26B-A4B-it-heretic-4bit": {
+          "name": "mlx-community/gemma-4-26B-A4B-it-heretic-4bit"
         }
       },
       "name": "MLX",

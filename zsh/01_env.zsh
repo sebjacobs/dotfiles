@@ -11,7 +11,8 @@ export EDITOR='zed --wait'
 source /opt/homebrew/opt/chruby/share/chruby/chruby.sh
 source /opt/homebrew/opt/chruby/share/chruby/auto.sh
 
-chruby ruby-3.4.5
+CHRUBY_VERSION=ruby-4.0.5
+chruby "$CHRUBY_VERSION"
 
 ## NodeJS version management
 export VOLTA_HOME="$HOME/.volta"

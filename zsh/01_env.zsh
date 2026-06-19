@@ -1,11 +1,5 @@
 eval "$(direnv hook zsh)"
 
-export PATH="/opt/homebrew/opt/postgresql@17/bin:$PATH"
-export PATH="/opt/homebrew/opt/mysql@8.4/bin:$PATH"
-
-export LDFLAGS="-L/opt/homebrew/opt/mysql@8.4/lib"
-export CPPFLAGS="-I/opt/homebrew/opt/mysql@8.4/include"
-
 export EDITOR='zed --wait'
 
 source /opt/homebrew/opt/chruby/share/chruby/chruby.sh

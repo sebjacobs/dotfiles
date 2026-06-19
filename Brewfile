@@ -56,12 +56,9 @@ brew "libyaml"
 brew "mkvtoolnix"
 brew "mockery"
 brew "protobuf"
-brew "mysql@8.4"
 brew "pandoc"
-brew "postgresql@17", restart_service: :changed
 brew "qemu"
 brew "rclone"
-brew "redis", restart_service: :changed
 brew "ripgrep"
 brew "rsync"
 brew "ruby-install"

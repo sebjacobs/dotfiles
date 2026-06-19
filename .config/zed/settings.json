@@ -53,6 +53,9 @@
   },
   "show_completions_on_input": false,
   "show_edit_predictions": false,
+  "search": {
+    "include_ignored": true,
+  },
   "file_scan_exclusions": [
     "**/.git",
     "**/.svn",
@@ -65,7 +68,14 @@
     "**/.classpath",
     "**/.settings",
     "**/.yarn",
+    "**/node_modules",
     "**/vendor",
+    "**/.venv",
+    "**/.claude/worktrees",
+    "**/.bundle",
+    "**/tmp",
+    "**/log",
+    "**/app/assets/builds",
   ],
   "lsp": {
     "ruby-lsp": {

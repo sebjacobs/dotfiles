@@ -57,6 +57,19 @@
     "type": "command",
     "command": "bash ~/.claude/statusline.sh"
   },
+  "hooks": {
+    "UserPromptSubmit": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash ~/.claude/scripts/walk-away-save-hook.sh",
+            "timeout": 10
+          }
+        ]
+      }
+    ]
+  },
   "enabledPlugins": {
     "gopls-lsp@claude-plugins-official": true,
     "ruby-lsp@claude-plugins-official": true

@@ -1,0 +1,382 @@
+#!/usr/bin/env ruby
+# frozen_string_literal: true
+
+# gwt-helper — git worktree helpers for .claude/worktrees/.
+#
+# This is the logic half of `gwt`; the thin zsh wrapper in zsh/gwt.zsh owns the
+# one thing a subprocess cannot do — change the interactive shell's directory.
+# Commands that need a `cd` write the absolute target to the file named by
+# $GWT_CD_FILE; the wrapper cd's there on return. Everything else (resolution,
+# fuzzy matching, .worktreeinclude copying, status formatting) lives here, in
+# Ruby, so it can be unit-tested without a shell.
+#
+# .worktreeinclude: matching gitignored files are copied from the main worktree
+# into a new worktree on `add`. See the wrapper's header for the full contract;
+# the copy set is the intersection of "ignored & untracked" with the patterns in
+# .worktreeinclude, and symlinks are dereferenced (cp -RL) so the worktree gets a
+# real file rather than a dangling link.
+
+require "fileutils"
+
+module Gwt
+  module_function
+
+  # Encode slashes so a branch maps to a single worktree folder
+  # (spike/twitter-classifier -> spike+twitter-classifier).
+  def encode_branch(branch) = branch.gsub("/", "+")
+
+  # Resolve a query against existing worktree names: exact match wins, else
+  # prefix matches, else substring matches. Mirrors the shell's "exact dir, then
+  # ${q}* glob, then *${q}* glob" cascade. Returns an array (0, 1, or many).
+  def fuzzy_match(names, query)
+    return [query] if names.include?(query)
+
+    prefix = names.select { |n| n.start_with?(query) }
+    return prefix unless prefix.empty?
+
+    names.select { |n| n.include?(query) }
+  end
+
+  # Format the ahead/behind suffix shown in `status` (" ↑2 ↓1", " ↑2", "").
+  def format_position(ahead, behind)
+    ahead = ahead.to_i
+    behind = behind.to_i
+    if ahead.positive? && behind.positive?
+      " ↑#{ahead} ↓#{behind}"
+    elsif ahead.positive?
+      " ↑#{ahead}"
+    elsif behind.positive?
+      " ↓#{behind}"
+    else
+      ""
+    end
+  end
+
+  # Parse `git rev-list --left-right --count main...branch` — a tab-separated
+  # "<behind>\t<ahead>" — into [ahead, behind] integers.
+  def parse_ahead_behind(rev_list_output)
+    behind, ahead = rev_list_output.to_s.strip.split("\t", 2)
+    [ahead.to_i, behind.to_i]
+  end
+
+  # When pwd sits inside a worktree, return that worktree's root path (base plus
+  # the first path segment); nil otherwise.
+  def current_worktree_path(pwd, wt_base)
+    prefix = "#{wt_base}/"
+    return nil unless pwd.start_with?(prefix)
+
+    "#{wt_base}/#{pwd[prefix.length..].split("/").first}"
+  end
+
+  # Thin git wrapper. `capture` reads stdout (stderr discarded) and reports
+  # success; `run` streams straight to the terminal for commands whose output the
+  # user should see (worktree add/remove). Injectable for tests.
+  class Git
+    def capture(*args)
+      out = IO.popen(["git", *args], err: File::NULL, &:read)
+      [out.to_s, $?.success?]
+    end
+
+    def run(*args) = system("git", *args)
+  end
+
+  # Real filesystem side-effects, behind a seam so tests can fake them.
+  class System
+    def dir?(path) = File.directory?(path)
+
+    def children(path)
+      Dir.children(path).select { |e| File.directory?(File.join(path, e)) }.sort
+    end
+
+    def empty_dir?(path) = Dir.children(path).empty?
+
+    def copy_into(src, dst)
+      FileUtils.mkdir_p(File.dirname(dst))
+      system("cp", "-RL", src, dst)
+    end
+
+    def which?(cmd) = system("command -v #{cmd} >/dev/null 2>&1")
+  end
+
+  class App
+    def initialize(git:, sys:, out:, err:, cd:, confirm:, pwd:, exec:, worktree_subdir: ".claude/worktrees")
+      @git = git
+      @sys = sys
+      @out = out
+      @err = err
+      @cd = cd
+      @confirm = confirm
+      @pwd = pwd
+      @exec = exec
+      @worktree_subdir = worktree_subdir
+    end
+
+    def run(argv)
+      @root = main_root
+      return error("Not in a git repo") if @root.nil? || @root.empty?
+
+      @wt_base = "#{@root}/#{@worktree_subdir}"
+      cmd, *rest = argv
+      case cmd
+      when "add"    then cmd_add(rest)
+      when "cd"     then cmd_cd(rest)
+      when "path"   then cmd_path(rest)
+      when "zed"    then cmd_zed(rest)
+      when "ls"     then cmd_ls
+      when "root"   then cmd_root(rest)
+      when "status" then cmd_status
+      when "rm"     then cmd_rm(rest)
+      else usage
+      end
+    end
+
+    private
+
+    def cmd_add(args)
+      create_branch = args.first == "-b"
+      args = args.drop(1) if create_branch
+      branch = args.first
+      return error("Usage: gwt add [-b] <branch>") if branch.nil? || branch.empty?
+
+      wt_dir = "#{@wt_base}/#{Gwt.encode_branch(branch)}"
+      if @sys.dir?(wt_dir)
+        @out.puts "Worktree already exists, cd-ing into it"
+        change_dir(wt_dir)
+        return 0
+      end
+
+      ok = if create_branch
+             @git.run("worktree", "add", "-b", branch, wt_dir)
+           else
+             @git.run("worktree", "add", wt_dir, branch)
+           end
+      return 1 unless ok
+
+      apply_include(@root, wt_dir)
+      change_dir(wt_dir)
+      0
+    end
+
+    def cmd_cd(args)
+      name = args.first
+      return error("Usage: gwt cd <name>") if name.nil? || name.empty?
+
+      resolve(name) { |path| change_dir(path); 0 }
+    end
+
+    def cmd_path(args)
+      name = args.first
+      if name.nil? || name.empty?
+        current = Gwt.current_worktree_path(@pwd, @wt_base)
+        return error("Usage: gwt path [<name>]") if current.nil?
+
+        @out.puts current
+        return 0
+      end
+
+      resolve(name) { |path| @out.puts path; 0 }
+    end
+
+    def cmd_zed(args)
+      unless @sys.which?("zed")
+        return error("gwt zed: 'zed' CLI not found on PATH. Install Zed and enable its CLI (Zed → Install CLI).")
+      end
+
+      name = args.first
+      target =
+        if name && !name.empty?
+          resolved = nil
+          status = resolve(name) { |path| resolved = path; 0 }
+          return status unless resolved
+
+          resolved
+        else
+          toplevel, ok = @git.capture("rev-parse", "--show-toplevel")
+          return error("gwt zed: not in a git working tree") unless ok
+
+          toplevel.strip
+        end
+
+      @exec.call("zed", "-n", target)
+      0
+    end
+
+    def cmd_ls
+      return no_worktrees if worktree_dirs.empty?
+
+      worktree_dirs.each do |dir|
+        name = File.basename(dir)
+        branch = branch_of(dir)
+        @out.puts format("%s%-40s %s", marker(dir), name, branch)
+      end
+      0
+    end
+
+    def cmd_root(args)
+      if ["-p", "--path"].include?(args.first)
+        @out.puts @root
+      else
+        change_dir(@root)
+      end
+      0
+    end
+
+    def cmd_status
+      return no_worktrees if worktree_dirs.empty?
+
+      main_branch_out, ok = @git.capture("-C", @root, "rev-parse", "--abbrev-ref", "HEAD")
+      main_branch = ok ? main_branch_out.strip : "main"
+
+      worktree_dirs.each do |dir|
+        name = File.basename(dir)
+        branch = branch_of(dir)
+        dirty_out, = @git.capture("-C", dir, "status", "--porcelain")
+        dirty = dirty_out.strip.empty? ? "" : " [dirty]"
+        counts, = @git.capture("-C", dir, "rev-list", "--left-right", "--count", "#{main_branch}...#{branch}")
+        ahead, behind = Gwt.parse_ahead_behind(counts)
+        position = Gwt.format_position(ahead, behind)
+        @out.puts format("%s%-30s %-30s%s%s", marker(dir), name, branch, dirty, position)
+      end
+      0
+    end
+
+    def cmd_rm(args)
+      name = args.first
+      return error("Usage: gwt rm <name>") if name.nil? || name.empty?
+
+      wt_dir = "#{@wt_base}/#{name}"
+      return error("No worktree: #{name}") unless @sys.dir?(wt_dir)
+
+      return 1 unless @confirm.call("Remove worktree '#{name}'? [y/N] ")
+
+      change_dir(@root) if @pwd.start_with?(wt_dir)
+      @git.run("worktree", "remove", wt_dir) ? 0 : 1
+    end
+
+    def usage
+      @out.puts <<~USAGE
+        Usage: gwt <add|cd|zed|ls|rm|root|status|path> [args]
+
+          add [-b] <branch>    Create worktree and cd into it
+          cd <name>           cd into an existing worktree
+          zed [<name>]        Open a worktree in a new Zed window (current if no name)
+          ls                  List worktrees
+          rm <name>           Remove a worktree
+          root [-p|--path]    cd back to the main worktree root (or echo it with -p)
+          status              Overview of all worktrees
+          path [<name>]       Echo absolute path of a worktree (current if no name)
+      USAGE
+      1
+    end
+
+    # --- shared helpers ------------------------------------------------------
+
+    # Resolve a worktree name and yield its path on a unique match, returning the
+    # block's value. Emits the appropriate stderr message and a non-zero code on
+    # no/ambiguous match.
+    def resolve(name)
+      exact = "#{@wt_base}/#{name}"
+      return yield(exact) if @sys.dir?(exact)
+
+      return error("No worktree matching: #{name}") unless @sys.dir?(@wt_base)
+
+      matches = Gwt.fuzzy_match(@sys.children(@wt_base), name)
+      case matches.length
+      when 0
+        error("No worktree matching: #{name}")
+      when 1
+        yield("#{@wt_base}/#{matches.first}")
+      else
+        @err.puts "Multiple worktrees match '#{name}':"
+        matches.each { |m| @err.puts "  #{m}" }
+        1
+      end
+    end
+
+    def apply_include(src_root, dst_root)
+      include = "#{src_root}/.worktreeinclude"
+      return unless File.file?(include)
+
+      ignored, = @git.capture("-C", src_root, "ls-files", "--others", "--ignored", "--exclude-standard", "--directory")
+      matched, = @git.capture("-C", src_root, "ls-files", "--others", "--ignored", "--exclude-from=#{include}", "--directory")
+      ignored_set = ignored.split("\n")
+
+      copied = []
+      matched.split("\n").each do |rel|
+        next if rel.empty?
+        next unless ignored_set.include?(rel)
+
+        rel = rel.chomp("/")
+        @sys.copy_into("#{src_root}/#{rel}", "#{dst_root}/#{rel}")
+        copied << rel
+      end
+
+      @out.puts "gwt: copied #{copied.length} entries from .worktreeinclude: #{copied.join(' ')}" unless copied.empty?
+    end
+
+    def main_root
+      out, ok = @git.capture("worktree", "list", "--porcelain")
+      return nil unless ok
+
+      first = out.lines.first
+      first&.start_with?("worktree ") ? first.sub("worktree ", "").strip : nil
+    end
+
+    def worktree_dirs
+      return [] unless @sys.dir?(@wt_base) && !@sys.empty_dir?(@wt_base)
+
+      @sys.children(@wt_base).map { |name| "#{@wt_base}/#{name}" }
+    end
+
+    def branch_of(dir)
+      out, ok = @git.capture("-C", dir, "rev-parse", "--abbrev-ref", "HEAD")
+      ok ? out.strip : "???"
+    end
+
+    def marker(dir) = @pwd.start_with?(dir) ? "* " : "  "
+
+    def no_worktrees
+      @out.puts "No worktrees in .claude/worktrees/"
+      0
+    end
+
+    def change_dir(path) = @cd.call(path)
+
+    def error(message)
+      @err.puts message
+      1
+    end
+  end
+end
+
+if __FILE__ == $PROGRAM_NAME
+  cd_sink = lambda do |path|
+    file = ENV["GWT_CD_FILE"]
+    File.write(file, path) if file && !file.empty?
+  end
+
+  confirm = lambda do |prompt|
+    $stdout.print(prompt)
+    $stdout.flush
+    answer = $stdin.getc
+    $stdout.puts
+    answer&.downcase == "y"
+  end
+
+  subdir = ENV.fetch("GWT_WORKTREE_DIR", ".claude/worktrees")
+  subdir = ".claude/worktrees" if subdir.empty?
+
+  app = Gwt::App.new(
+    git: Gwt::Git.new,
+    sys: Gwt::System.new,
+    out: $stdout,
+    err: $stderr,
+    cd: cd_sink,
+    confirm: confirm,
+    pwd: Dir.pwd,
+    exec: ->(*args) { exec(*args) },
+    worktree_subdir: subdir
+  )
+
+  exit app.run(ARGV)
+end

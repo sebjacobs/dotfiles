@@ -108,7 +108,7 @@ class GwtAppTest < Minitest::Test
     def copy_into(src, dst) = @copies << [src, dst]
   end
 
-  def build(git: FakeGit.new, sys: FakeSys.new, pwd: ROOT, confirm: ->(_) { true })
+  def build(git: FakeGit.new, sys: FakeSys.new, pwd: ROOT, confirm: ->(_) { true }, worktree_subdir: ".claude/worktrees")
     @out = StringIO.new
     @err = StringIO.new
     @cd = []
@@ -122,7 +122,8 @@ class GwtAppTest < Minitest::Test
       cd: ->(p) { @cd << p },
       confirm: confirm,
       pwd: pwd,
-      exec: ->(*a) { @execs << a }
+      exec: ->(*a) { @execs << a },
+      worktree_subdir: worktree_subdir
     )
     [app, git_with_root, sys]
   end
@@ -305,6 +306,20 @@ class GwtAppTest < Minitest::Test
     app, = build
     assert_equal 1, app.run(["bogus"])
     assert_match(/Usage: gwt/, @out.string)
+  end
+
+  def test_add_honours_custom_worktree_subdir
+    app, git, = build(worktree_subdir: "worktrees")
+    app.run(["add", "feature/x"])
+    assert_includes git.runs, ["worktree", "add", "/repo/worktrees/feature+x", "feature/x"]
+    assert_equal ["/repo/worktrees/feature+x"], @cd
+  end
+
+  def test_cd_resolves_under_custom_worktree_subdir
+    sys = FakeSys.new(dirs: ["/repo/wt", "/repo/wt/foo"])
+    app, = build(sys: sys, worktree_subdir: "wt")
+    assert_equal 0, app.run(["cd", "foo"])
+    assert_equal ["/repo/wt/foo"], @cd
   end
 
   def test_not_in_git_repo_errors

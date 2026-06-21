@@ -51,7 +51,7 @@ gwt() {
 _gwt() {
   local root=$(__gwt_root)
   if [[ -z "$root" ]]; then return; fi
-  local wt_base="$root/.claude/worktrees"
+  local wt_base="$root/${GWT_WORKTREE_DIR:-.claude/worktrees}"
 
   if (( CURRENT == 2 )); then
     compadd -- add cd zed ls rm root status path

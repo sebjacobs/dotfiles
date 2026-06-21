@@ -99,7 +99,7 @@ module Gwt
   end
 
   class App
-    def initialize(git:, sys:, out:, err:, cd:, confirm:, pwd:, exec:)
+    def initialize(git:, sys:, out:, err:, cd:, confirm:, pwd:, exec:, worktree_subdir: ".claude/worktrees")
       @git = git
       @sys = sys
       @out = out
@@ -108,13 +108,14 @@ module Gwt
       @confirm = confirm
       @pwd = pwd
       @exec = exec
+      @worktree_subdir = worktree_subdir
     end
 
     def run(argv)
       @root = main_root
       return error("Not in a git repo") if @root.nil? || @root.empty?
 
-      @wt_base = "#{@root}/.claude/worktrees"
+      @wt_base = "#{@root}/#{@worktree_subdir}"
       cmd, *rest = argv
       case cmd
       when "add"    then cmd_add(rest)
@@ -362,6 +363,9 @@ if __FILE__ == $PROGRAM_NAME
     answer&.downcase == "y"
   end
 
+  subdir = ENV.fetch("GWT_WORKTREE_DIR", ".claude/worktrees")
+  subdir = ".claude/worktrees" if subdir.empty?
+
   app = Gwt::App.new(
     git: Gwt::Git.new,
     sys: Gwt::System.new,
@@ -370,7 +374,8 @@ if __FILE__ == $PROGRAM_NAME
     cd: cd_sink,
     confirm: confirm,
     pwd: Dir.pwd,
-    exec: ->(*args) { exec(*args) }
+    exec: ->(*args) { exec(*args) },
+    worktree_subdir: subdir
   )
 
   exit app.run(ARGV)

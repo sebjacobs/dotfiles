@@ -92,4 +92,18 @@ do
   ln -snf $source $target
 done
 
+# SDKMAN runs compinit and a chpwd hook on every shell that sources sdkman-init.sh
+# — non-interactive ones included, since it's pulled in from .zshenv via
+# zsh/env.zsh. Defer its two auto_* flags to a pre-set value so env.zsh can force
+# them off for non-interactive shells without losing the interactive defaults.
+# Idempotent: the plain `=true`/`=false` lines only match before the first patch
+# (sdkman rewrites the config on selfupdate, so re-running setup re-applies it).
+sdkman_config="$HOME/.sdkman/etc/config"
+if [ -f "$sdkman_config" ] && grep -q '^sdkman_auto_complete=true$' "$sdkman_config"; then
+  sed -e 's/^sdkman_auto_complete=true$/sdkman_auto_complete="${sdkman_auto_complete:-true}"/' \
+      -e 's/^sdkman_auto_env=false$/sdkman_auto_env="${sdkman_auto_env:-false}"/' \
+      "$sdkman_config" > "$sdkman_config.tmp" && mv "$sdkman_config.tmp" "$sdkman_config"
+  echo "patched sdkman config to defer auto_complete/auto_env to the environment"
+fi
+
 echo "finished symlinking dotfiles"

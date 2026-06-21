@@ -1,4 +1,4 @@
-typeset -U path PATH
+typeset -U path PATH fpath
 
 source ~/dotfiles/zsh/00_brew.zsh
 
@@ -23,6 +23,22 @@ export PATH="$HOME/.opencode/bin:$PATH"
 export PATH="$PATH:$HOME/.lmstudio/bin"
 
 export OLLAMA_KEEP_ALIVE=-1
+
+# Completion dirs must be on fpath before SDKMAN's init runs compinit (below) —
+# .zshrc loads only after .zshenv, so setting them there is too late and new
+# completions go undiscovered. The local site-functions dir holds completions
+# installed outside dotfiles (e.g. `rake install` targets).
+fpath=(~/dotfiles/zsh/completions ~/.local/share/zsh/site-functions $fpath)
+
+# SDKMAN runs compinit and registers a chpwd hook on every shell that sources it,
+# this file included — so a plain `zsh -c` pays a full completion scan it never
+# uses. Both are interactive-only concerns; force them off for non-interactive
+# shells. etc/config defers to a pre-set value (the `${var:-default}` form), so
+# interactive shells leave these unset and keep SDKMAN's configured defaults.
+if [[ ! -o interactive ]]; then
+  sdkman_auto_complete=false
+  sdkman_auto_env=false
+fi
 
 export SDKMAN_DIR="$HOME/.sdkman"
 [[ -s "$HOME/.sdkman/bin/sdkman-init.sh" ]] && source "$HOME/.sdkman/bin/sdkman-init.sh"

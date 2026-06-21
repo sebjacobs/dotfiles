@@ -82,3 +82,12 @@ ssh-keygen -t ed25519 -C "me@sebjacobs.com"
 ## Claude Code config
 
 `~/.claude/settings.json` whitelists specific tools only — notably `git push` is **not** in the allow-list (requires explicit user approval each time). The deny-list blocks `rm -rf`, `sudo`, and credential paths (`~/.ssh/**`, `~/.aws/**`).
+
+## Merging — local merge, no PR
+
+This is a solo repo, so feature branches merge **locally** straight to `main` — no GitHub PR. This deliberately overrides the global "always merge via `gh pr merge`, never push main directly" rule, which exists for shared/reviewed repos. Still keep the branch-per-feature and atomic-commit discipline; only the merge mechanism differs.
+
+- **Single commit** → fast-forward: `git merge --ff-only feature/<name>`
+- **Multiple commits** → group under a descriptive merge commit: `git merge --no-ff feature/<name>` with a `Merge feature/<name>: <what it does>` title and a body explaining the why (pass it via `-F <file>` — `git merge` does not read `-F -`/stdin like `git commit` does).
+
+Then `git push origin main` (prompts for approval — `git push` isn't allow-listed) and delete the merged branch. Still never commit straight to `main` for non-trivial work — branch first, merge after.

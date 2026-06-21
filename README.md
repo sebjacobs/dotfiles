@@ -23,6 +23,7 @@ Most of this repo is personal plumbing, but a couple of corners are worth a look
 - **[`.claude/CLAUDE.md`](.claude/CLAUDE.md)** — my global instructions for Claude Code. Conventions for sessions, git, commits, reviews, and how I like Claude to behave across every project.
 - **[`.claude/skills/`](.claude/skills/)** — a collection of custom Claude Code skills (slash commands) for things like starting and ending sessions, reviewing PRs, ping-pong TDD, and a few more. Each one is a self-contained folder with a `SKILL.md`.
 - **[`.claude/docs/`](.claude/docs/)** — longer-form reference material that `CLAUDE.md` points to (git practices, jotter, subagents, web standards, etc.).
+- **[`docs/launchd.md`](docs/launchd.md)** — how my personal scheduled jobs (`com.sebjacobs.*` launchd agents) are named, symlinked, and surfaced by the `jls` helper.
 
 If you're poking around for ideas on how to wire Claude Code into your own workflow, start there.
 

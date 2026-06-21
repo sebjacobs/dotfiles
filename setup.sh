@@ -67,7 +67,7 @@ files=(
   ".config/opencode/package-lock.json"
   ".config/opencode/bun.lock"
   ".config/helix/config.toml"
-  "Library/LaunchAgents/local.ruby-lsp-reap.plist"
+  "Library/LaunchAgents/com.sebjacobs.ruby-lsp-reap.plist"
 )
 
 for file in "${files[@]}"

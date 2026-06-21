@@ -40,9 +40,9 @@ schedule_of() {
 }
 
 for plist in "${plists[@]}"; do
-  label="$(pb ':Label' "$plist")"
+  label="$(pb ':Label' "$plist" || true)"
   [ -n "$label" ] || label="$(basename "$plist" .plist)"
-  log="$(pb ':StandardOutPath' "$plist")"
+  log="$(pb ':StandardOutPath' "$plist" || true)"
 
   status="$(launchctl list | awk -v l="$label" '$3==l {print $2}')"
   state="enabled"; echo "$disabled" | grep -q "\"$label\" => disabled" && state="DISABLED"

@@ -3,7 +3,7 @@
 <plist version="1.0">
 <dict>
   <key>Label</key>
-  <string>local.ruby-lsp-reap</string>
+  <string>com.sebjacobs.ruby-lsp-reap</string>
 
   <key>ProgramArguments</key>
   <array>

@@ -1,0 +1,10 @@
+#!/usr/bin/env sh
+
+# Update Homebrew and upgrade all formulae. Safe to run interactively or from
+# the launchd timer (com.sebjacobs.brewup) — sourcing brew shellenv first means
+# it works even in launchd's bare PATH-less environment.
+
+eval "$(/opt/homebrew/bin/brew shellenv)"
+
+echo "=== brewup $(date '+%Y-%m-%d %H:%M:%S') ==="
+brew update && brew upgrade --formula --yes

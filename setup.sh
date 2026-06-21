@@ -68,6 +68,7 @@ files=(
   ".config/opencode/bun.lock"
   ".config/helix/config.toml"
   "Library/LaunchAgents/com.sebjacobs.ruby-lsp-reap.plist"
+  "Library/LaunchAgents/com.sebjacobs.brewup.plist"
 )
 
 for file in "${files[@]}"

@@ -1,0 +1,59 @@
+#!/usr/bin/env bash
+#
+# jls — list my personal launchd agents (com.sebjacobs.* in
+# ~/Library/LaunchAgents) with their schedule, enabled state, last exit code,
+# and the tail of their log. Project-agnostic; works wherever it's run.
+#
+# Usage: jls
+
+set -euo pipefail
+
+PREFIX="com.sebjacobs"
+AGENTS_DIR="$HOME/Library/LaunchAgents"
+UID_NUM="$(id -u)"
+disabled="$(launchctl print-disabled "gui/$UID_NUM" 2>/dev/null || true)"
+days=(Sun Mon Tue Wed Thu Fri Sat)
+
+shopt -s nullglob
+plists=("$AGENTS_DIR/$PREFIX".*.plist)
+if [ ${#plists[@]} -eq 0 ]; then
+  echo "No $PREFIX.* agents in $AGENTS_DIR"
+  exit 0
+fi
+
+pb() { /usr/libexec/PlistBuddy -c "Print $1" "$2" 2>/dev/null; }
+
+schedule_of() {
+  local plist="$1" wd hh mm interval ral
+  if pb ':StartCalendarInterval' "$plist" >/dev/null 2>&1; then
+    wd="$(pb ':StartCalendarInterval:Weekday' "$plist")"
+    hh="$(pb ':StartCalendarInterval:Hour' "$plist")"
+    mm="$(pb ':StartCalendarInterval:Minute' "$plist")"
+    if [ -n "$wd" ]; then printf '%s ' "${days[$wd]:-?}"; fi
+    printf '%02d:%02d (calendar)' "${hh:-0}" "${mm:-0}"
+    return
+  fi
+  interval="$(pb ':StartInterval' "$plist")"
+  if [ -n "$interval" ]; then printf 'every %ss' "$interval"; return; fi
+  ral="$(pb ':RunAtLoad' "$plist")"
+  if [ "$ral" = "true" ]; then printf 'at login'; else printf 'on demand'; fi
+}
+
+for plist in "${plists[@]}"; do
+  label="$(pb ':Label' "$plist")"
+  [ -n "$label" ] || label="$(basename "$plist" .plist)"
+  log="$(pb ':StandardOutPath' "$plist")"
+
+  status="$(launchctl list | awk -v l="$label" '$3==l {print $2}')"
+  state="enabled"; echo "$disabled" | grep -q "\"$label\" => disabled" && state="DISABLED"
+
+  printf '\033[1m%s\033[0m\n' "$label"
+  printf '  schedule : %s\n' "$(schedule_of "$plist")"
+  printf '  state    : %s   last exit: %s\n' "$state" "${status:-never run}"
+  if [ -n "$log" ] && [ -f "$log" ]; then
+    printf '  last log : %s — %s\n' "$(date -r "$log" '+%Y-%m-%d %H:%M')" "$(tail -1 "$log")"
+  else
+    printf '  last log : (no log yet)\n'
+  fi
+  echo
+done

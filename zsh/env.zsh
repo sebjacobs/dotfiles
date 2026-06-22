@@ -12,6 +12,10 @@ export EDITOR='zed --wait'
 source /opt/homebrew/opt/chruby/share/chruby/chruby.sh
 CHRUBY_VERSION=ruby-4.0.5
 chruby "$CHRUBY_VERSION"
+# chruby silently no-ops if its RUBIES glob is empty during a transient init
+# (seen in Claude Code shell-snapshot capture): ruby then never lands on PATH
+# and `ruby` falls through to system 2.6. Assert the chosen bin dir directly.
+[[ -d "$HOME/.rubies/$CHRUBY_VERSION/bin" ]] && path=("$HOME/.rubies/$CHRUBY_VERSION/bin" $path)
 
 export VOLTA_HOME="$HOME/.volta"
 export PATH="$VOLTA_HOME/bin:$PATH"

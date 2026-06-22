@@ -62,8 +62,8 @@ sdk install java 21.0.7-tem
 sdk install java 11.0.x-amzn   # for Android
 
 # Ruby
-ruby-install ruby 3.4.5
-chruby ruby-3.4.5
+ruby-install ruby 4.0.5
+chruby ruby-4.0.5
 
 # Secrets — create manually, never commit
 cp /path/to/backup/.secrets.zsh ~/.secrets.zsh

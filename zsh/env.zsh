@@ -22,6 +22,11 @@ export PATH="$HOME/go/bin:$PATH"
 export PATH="$HOME/.opencode/bin:$PATH"
 export PATH="$PATH:$HOME/.lmstudio/bin"
 
+# postgresql@18 is keg-only, so its client tools (psql, pg_dump, ...) aren't
+# linked onto PATH by brew. Add the bin dir explicitly; the server stays
+# dormant unless `brew services start` is run.
+export PATH="/opt/homebrew/opt/postgresql@18/bin:$PATH"
+
 export OLLAMA_KEEP_ALIVE=-1
 
 # Completion dirs must be on fpath before SDKMAN's init runs compinit (below) —

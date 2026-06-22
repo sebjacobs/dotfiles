@@ -7,8 +7,6 @@ CLAUDE.local.md
 .claude/skills/android-cli/
 .claude/worktrees
 
-# remove once we are happy that worktree support is in a good place
-.worktreeinclude
 .local/*
 
 .jotter

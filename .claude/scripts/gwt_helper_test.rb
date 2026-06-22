@@ -65,6 +65,39 @@ class GwtPureTest < Minitest::Test
   def test_current_worktree_path_outside_returns_nil
     assert_nil Gwt.current_worktree_path("/repo/src", "/repo/.claude/worktrees")
   end
+
+  def test_parse_worktrees_extracts_path_and_branch
+    porcelain = <<~PORCELAIN
+      worktree /repo
+      branch refs/heads/main
+
+      worktree /repo/.claude/worktrees/foo
+      branch refs/heads/feature/x
+
+    PORCELAIN
+    assert_equal(
+      [{path: "/repo", branch: "main"},
+       {path: "/repo/.claude/worktrees/foo", branch: "feature/x"}],
+      Gwt.parse_worktrees(porcelain)
+    )
+  end
+
+  def test_parse_worktrees_marks_detached_head
+    porcelain = "worktree /repo/wt/d\nHEAD abc123\ndetached\n\n"
+    assert_equal [{path: "/repo/wt/d", branch: "(detached)"}], Gwt.parse_worktrees(porcelain)
+  end
+
+  def test_parse_worktrees_handles_empty_input
+    assert_empty Gwt.parse_worktrees("")
+  end
+
+  def test_parse_worktrees_flags_prunable_entries
+    porcelain = "worktree /repo/wt/p\nbranch refs/heads/b\n" \
+                "prunable gitdir file points to non-existent location\n\n"
+    entry = Gwt.parse_worktrees(porcelain).first
+    assert_equal "/repo/wt/p", entry[:path]
+    assert_equal "gitdir file points to non-existent location", entry[:prunable]
+  end
 end
 
 class GwtAppTest < Minitest::Test
@@ -92,7 +125,7 @@ class GwtAppTest < Minitest::Test
   end
 
   class FakeSys
-    attr_reader :copies
+    attr_reader :copies, :removes
 
     def initialize(dirs: [], children: {}, which: true, exists: [])
       @dirs = dirs
@@ -100,22 +133,24 @@ class GwtAppTest < Minitest::Test
       @which = which
       @exists = exists
       @copies = []
+      @removes = []
     end
 
     def dir?(path) = @dirs.include?(path)
     def exist?(path) = @exists.include?(path) || @dirs.include?(path)
     def children(path) = @children.fetch(path, [])
-    def empty_dir?(path) = children(path).empty?
     def which?(_cmd) = @which
     def copy_into(src, dst) = @copies << [src, dst]
+    def remove(path) = @removes << path
   end
 
-  def build(git: FakeGit.new, sys: FakeSys.new, pwd: ROOT, confirm: ->(_) { true }, worktree_subdir: ".claude/worktrees")
+  def build(git: FakeGit.new, sys: FakeSys.new, pwd: ROOT, confirm: ->(_) { true },
+            worktree_subdir: ".claude/worktrees", worktrees: [])
     @out = StringIO.new
     @err = StringIO.new
     @cd = []
     @execs = []
-    git_with_root = with_root(git)
+    git_with_root = with_root(git, worktrees)
     app = Gwt::App.new(
       git: git_with_root,
       sys: sys,
@@ -130,12 +165,25 @@ class GwtAppTest < Minitest::Test
     [app, git_with_root, sys]
   end
 
-  # Every run resolves the main root first; wrap the fake so that capture is
-  # pre-seeded without each test repeating it.
-  def with_root(git)
+  # Every run parses `worktree list --porcelain` first to discover the root and
+  # the registered worktrees. Seed it from the requested worktrees ([path, branch]
+  # pairs, paths relative to WT_BASE) so tests register worktrees via git, the way
+  # the real tool sees them — never by faking directory contents.
+  def with_root(git, worktrees = [])
     git.instance_variable_get(:@captures)["worktree list --porcelain"] ||=
-      ["worktree /repo\n", true]
+      [porcelain(worktrees), true]
     git
+  end
+
+  def porcelain(worktrees)
+    text = +"worktree /repo\nbranch refs/heads/main\n\n"
+    worktrees.each do |name, branch, prunable|
+      text << "worktree #{WT_BASE}/#{name}\n"
+      text << (branch ? "branch refs/heads/#{branch}\n" : "detached\n")
+      text << "prunable #{prunable}\n" if prunable
+      text << "\n"
+    end
+    text
   end
 
   def test_add_creates_worktree_and_cds_in
@@ -152,14 +200,22 @@ class GwtAppTest < Minitest::Test
     assert_includes git.runs, ["worktree", "add", "-b", "feature/x", "/repo/.claude/worktrees/feature+x"]
   end
 
-  def test_add_on_existing_worktree_cds_without_recreating
-    sys = FakeSys.new(dirs: ["/repo/.claude/worktrees/feature+x"])
-    app, git, = build(sys: sys)
+  def test_add_on_registered_worktree_cds_without_recreating
+    app, git, = build(worktrees: [["feature+x", "feature/x"]])
     status = app.run(["add", "feature/x"])
     assert_equal 0, status
     assert_empty git.runs
     assert_equal ["/repo/.claude/worktrees/feature+x"], @cd
     assert_match(/already exists/, @out.string)
+  end
+
+  def test_add_on_untracked_directory_errors_pointing_at_prune
+    sys = FakeSys.new(dirs: ["/repo/.claude/worktrees/feature+x"])
+    app, git, = build(sys: sys)
+    assert_equal 1, app.run(["add", "feature/x"])
+    assert_empty git.runs
+    assert_empty @cd
+    assert_match(/gwt prune/, @err.string)
   end
 
   def test_add_without_branch_errors
@@ -169,37 +225,40 @@ class GwtAppTest < Minitest::Test
   end
 
   def test_cd_exact_match
-    sys = FakeSys.new(dirs: [WT_BASE, "#{WT_BASE}/foo"])
-    app, = build(sys: sys)
+    app, = build(worktrees: [["foo", "b"]])
     assert_equal 0, app.run(["cd", "foo"])
     assert_equal ["#{WT_BASE}/foo"], @cd
   end
 
   def test_cd_fuzzy_unique_match
-    sys = FakeSys.new(dirs: [WT_BASE], children: { WT_BASE => %w[foobar other] })
-    app, = build(sys: sys)
+    app, = build(worktrees: [["foobar", "b"], ["other", "b"]])
     assert_equal 0, app.run(["cd", "foo"])
     assert_equal ["#{WT_BASE}/foobar"], @cd
   end
 
   def test_cd_ambiguous_match_errors
-    sys = FakeSys.new(dirs: [WT_BASE], children: { WT_BASE => %w[foo-a foo-b] })
-    app, = build(sys: sys)
+    app, = build(worktrees: [["foo-a", "b"], ["foo-b", "b"]])
     assert_equal 1, app.run(["cd", "foo"])
     assert_empty @cd
     assert_match(/Multiple worktrees match 'foo'/, @err.string)
   end
 
   def test_cd_no_match_errors
-    sys = FakeSys.new(dirs: [WT_BASE], children: { WT_BASE => %w[alpha] })
-    app, = build(sys: sys)
+    app, = build(worktrees: [["alpha", "b"]])
     assert_equal 1, app.run(["cd", "zzz"])
     assert_match(/No worktree matching: zzz/, @err.string)
   end
 
+  def test_cd_ignores_orphaned_directory
+    sys = FakeSys.new(dirs: [WT_BASE], children: { WT_BASE => %w[orphan] })
+    app, = build(sys: sys, worktrees: [])
+    assert_equal 1, app.run(["cd", "orphan"])
+    assert_empty @cd
+    assert_match(/No worktree matching: orphan/, @err.string)
+  end
+
   def test_path_echoes_resolved_path
-    sys = FakeSys.new(dirs: [WT_BASE, "#{WT_BASE}/foo"])
-    app, = build(sys: sys)
+    app, = build(worktrees: [["foo", "b"]])
     assert_equal 0, app.run(["path", "foo"])
     assert_equal "#{WT_BASE}/foo\n", @out.string
   end
@@ -230,26 +289,51 @@ class GwtAppTest < Minitest::Test
   end
 
   def test_rm_declined_does_not_remove
-    sys = FakeSys.new(dirs: ["#{WT_BASE}/foo"])
-    app, git, = build(sys: sys, confirm: ->(_) { false })
+    app, git, = build(worktrees: [["foo", "b"]], confirm: ->(_) { false })
     assert_equal 1, app.run(["rm", "foo"])
     assert_empty git.runs
     assert_empty @cd
   end
 
   def test_rm_confirmed_removes_and_cds_out_when_inside
-    sys = FakeSys.new(dirs: ["#{WT_BASE}/foo"])
-    app, git, = build(sys: sys, pwd: "#{WT_BASE}/foo/lib", confirm: ->(_) { true })
+    app, git, = build(worktrees: [["foo", "b"]], pwd: "#{WT_BASE}/foo/lib", confirm: ->(_) { true })
     assert_equal 0, app.run(["rm", "foo"])
     assert_includes git.runs, ["worktree", "remove", "#{WT_BASE}/foo"]
     assert_equal [ROOT], @cd
   end
 
   def test_rm_confirmed_no_cd_when_outside
-    sys = FakeSys.new(dirs: ["#{WT_BASE}/foo"])
-    app, = build(sys: sys, pwd: "/repo/src", confirm: ->(_) { true })
+    app, = build(worktrees: [["foo", "b"]], pwd: "/repo/src", confirm: ->(_) { true })
     app.run(["rm", "foo"])
     assert_empty @cd
+  end
+
+  def test_rm_orphaned_directory_falls_back_to_rm
+    sys = FakeSys.new(dirs: ["#{WT_BASE}/orphan"])
+    app, git, sys = build(sys: sys, worktrees: [], confirm: ->(_) { true })
+    assert_equal 0, app.run(["rm", "orphan"])
+    assert_empty git.runs
+    assert_includes sys.removes, "#{WT_BASE}/orphan"
+  end
+
+  def test_rm_orphaned_directory_declined_removes_nothing
+    sys = FakeSys.new(dirs: ["#{WT_BASE}/orphan"])
+    app, _, sys = build(sys: sys, worktrees: [], confirm: ->(_) { false })
+    assert_equal 1, app.run(["rm", "orphan"])
+    assert_empty sys.removes
+  end
+
+  def test_rm_force_passes_force_to_git_and_skips_confirm
+    app, git, = build(worktrees: [["foo", "b"]], confirm: ->(_) { flunk "should not prompt with -f" })
+    assert_equal 0, app.run(["rm", "-f", "foo"])
+    assert_includes git.runs, ["worktree", "remove", "#{WT_BASE}/foo", "--force"]
+  end
+
+  def test_rm_force_on_orphan_skips_confirm
+    sys = FakeSys.new(dirs: ["#{WT_BASE}/orphan"])
+    app, _, sys = build(sys: sys, worktrees: [], confirm: ->(_) { flunk "should not prompt with -f" })
+    assert_equal 0, app.run(["rm", "--force", "orphan"])
+    assert_includes sys.removes, "#{WT_BASE}/orphan"
   end
 
   def test_rm_missing_worktree_errors
@@ -259,8 +343,8 @@ class GwtAppTest < Minitest::Test
   end
 
   def test_zed_named_execs_in_new_window
-    sys = FakeSys.new(dirs: [WT_BASE, "#{WT_BASE}/foo"], which: true)
-    app, = build(sys: sys)
+    sys = FakeSys.new(which: true)
+    app, = build(sys: sys, worktrees: [["foo", "b"]])
     assert_equal 0, app.run(["zed", "foo"])
     assert_equal [["zed", "-n", "#{WT_BASE}/foo"]], @execs
   end
@@ -280,24 +364,40 @@ class GwtAppTest < Minitest::Test
   end
 
   def test_ls_lists_with_current_marker
-    git = FakeGit.new(captures: {
-                        "-C #{WT_BASE}/foo rev-parse --abbrev-ref HEAD" => ["feature/x\n", true]
-                      })
-    sys = FakeSys.new(dirs: [WT_BASE], children: { WT_BASE => %w[foo] })
-    app, = build(git: git, sys: sys, pwd: "#{WT_BASE}/foo")
+    app, = build(worktrees: [["foo", "feature/x"]], pwd: "#{WT_BASE}/foo")
     assert_equal 0, app.run(["ls"])
     assert_match(/\* foo\s+feature\/x/, @out.string)
+  end
+
+  def test_ls_excludes_orphaned_directories
+    sys = FakeSys.new(dirs: [WT_BASE], children: { WT_BASE => %w[foo orphan] })
+    app, = build(sys: sys, worktrees: [["foo", "feature/x"]])
+    assert_equal 0, app.run(["ls"])
+    assert_match(/foo/, @out.string)
+    refute_match(/orphan/, @out.string)
+  end
+
+  def test_ls_excludes_phantom_worktrees
+    app, = build(worktrees: [["foo", "feature/x"], ["phantom", "gone", "gitdir missing"]])
+    assert_equal 0, app.run(["ls"])
+    assert_match(/foo/, @out.string)
+    refute_match(/phantom/, @out.string)
+  end
+
+  def test_cd_ignores_phantom_worktree
+    app, = build(worktrees: [["phantom", "gone", "gitdir missing"]])
+    assert_equal 1, app.run(["cd", "phantom"])
+    assert_empty @cd
+    assert_match(/No worktree matching: phantom/, @err.string)
   end
 
   def test_status_shows_dirty_and_position
     captures = {
       "-C #{ROOT} rev-parse --abbrev-ref HEAD" => ["main\n", true],
-      "-C #{WT_BASE}/foo rev-parse --abbrev-ref HEAD" => ["feature/x\n", true],
       "-C #{WT_BASE}/foo status --porcelain" => [" M a.rb\n", true],
       "-C #{WT_BASE}/foo rev-list --left-right --count main...feature/x" => ["1\t2\n", true]
     }
-    sys = FakeSys.new(dirs: [WT_BASE], children: { WT_BASE => %w[foo] })
-    app, = build(git: FakeGit.new(captures: captures), sys: sys)
+    app, = build(git: FakeGit.new(captures: captures), worktrees: [["foo", "feature/x"]])
     assert_equal 0, app.run(["status"])
     assert_match(/foo/, @out.string)
     assert_match(/\[dirty\]/, @out.string)
@@ -318,8 +418,11 @@ class GwtAppTest < Minitest::Test
   end
 
   def test_cd_resolves_under_custom_worktree_subdir
-    sys = FakeSys.new(dirs: ["/repo/wt", "/repo/wt/foo"])
-    app, = build(sys: sys, worktree_subdir: "wt")
+    git = FakeGit.new(captures: {
+                        "worktree list --porcelain" =>
+                          ["worktree /repo\nbranch refs/heads/main\n\nworktree /repo/wt/foo\nbranch refs/heads/b\n\n", true]
+                      })
+    app, = build(git: git, worktree_subdir: "wt")
     assert_equal 0, app.run(["cd", "foo"])
     assert_equal ["/repo/wt/foo"], @cd
   end
@@ -332,39 +435,37 @@ class GwtAppTest < Minitest::Test
   end
 
   def test_cp_force_copies_root_path_into_all_worktrees
-    sys = FakeSys.new(dirs: [WT_BASE], children: { WT_BASE => %w[foo bar] }, exists: ["#{ROOT}/.env"])
-    app, _, sys = build(sys: sys, confirm: ->(_) { false })
+    sys = FakeSys.new(exists: ["#{ROOT}/.env"])
+    app, _, sys = build(sys: sys, worktrees: [["foo", "b"], ["bar", "b"]], confirm: ->(_) { false })
     assert_equal 0, app.run(["cp", "-f", ".env"])
     assert_includes sys.copies, ["#{ROOT}/.env", "#{WT_BASE}/foo/.env"]
     assert_includes sys.copies, ["#{ROOT}/.env", "#{WT_BASE}/bar/.env"]
   end
 
   def test_cp_confirmed_copies_into_all_worktrees
-    sys = FakeSys.new(dirs: [WT_BASE], children: { WT_BASE => %w[foo] }, exists: ["#{ROOT}/.env"])
-    app, _, sys = build(sys: sys, confirm: ->(_) { true })
+    sys = FakeSys.new(exists: ["#{ROOT}/.env"])
+    app, _, sys = build(sys: sys, worktrees: [["foo", "b"]], confirm: ->(_) { true })
     assert_equal 0, app.run(["cp", ".env"])
     assert_includes sys.copies, ["#{ROOT}/.env", "#{WT_BASE}/foo/.env"]
   end
 
   def test_cp_declined_copies_nothing
-    sys = FakeSys.new(dirs: [WT_BASE], children: { WT_BASE => %w[foo] }, exists: ["#{ROOT}/.env"])
-    app, _, sys = build(sys: sys, confirm: ->(_) { false })
+    sys = FakeSys.new(exists: ["#{ROOT}/.env"])
+    app, _, sys = build(sys: sys, worktrees: [["foo", "b"]], confirm: ->(_) { false })
     assert_equal 1, app.run(["cp", ".env"])
     assert_empty sys.copies
   end
 
   def test_cp_preserves_nested_path_under_each_worktree
-    sys = FakeSys.new(dirs: [WT_BASE], children: { WT_BASE => %w[foo] },
-                      exists: ["#{ROOT}/.claude/settings.local.json"])
-    app, _, sys = build(sys: sys)
+    sys = FakeSys.new(exists: ["#{ROOT}/.claude/settings.local.json"])
+    app, _, sys = build(sys: sys, worktrees: [["foo", "b"]])
     assert_equal 0, app.run(["cp", "-f", ".claude/settings.local.json"])
     assert_includes sys.copies,
                     ["#{ROOT}/.claude/settings.local.json", "#{WT_BASE}/foo/.claude/settings.local.json"]
   end
 
   def test_cp_missing_source_errors
-    sys = FakeSys.new(dirs: [WT_BASE], children: { WT_BASE => %w[foo] })
-    app, = build(sys: sys)
+    app, = build(worktrees: [["foo", "b"]])
     assert_equal 1, app.run(["cp", "nope.txt"])
     assert_match(/No such file or directory under root: nope.txt/, @err.string)
   end
@@ -381,5 +482,36 @@ class GwtAppTest < Minitest::Test
     app, = build
     assert_equal 1, app.run(["cp"])
     assert_match(/Usage: gwt cp/, @err.string)
+  end
+
+  def test_prune_removes_confirmed_orphans_only
+    sys = FakeSys.new(dirs: [WT_BASE], children: { WT_BASE => %w[foo orphan] })
+    app, _, sys = build(sys: sys, worktrees: [["foo", "b"]], confirm: ->(_) { true })
+    assert_equal 0, app.run(["prune"])
+    assert_includes sys.removes, "#{WT_BASE}/orphan"
+    refute_includes sys.removes, "#{WT_BASE}/foo"
+  end
+
+  def test_prune_declined_removes_nothing
+    sys = FakeSys.new(dirs: [WT_BASE], children: { WT_BASE => %w[orphan] })
+    app, _, sys = build(sys: sys, worktrees: [], confirm: ->(_) { false })
+    assert_equal 0, app.run(["prune"])
+    assert_empty sys.removes
+  end
+
+  def test_prune_reports_when_nothing_to_prune
+    sys = FakeSys.new(dirs: [WT_BASE], children: { WT_BASE => %w[foo] })
+    app, git, sys = build(sys: sys, worktrees: [["foo", "b"]])
+    assert_equal 0, app.run(["prune"])
+    assert_match(/Nothing to prune/, @out.string)
+    assert_empty sys.removes
+    assert_empty git.runs
+  end
+
+  def test_prune_clears_phantom_git_registrations
+    app, git, = build(worktrees: [["phantom", "gone", "gitdir missing"]])
+    assert_equal 0, app.run(["prune"])
+    assert_includes git.runs, ["worktree", "prune"]
+    assert_match(/cleared stale git registration for phantom/, @out.string)
   end
 end

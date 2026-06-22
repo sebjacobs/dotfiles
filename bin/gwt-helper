@@ -59,6 +59,28 @@ module Gwt
     [ahead.to_i, behind.to_i]
   end
 
+  # Parse `git worktree list --porcelain` into [{path:, branch:}] entries, in the
+  # order git reports them. A new entry starts at each "worktree <path>" line;
+  # "branch refs/heads/<name>", a bare "detached", and "prunable <reason>" (git's
+  # flag for a registration whose working directory is gone) attach to the open
+  # entry.
+  def parse_worktrees(porcelain)
+    entries = []
+    porcelain.to_s.each_line do |line|
+      line = line.chomp
+      if line.start_with?("worktree ")
+        entries << {path: line.delete_prefix("worktree "), branch: nil}
+      elsif line.start_with?("branch ") && entries.last
+        entries.last[:branch] = line.delete_prefix("branch ").delete_prefix("refs/heads/")
+      elsif line == "detached" && entries.last
+        entries.last[:branch] = "(detached)"
+      elsif line.start_with?("prunable ") && entries.last
+        entries.last[:prunable] = line.delete_prefix("prunable ")
+      end
+    end
+    entries
+  end
+
   # When pwd sits inside a worktree, return that worktree's root path (base plus
   # the first path segment); nil otherwise.
   def current_worktree_path(pwd, wt_base)
@@ -90,7 +112,7 @@ module Gwt
       Dir.children(path).select { |e| File.directory?(File.join(path, e)) }.sort
     end
 
-    def empty_dir?(path) = Dir.children(path).empty?
+    def remove(path) = FileUtils.rm_rf(path)
 
     def copy_into(src, dst)
       FileUtils.mkdir_p(File.dirname(dst))
@@ -114,7 +136,11 @@ module Gwt
     end
 
     def run(argv)
-      @root = main_root
+      porcelain, ok = @git.capture("worktree", "list", "--porcelain")
+      return error("Not in a git repo") unless ok
+
+      @all_worktrees = Gwt.parse_worktrees(porcelain)
+      @root = @all_worktrees.first&.fetch(:path)
       return error("Not in a git repo") if @root.nil? || @root.empty?
 
       @wt_base = "#{@root}/#{@worktree_subdir}"
@@ -129,6 +155,7 @@ module Gwt
       when "root"   then cmd_root(rest)
       when "status" then cmd_status
       when "rm"     then cmd_rm(rest)
+      when "prune"  then cmd_prune
       else usage
       end
     end
@@ -142,10 +169,17 @@ module Gwt
       return error("Usage: gwt add [-b] <branch>") if branch.nil? || branch.empty?
 
       wt_dir = "#{@wt_base}/#{Gwt.encode_branch(branch)}"
-      if @sys.dir?(wt_dir)
+      if registered?(wt_dir)
         @out.puts "Worktree already exists, cd-ing into it"
         change_dir(wt_dir)
         return 0
+      end
+
+      if @sys.dir?(wt_dir)
+        return error(
+          "An untracked directory is in the way at #{wt_dir} " \
+          "(git does not register it as a worktree). Run `gwt prune` to clear it, then retry."
+        )
       end
 
       ok = if create_branch
@@ -228,12 +262,11 @@ module Gwt
     end
 
     def cmd_ls
-      return no_worktrees if worktree_dirs.empty?
+      return no_worktrees if worktrees.empty?
 
-      worktree_dirs.each do |dir|
-        name = File.basename(dir)
-        branch = branch_of(dir)
-        @out.puts format("%s%-40s %s", marker(dir), name, branch)
+      worktrees.each do |wt|
+        dir = wt[:path]
+        @out.puts format("%s%-40s %s", marker(dir), File.basename(dir), wt[:branch] || "???")
       end
       0
     end
@@ -248,14 +281,15 @@ module Gwt
     end
 
     def cmd_status
-      return no_worktrees if worktree_dirs.empty?
+      return no_worktrees if worktrees.empty?
 
       main_branch_out, ok = @git.capture("-C", @root, "rev-parse", "--abbrev-ref", "HEAD")
       main_branch = ok ? main_branch_out.strip : "main"
 
-      worktree_dirs.each do |dir|
+      worktrees.each do |wt|
+        dir = wt[:path]
         name = File.basename(dir)
-        branch = branch_of(dir)
+        branch = wt[:branch] || "???"
         dirty_out, = @git.capture("-C", dir, "status", "--porcelain")
         dirty = dirty_out.strip.empty? ? "" : " [dirty]"
         counts, = @git.capture("-C", dir, "rev-list", "--left-right", "--count", "#{main_branch}...#{branch}")
@@ -267,28 +301,66 @@ module Gwt
     end
 
     def cmd_rm(args)
+      force = ["-f", "--force"].include?(args.first)
+      args = args.drop(1) if force
       name = args.first
-      return error("Usage: gwt rm <name>") if name.nil? || name.empty?
+      return error("Usage: gwt rm [-f|--force] <name>") if name.nil? || name.empty?
 
       wt_dir = "#{@wt_base}/#{name}"
-      return error("No worktree: #{name}") unless @sys.dir?(wt_dir)
 
-      return 1 unless @confirm.call("Remove worktree '#{name}'? [y/N] ")
+      if registered?(wt_dir)
+        return 1 unless force || @confirm.call("Remove worktree '#{name}'? [y/N] ")
 
-      change_dir(@root) if @pwd.start_with?(wt_dir)
-      @git.run("worktree", "remove", wt_dir) ? 0 : 1
+        change_dir(@root) if @pwd.start_with?(wt_dir)
+        git_args = ["worktree", "remove", wt_dir]
+        git_args << "--force" if force
+        @git.run(*git_args) ? 0 : 1
+      elsif @sys.dir?(wt_dir)
+        return 1 unless force || @confirm.call("'#{name}' is an orphaned directory git no longer tracks. Remove it? [y/N] ")
+
+        change_dir(@root) if @pwd.start_with?(wt_dir)
+        @sys.remove(wt_dir)
+        0
+      else
+        error("No worktree: #{name}")
+      end
+    end
+
+    def cmd_prune
+      phantoms = phantom_dirs
+      strays = stray_dirs
+
+      if phantoms.empty? && strays.empty?
+        @out.puts "Nothing to prune under #{@worktree_subdir}/"
+        return 0
+      end
+
+      unless phantoms.empty?
+        @git.run("worktree", "prune")
+        phantoms.each { |dir| @out.puts "gwt: cleared stale git registration for #{File.basename(dir)}" }
+      end
+
+      strays.each do |dir|
+        name = File.basename(dir)
+        next unless @confirm.call("Remove orphaned directory '#{name}' (git does not track it)? [y/N] ")
+
+        @sys.remove(dir)
+        @out.puts "gwt: removed orphaned directory #{name}"
+      end
+      0
     end
 
     def usage
       @out.puts <<~USAGE
-        Usage: gwt <add|cp|cd|zed|ls|rm|root|status|path> [args]
+        Usage: gwt <add|cp|cd|zed|ls|rm|prune|root|status|path> [args]
 
           add [-b] <branch>    Create worktree and cd into it
           cp [-f] <path>       Copy <path> from root into every worktree (-f skips the prompt)
           cd <name>           cd into an existing worktree
           zed [<name>]        Open a worktree in a new Zed window (current if no name)
           ls                  List worktrees
-          rm <name>           Remove a worktree
+          rm [-f] <name>      Remove a worktree or orphaned directory (-f forces a dirty one)
+          prune               Clear phantom git registrations and orphaned directories
           root [-p|--path]    cd back to the main worktree root (or echo it with -p)
           status              Overview of all worktrees
           path [<name>]       Echo absolute path of a worktree (current if no name)
@@ -302,12 +374,7 @@ module Gwt
     # block's value. Emits the appropriate stderr message and a non-zero code on
     # no/ambiguous match.
     def resolve(name)
-      exact = "#{@wt_base}/#{name}"
-      return yield(exact) if @sys.dir?(exact)
-
-      return error("No worktree matching: #{name}") unless @sys.dir?(@wt_base)
-
-      matches = Gwt.fuzzy_match(@sys.children(@wt_base), name)
+      matches = Gwt.fuzzy_match(worktree_dirs.map { |dir| File.basename(dir) }, name)
       case matches.length
       when 0
         error("No worktree matching: #{name}")
@@ -341,23 +408,36 @@ module Gwt
       @out.puts "gwt: copied #{copied.length} entries from .worktreeinclude: #{copied.join(' ')}" unless copied.empty?
     end
 
-    def main_root
-      out, ok = @git.capture("worktree", "list", "--porcelain")
-      return nil unless ok
-
-      first = out.lines.first
-      first&.start_with?("worktree ") ? first.sub("worktree ", "").strip : nil
+    # Live git-registered worktrees directly under @wt_base, sorted by path.
+    # Orphaned directories (on disk but unknown to git) and phantom registrations
+    # (known to git but whose directory is gone, flagged "prunable") never appear.
+    def worktrees
+      prefix = "#{@wt_base}/"
+      @all_worktrees
+        .reject { |wt| wt[:prunable] }
+        .select { |wt| wt[:path].start_with?(prefix) && !wt[:path][prefix.length..].include?("/") }
+        .sort_by { |wt| wt[:path] }
     end
 
-    def worktree_dirs
-      return [] unless @sys.dir?(@wt_base) && !@sys.empty_dir?(@wt_base)
+    def worktree_dirs = worktrees.map { |wt| wt[:path] }
 
-      @sys.children(@wt_base).map { |name| "#{@wt_base}/#{name}" }
+    def registered?(dir) = @all_worktrees.any? { |wt| wt[:path] == dir && !wt[:prunable] }
+
+    # Directories under @wt_base that git does not register as a live worktree.
+    def stray_dirs
+      return [] unless @sys.dir?(@wt_base)
+
+      on_disk = @sys.children(@wt_base).map { |name| "#{@wt_base}/#{name}" }
+      on_disk - worktree_dirs
     end
 
-    def branch_of(dir)
-      out, ok = @git.capture("-C", dir, "rev-parse", "--abbrev-ref", "HEAD")
-      ok ? out.strip : "???"
+    # Worktrees git still registers under @wt_base but whose working directory is
+    # gone; git flags these "prunable" and `git worktree prune` clears them.
+    def phantom_dirs
+      prefix = "#{@wt_base}/"
+      @all_worktrees
+        .select { |wt| wt[:prunable] && wt[:path].start_with?(prefix) }
+        .map { |wt| wt[:path] }
     end
 
     def marker(dir) = @pwd.start_with?(dir) ? "* " : "  "

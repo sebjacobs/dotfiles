@@ -78,3 +78,98 @@ cutoff that are not active and provably safe, removes them and runs
   (its branch ref, if any, is independent and untouched).
 - **`prune`** clears phantom registrations with `git worktree prune` and removes
   orphaned directories under `.claude/worktrees/` (the latter after confirmation).
+
+## Command surface
+
+| Command | Purpose |
+| --- | --- |
+| `add [-b] <branch>` | Create a worktree (`-b` also creates the branch) and `cd` in; reuse + `cd` if it already exists |
+| `cp [-f\|--force] <path>` | Copy `<path>` from the root checkout into every worktree (`-f` skips the prompt) |
+| `cd <name>` | `cd` into a worktree |
+| `zed [<name>]` | Open a worktree in a new Zed window (current if no name) |
+| `ls` | List worktrees (name + branch) |
+| `rm [-f\|--force] <name>` | Remove a worktree or orphaned directory (`-f` forces a dirty one) |
+| `prune [-f]` | Clear phantom git registrations and orphaned directories (`-f` skips prompts) |
+| `root [-p]` | `cd` to the main root (or echo it with `-p`) |
+| `status` | Per-worktree branch, dirty flag, ahead/behind |
+| `path [<name>]` | Echo a worktree's absolute path (current if no name) |
+
+## Design decisions
+
+These are deliberate and should be preserved unless revisited on purpose:
+
+- **Fuzzy for navigation, exact for destruction.** `cd`/`path`/`zed` resolve a
+  query by exact → prefix → substring match; `rm` requires the exact worktree
+  name. Navigation is forgiving; deletion is not fuzzy-matched.
+- **Defer to git's guards rather than reimplement them.** `rm` runs
+  `git worktree remove` without `--force`, so git's own dirty/locked guard
+  decides; `gwt rm -f` forwards `--force`. gwt does not re-derive "is it safe to
+  delete".
+- **Never auto-delete what git doesn't register.** A directory in the way of
+  `add` is reported and the user is pointed at `gwt prune`, not silently removed
+  (the CLI's automatic orphan self-heal is deliberately not replicated — pruning
+  is an explicit, confirmed action here).
+- **stdout is data, stderr is messages.** `path` and `root -p` print only the
+  path on stdout so they compose in scripts; errors and prompts go to stderr.
+- **`-f` is the one force/skip-confirm flag.** `cp`/`rm`/`prune` take `-f` (no
+  `--force` long form, matching `root -p`); on `rm` it also forwards git's
+  `--force`. Navigation flags (`add -b`, `root -p`) stay short too.
+- **Validate the slug before touching git.** `add` rejects a malformed branch
+  name (over 64 chars, `.`/`..`/`.git`/empty segments, non-`[A-Za-z0-9._-]`)
+  up front, mirroring the CLI, rather than letting a half-made dir/branch escape.
+
+## Known gaps / deferred
+
+Consciously left out for now (recorded so they are choices, not oversights):
+
+- `zed` hardcodes one editor rather than honouring `$VISUAL`/`$EDITOR`.
+- No `move`/`lock`/`unlock`/`repair` equivalents from `git worktree`.
+- `cp` targets every worktree only; there is no single-target form.
+- `status`'s ahead/behind is measured against the **root checkout's current
+  branch**, not necessarily `main`.
+
+## Parity with the Claude Code CLI (2.1.186)
+
+Verified against the CLI's worktree subsystem reverse-engineered from the binary.
+The CLI is a superset: it manages *agent* worktrees (locking, base-ref/PR/sparse
+resolution, settings/hooks propagation, automatic age-gated cleanup). gwt is a
+human tool for feature-branch worktrees, so much of that is out of scope by
+design. Where they overlap, gwt matches; where they differ, it is deliberate.
+
+**Matched.** Enumeration from `git worktree list --porcelain`, parsing the
+`branch` and `prunable` lines; `/` → `+` directory encoding; a dirty worktree is
+never silently removed (the CLI checks `status --porcelain` then force-removes;
+gwt withholds `--force` so git's own guard refuses — same outcome); `git worktree
+prune` clears phantom/`prunable` registrations; `.worktreeinclude` copies the
+intersection of ignored-and-untracked with the include patterns; `prunable`
+entries are kept out of the live set (the CLI's enter-guard refuses them).
+
+**Intentionally diverged.**
+- gwt names the worktree branch the *actual* branch; the CLI prefixes
+  `worktree-` (its branches are throwaway agent branches). Correspondingly gwt
+  **never deletes a branch** on `rm`; the CLI runs `branch -D` on its agent
+  branch.
+- gwt branches from the current `HEAD`; the CLI resolves a base ref
+  (`origin/<default>` with fetch, or `pull/<n>/head`) and uses
+  `worktree add --no-track -B`.
+- gwt does not lock worktrees, nor copy `settings.local.json` / set
+  `core.hooksPath` / symlink configured dirs — `gwt cp` covers manual
+  propagation instead.
+- `prune` is manual and per-directory confirmed rather than automatic and
+  safety-gated. This is **safe precisely because gwt never deletes branches**:
+  an orphan/stray directory holds only gitignored leftovers (a real worktree
+  with commits would still be registered), and any commits live on the branch in
+  `.git`, not in the directory — so removing the directory cannot lose committed
+  work. The CLI's elaborate "provably safe / unpushed-commits" self-heal exists
+  because it *also* deletes the branch; gwt sidesteps that whole class of risk.
+- `.worktreeinclude`: gwt dereferences symlinks (`cp -RL`) to seed a real file
+  (e.g. a symlinked `CLAUDE.local.md`); the CLI skips symlinks. gwt's choice is
+  the more useful one for this setup.
+
+**Adopted from the CLI.**
+- Slug validation: `add` mirrors `validateWorktreeSlug` (64-char cap, reject
+  `.`/`..`/`.git`/empty segments and non-`[A-Za-z0-9._-]` per `/`-segment) before
+  touching git.
+- The `worktree list` capture is bounded by a 10s timeout and retried once on a
+  transient failure (the CLI's `WorktreeGitTransientError` handling; in Ruby's
+  blocking-read model the retry covers the same one-off failures).

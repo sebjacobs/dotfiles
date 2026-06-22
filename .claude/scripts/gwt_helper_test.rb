@@ -94,14 +94,16 @@ class GwtAppTest < Minitest::Test
   class FakeSys
     attr_reader :copies
 
-    def initialize(dirs: [], children: {}, which: true)
+    def initialize(dirs: [], children: {}, which: true, exists: [])
       @dirs = dirs
       @children = children
       @which = which
+      @exists = exists
       @copies = []
     end
 
     def dir?(path) = @dirs.include?(path)
+    def exist?(path) = @exists.include?(path) || @dirs.include?(path)
     def children(path) = @children.fetch(path, [])
     def empty_dir?(path) = children(path).empty?
     def which?(_cmd) = @which
@@ -327,5 +329,57 @@ class GwtAppTest < Minitest::Test
     app, = build(git: git)
     assert_equal 1, app.run(["ls"])
     assert_match(/Not in a git repo/, @err.string)
+  end
+
+  def test_cp_force_copies_root_path_into_all_worktrees
+    sys = FakeSys.new(dirs: [WT_BASE], children: { WT_BASE => %w[foo bar] }, exists: ["#{ROOT}/.env"])
+    app, _, sys = build(sys: sys, confirm: ->(_) { false })
+    assert_equal 0, app.run(["cp", "-f", ".env"])
+    assert_includes sys.copies, ["#{ROOT}/.env", "#{WT_BASE}/foo/.env"]
+    assert_includes sys.copies, ["#{ROOT}/.env", "#{WT_BASE}/bar/.env"]
+  end
+
+  def test_cp_confirmed_copies_into_all_worktrees
+    sys = FakeSys.new(dirs: [WT_BASE], children: { WT_BASE => %w[foo] }, exists: ["#{ROOT}/.env"])
+    app, _, sys = build(sys: sys, confirm: ->(_) { true })
+    assert_equal 0, app.run(["cp", ".env"])
+    assert_includes sys.copies, ["#{ROOT}/.env", "#{WT_BASE}/foo/.env"]
+  end
+
+  def test_cp_declined_copies_nothing
+    sys = FakeSys.new(dirs: [WT_BASE], children: { WT_BASE => %w[foo] }, exists: ["#{ROOT}/.env"])
+    app, _, sys = build(sys: sys, confirm: ->(_) { false })
+    assert_equal 1, app.run(["cp", ".env"])
+    assert_empty sys.copies
+  end
+
+  def test_cp_preserves_nested_path_under_each_worktree
+    sys = FakeSys.new(dirs: [WT_BASE], children: { WT_BASE => %w[foo] },
+                      exists: ["#{ROOT}/.claude/settings.local.json"])
+    app, _, sys = build(sys: sys)
+    assert_equal 0, app.run(["cp", "-f", ".claude/settings.local.json"])
+    assert_includes sys.copies,
+                    ["#{ROOT}/.claude/settings.local.json", "#{WT_BASE}/foo/.claude/settings.local.json"]
+  end
+
+  def test_cp_missing_source_errors
+    sys = FakeSys.new(dirs: [WT_BASE], children: { WT_BASE => %w[foo] })
+    app, = build(sys: sys)
+    assert_equal 1, app.run(["cp", "nope.txt"])
+    assert_match(/No such file or directory under root: nope.txt/, @err.string)
+  end
+
+  def test_cp_no_worktrees_reports_and_copies_nothing
+    sys = FakeSys.new(exists: ["#{ROOT}/.env"])
+    app, _, sys = build(sys: sys)
+    assert_equal 0, app.run(["cp", "-f", ".env"])
+    assert_match(/No worktrees/, @out.string)
+    assert_empty sys.copies
+  end
+
+  def test_cp_without_path_errors
+    app, = build
+    assert_equal 1, app.run(["cp"])
+    assert_match(/Usage: gwt cp/, @err.string)
   end
 end

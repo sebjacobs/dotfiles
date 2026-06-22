@@ -1,6 +1,7 @@
 # --- gwt: git worktree helpers for .claude/worktrees/ ---
 # Usage: gwt add <branch>       Create worktree and cd into it
 #        gwt add -b <branch>    Create branch + worktree and cd into it
+#        gwt cp [-f] <path>     Copy <path> from root into every worktree (-f skips the prompt)
 #        gwt cd <name>          cd into an existing worktree
 #        gwt zed [<name>]       Open a worktree in a new Zed window (current if no name)
 #        gwt ls                 List worktrees
@@ -54,13 +55,16 @@ _gwt() {
   local wt_base="$root/${GWT_WORKTREE_DIR:-.claude/worktrees}"
 
   if (( CURRENT == 2 )); then
-    compadd -- add cd zed ls rm root status path
+    compadd -- add cp cd zed ls rm root status path
   elif (( CURRENT == 3 )); then
     case "${words[2]}" in
       cd|rm|path|zed)
         if [[ -d "$wt_base" ]]; then
           compadd -- "$wt_base"/*(/:t)
         fi
+        ;;
+      cp)
+        _files -W "$root"
         ;;
       add)
         # Complete branch names

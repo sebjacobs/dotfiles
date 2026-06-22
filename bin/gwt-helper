@@ -84,6 +84,8 @@ module Gwt
   class System
     def dir?(path) = File.directory?(path)
 
+    def exist?(path) = File.exist?(path)
+
     def children(path)
       Dir.children(path).select { |e| File.directory?(File.join(path, e)) }.sort
     end
@@ -119,6 +121,7 @@ module Gwt
       cmd, *rest = argv
       case cmd
       when "add"    then cmd_add(rest)
+      when "cp"     then cmd_cp(rest)
       when "cd"     then cmd_cd(rest)
       when "path"   then cmd_path(rest)
       when "zed"    then cmd_zed(rest)
@@ -154,6 +157,29 @@ module Gwt
 
       apply_include(@root, wt_dir)
       change_dir(wt_dir)
+      0
+    end
+
+    def cmd_cp(args)
+      force = ["-f", "--force"].include?(args.first)
+      args = args.drop(1) if force
+      rel = args.first
+      return error("Usage: gwt cp [-f|--force] <path>") if rel.nil? || rel.empty?
+
+      src = "#{@root}/#{rel}"
+      return error("No such file or directory under root: #{rel}") unless @sys.exist?(src)
+
+      targets = worktree_dirs
+      return no_worktrees if targets.empty?
+
+      unless force
+        return 1 unless @confirm.call("Copy '#{rel}' from root into #{targets.length} worktree(s)? [y/N] ")
+      end
+
+      targets.each do |dir|
+        @sys.copy_into(src, "#{dir}/#{rel}")
+        @out.puts "gwt: copied #{rel} -> #{File.basename(dir)}"
+      end
       0
     end
 
@@ -255,9 +281,10 @@ module Gwt
 
     def usage
       @out.puts <<~USAGE
-        Usage: gwt <add|cd|zed|ls|rm|root|status|path> [args]
+        Usage: gwt <add|cp|cd|zed|ls|rm|root|status|path> [args]
 
           add [-b] <branch>    Create worktree and cd into it
+          cp [-f] <path>       Copy <path> from root into every worktree (-f skips the prompt)
           cd <name>           cd into an existing worktree
           zed [<name>]        Open a worktree in a new Zed window (current if no name)
           ls                  List worktrees

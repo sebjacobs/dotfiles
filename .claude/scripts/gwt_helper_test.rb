@@ -98,6 +98,35 @@ class GwtPureTest < Minitest::Test
     assert_equal "/repo/wt/p", entry[:path]
     assert_equal "gitdir file points to non-existent location", entry[:prunable]
   end
+
+  def test_slug_error_accepts_plain_and_slashed_names
+    assert_nil Gwt.slug_error("feature/x")
+    assert_nil Gwt.slug_error("spike-2_a.b")
+  end
+
+  def test_slug_error_rejects_overlong_names
+    assert_match(/64 characters or fewer/, Gwt.slug_error("a" * 65))
+  end
+
+  def test_slug_error_rejects_dot_segments
+    assert_match(/"\." or "\.\."/, Gwt.slug_error("foo/../bar"))
+    assert_match(/"\." or "\.\."/, Gwt.slug_error("."))
+  end
+
+  def test_slug_error_rejects_reserved_git_segment
+    assert_match(/reserved git directory/, Gwt.slug_error("foo/.git"))
+    assert_match(/reserved git directory/, Gwt.slug_error(".GIT"))
+  end
+
+  def test_slug_error_rejects_empty_segments
+    assert_match(/empty path segments/, Gwt.slug_error("foo//bar"))
+    assert_match(/empty path segments/, Gwt.slug_error("/foo"))
+  end
+
+  def test_slug_error_rejects_illegal_characters
+    assert_match(/letters, digits/, Gwt.slug_error("foo bar"))
+    assert_match(/letters, digits/, Gwt.slug_error("foo:bar"))
+  end
 end
 
 class GwtAppTest < Minitest::Test
@@ -114,7 +143,7 @@ class GwtAppTest < Minitest::Test
       @runs = []
     end
 
-    def capture(*args)
+    def capture(*args, **)
       @captures.fetch(args.join(" "), ["", true])
     end
 
@@ -222,6 +251,14 @@ class GwtAppTest < Minitest::Test
     app, = build
     assert_equal 1, app.run(["add"])
     assert_match(/Usage: gwt add/, @err.string)
+  end
+
+  def test_add_rejects_invalid_slug_before_touching_git
+    app, git, = build
+    assert_equal 1, app.run(["add", "foo/../bar"])
+    assert_match(/Invalid worktree name "foo\/\.\.\/bar"/, @err.string)
+    assert_empty git.runs
+    assert_empty @cd
   end
 
   def test_cd_exact_match
@@ -332,7 +369,7 @@ class GwtAppTest < Minitest::Test
   def test_rm_force_on_orphan_skips_confirm
     sys = FakeSys.new(dirs: ["#{WT_BASE}/orphan"])
     app, _, sys = build(sys: sys, worktrees: [], confirm: ->(_) { flunk "should not prompt with -f" })
-    assert_equal 0, app.run(["rm", "--force", "orphan"])
+    assert_equal 0, app.run(["rm", "-f", "orphan"])
     assert_includes sys.removes, "#{WT_BASE}/orphan"
   end
 
@@ -410,6 +447,14 @@ class GwtAppTest < Minitest::Test
     assert_match(/Usage: gwt/, @out.string)
   end
 
+  def test_help_prints_usage_with_zero_exit
+    ["help", "-h", "--help"].each do |flag|
+      app, = build
+      assert_equal 0, app.run([flag])
+      assert_match(/Usage: gwt/, @out.string)
+    end
+  end
+
   def test_add_honours_custom_worktree_subdir
     app, git, = build(worktree_subdir: "worktrees")
     app.run(["add", "feature/x"])
@@ -432,6 +477,22 @@ class GwtAppTest < Minitest::Test
     app, = build(git: git)
     assert_equal 1, app.run(["ls"])
     assert_match(/Not in a git repo/, @err.string)
+  end
+
+  def test_worktree_list_retried_once_on_transient_failure
+    flaky = Class.new(FakeGit) do
+      attr_reader :list_calls
+      def capture(*args, **kw)
+        if args[0] == "worktree" && args[1] == "list"
+          @list_calls = (@list_calls || 0) + 1
+          return ["", false] if @list_calls == 1
+        end
+        super
+      end
+    end.new
+    app, = build(git: flaky)
+    assert_equal 0, app.run(["ls"])
+    assert_equal 2, flaky.list_calls
   end
 
   def test_cp_force_copies_root_path_into_all_worktrees
@@ -497,6 +558,13 @@ class GwtAppTest < Minitest::Test
     app, _, sys = build(sys: sys, worktrees: [], confirm: ->(_) { false })
     assert_equal 0, app.run(["prune"])
     assert_empty sys.removes
+  end
+
+  def test_prune_force_skips_confirmation
+    sys = FakeSys.new(dirs: [WT_BASE], children: { WT_BASE => %w[orphan] })
+    app, _, sys = build(sys: sys, worktrees: [], confirm: ->(_) { flunk "should not prompt with -f" })
+    assert_equal 0, app.run(["prune", "-f"])
+    assert_includes sys.removes, "#{WT_BASE}/orphan"
   end
 
   def test_prune_reports_when_nothing_to_prune

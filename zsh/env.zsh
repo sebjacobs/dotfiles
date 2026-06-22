@@ -9,26 +9,26 @@ path+=(/usr/bin /bin /usr/sbin /sbin)
 
 export EDITOR='zed --wait'
 
-CHRUBY_VERSION=ruby-4.0.5
+DEFAULT_RUBY=ruby-4.0.5
 if [[ -o interactive ]]; then
   source /opt/homebrew/opt/chruby/share/chruby/chruby.sh
-  chruby "$CHRUBY_VERSION"
+  chruby "$DEFAULT_RUBY"
   # chruby silently no-ops if its RUBIES glob is empty during a transient init
   # (seen in Claude Code shell-snapshot capture): ruby then never lands on PATH
   # and `ruby` falls through to system 2.6. Assert the chosen bin dir directly.
-  [[ -d "$HOME/.rubies/$CHRUBY_VERSION/bin" ]] && path=("$HOME/.rubies/$CHRUBY_VERSION/bin" $path)
+  [[ -d "$HOME/.rubies/$DEFAULT_RUBY/bin" ]] && path=("$HOME/.rubies/$DEFAULT_RUBY/bin" $path)
 else
   # chruby's switch spawns `ruby` once just to read the gem paths — ~40ms a
-  # shell. Those paths are deterministic from CHRUBY_VERSION, so for
+  # shell. Those paths are deterministic from DEFAULT_RUBY, so for
   # non-interactive shells set the same environment chruby would (RUBY_ROOT,
   # GEM_HOME, GEM_PATH, PATH) without the spawn or the function machinery the
   # interactive `chruby`/`ruby-version` commands need. gem/bundler behave
   # identically; only the startup cost is shed.
-  ruby_root="$HOME/.rubies/$CHRUBY_VERSION"
+  ruby_root="$HOME/.rubies/$DEFAULT_RUBY"
   if [[ -d "$ruby_root/bin" ]]; then
     export RUBY_ROOT="$ruby_root"
     export RUBY_ENGINE=ruby
-    export RUBY_VERSION="${CHRUBY_VERSION#ruby-}"
+    export RUBY_VERSION="${DEFAULT_RUBY#ruby-}"
     gem_root=("$ruby_root"/lib/ruby/gems/*(N/))
     export GEM_ROOT="${gem_root[1]}"
     export GEM_HOME="$HOME/.gem/$RUBY_ENGINE/$RUBY_VERSION"

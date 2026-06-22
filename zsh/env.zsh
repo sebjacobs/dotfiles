@@ -9,13 +9,34 @@ path+=(/usr/bin /bin /usr/sbin /sbin)
 
 export EDITOR='zed --wait'
 
-source /opt/homebrew/opt/chruby/share/chruby/chruby.sh
 CHRUBY_VERSION=ruby-4.0.5
-chruby "$CHRUBY_VERSION"
-# chruby silently no-ops if its RUBIES glob is empty during a transient init
-# (seen in Claude Code shell-snapshot capture): ruby then never lands on PATH
-# and `ruby` falls through to system 2.6. Assert the chosen bin dir directly.
-[[ -d "$HOME/.rubies/$CHRUBY_VERSION/bin" ]] && path=("$HOME/.rubies/$CHRUBY_VERSION/bin" $path)
+if [[ -o interactive ]]; then
+  source /opt/homebrew/opt/chruby/share/chruby/chruby.sh
+  chruby "$CHRUBY_VERSION"
+  # chruby silently no-ops if its RUBIES glob is empty during a transient init
+  # (seen in Claude Code shell-snapshot capture): ruby then never lands on PATH
+  # and `ruby` falls through to system 2.6. Assert the chosen bin dir directly.
+  [[ -d "$HOME/.rubies/$CHRUBY_VERSION/bin" ]] && path=("$HOME/.rubies/$CHRUBY_VERSION/bin" $path)
+else
+  # chruby's switch spawns `ruby` once just to read the gem paths — ~40ms a
+  # shell. Those paths are deterministic from CHRUBY_VERSION, so for
+  # non-interactive shells set the same environment chruby would (RUBY_ROOT,
+  # GEM_HOME, GEM_PATH, PATH) without the spawn or the function machinery the
+  # interactive `chruby`/`ruby-version` commands need. gem/bundler behave
+  # identically; only the startup cost is shed.
+  ruby_root="$HOME/.rubies/$CHRUBY_VERSION"
+  if [[ -d "$ruby_root/bin" ]]; then
+    export RUBY_ROOT="$ruby_root"
+    export RUBY_ENGINE=ruby
+    export RUBY_VERSION="${CHRUBY_VERSION#ruby-}"
+    gem_root=("$ruby_root"/lib/ruby/gems/*(N/))
+    export GEM_ROOT="${gem_root[1]}"
+    export GEM_HOME="$HOME/.gem/$RUBY_ENGINE/$RUBY_VERSION"
+    export GEM_PATH="$GEM_HOME:$GEM_ROOT"
+    export PATH="$GEM_HOME/bin:$GEM_ROOT/bin:$ruby_root/bin:$PATH"
+  fi
+  unset ruby_root gem_root
+fi
 
 export VOLTA_HOME="$HOME/.volta"
 export PATH="$VOLTA_HOME/bin:$PATH"
@@ -39,18 +60,24 @@ export OLLAMA_KEEP_ALIVE=-1
 # installed outside dotfiles (e.g. `rake install` targets).
 fpath=(~/dotfiles/zsh/completions ~/.local/share/zsh/site-functions $fpath)
 
-# SDKMAN runs compinit and registers a chpwd hook on every shell that sources it,
-# this file included — so a plain `zsh -c` pays a full completion scan it never
-# uses. Both are interactive-only concerns; force them off for non-interactive
-# shells. etc/config defers to a pre-set value (the `${var:-default}` form), so
-# interactive shells leave these unset and keep SDKMAN's configured defaults.
-if [[ ! -o interactive ]]; then
-  sdkman_auto_complete=false
-  sdkman_auto_env=false
-fi
-
 export SDKMAN_DIR="$HOME/.sdkman"
-[[ -s "$HOME/.sdkman/bin/sdkman-init.sh" ]] && source "$HOME/.sdkman/bin/sdkman-init.sh"
+if [[ -o interactive ]]; then
+  [[ -s "$SDKMAN_DIR/bin/sdkman-init.sh" ]] && source "$SDKMAN_DIR/bin/sdkman-init.sh"
+else
+  # sdkman-init.sh runs compinit and registers a chpwd hook every time it is
+  # sourced (~50ms a shell) — all interactive-only machinery a `zsh -c` never
+  # touches. Skip it for non-interactive shells and instead put the active
+  # candidate bins and their *_HOME vars on the environment directly, the same
+  # way chruby's bin dir is asserted above. java/gradle/kotlin/maven stay
+  # resolvable — and win over the /usr/bin/java stub — for only the cost of a
+  # glob; the init script and its completion scan are shed entirely.
+  for _sdkman_home in "$SDKMAN_DIR"/candidates/*/current(N-/); do
+    path=("$_sdkman_home/bin" $path)
+    _sdkman_name=${_sdkman_home:h:t}
+    export "${(U)_sdkman_name}_HOME"="$_sdkman_home"
+  done
+  unset _sdkman_home _sdkman_name
+fi
 
 export CLAUDE_CODE_DISABLE_AUTO_MEMORY=1
 

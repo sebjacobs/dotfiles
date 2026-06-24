@@ -2,6 +2,7 @@
 # frozen_string_literal: true
 
 require_relative "test_helper"
+require "tmpdir"
 ScriptTest.load_script("../../bin/gwt-helper")
 
 class GwtPureTest < Minitest::Test
@@ -581,5 +582,48 @@ class GwtAppTest < Minitest::Test
     assert_equal 0, app.run(["prune"])
     assert_includes git.runs, ["worktree", "prune"]
     assert_match(/cleared stale git registration for phantom/, @out.string)
+  end
+end
+
+class GwtSystemCopyTest < Minitest::Test
+  def setup
+    @sys = Gwt::System.new
+    @dir = Dir.mktmpdir("gwt-copy")
+  end
+
+  def teardown
+    FileUtils.rm_rf(@dir)
+  end
+
+  def test_copy_into_materialises_a_symlink_as_a_real_file
+    File.write("#{@dir}/target.txt", "canonical contents")
+    File.symlink("target.txt", "#{@dir}/link.txt")
+
+    @sys.copy_into("#{@dir}/link.txt", "#{@dir}/out/link.txt")
+
+    refute File.symlink?("#{@dir}/out/link.txt")
+    assert_equal "canonical contents", File.read("#{@dir}/out/link.txt")
+  end
+
+  def test_copy_into_materialises_a_symlink_with_an_unreachable_relative_target
+    FileUtils.mkdir_p("#{@dir}/canon")
+    File.write("#{@dir}/canon/note.md", "per-checkout overrides")
+    File.symlink("../canon/note.md", "#{@dir}/src/note.md".tap { |p| FileUtils.mkdir_p(File.dirname(p)) })
+
+    @sys.copy_into("#{@dir}/src/note.md", "#{@dir}/deep/nested/note.md")
+
+    refute File.symlink?("#{@dir}/deep/nested/note.md")
+    assert_equal "per-checkout overrides", File.read("#{@dir}/deep/nested/note.md")
+  end
+
+  def test_copy_into_copies_a_whole_directory_tree
+    FileUtils.mkdir_p("#{@dir}/bundle/gems")
+    File.write("#{@dir}/bundle/config", "BUNDLE_PATH: .bundle")
+    File.write("#{@dir}/bundle/gems/foo.rb", "module Foo; end")
+
+    @sys.copy_into("#{@dir}/bundle", "#{@dir}/wt/.bundle")
+
+    assert_equal "BUNDLE_PATH: .bundle", File.read("#{@dir}/wt/.bundle/config")
+    assert_equal "module Foo; end", File.read("#{@dir}/wt/.bundle/gems/foo.rb")
   end
 end

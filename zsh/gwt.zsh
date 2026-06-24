@@ -40,8 +40,17 @@ gwt() {
   local cd_file rc
   cd_file=$(mktemp "${TMPDIR:-/tmp}/gwt-cd.XXXXXX")
 
-  GWT_CD_FILE="$cd_file" "$helper" "$@"
-  rc=$?
+  if [[ -n "$GWT_TIMING" ]]; then
+    zmodload zsh/datetime
+    local start=$EPOCHREALTIME
+    GWT_CD_FILE="$cd_file" "$helper" "$@"
+    rc=$?
+    printf 'gwt[timing] total (incl. ruby boot): %.1fms\n' \
+      $(( (EPOCHREALTIME - start) * 1000 )) >&2
+  else
+    GWT_CD_FILE="$cd_file" "$helper" "$@"
+    rc=$?
+  fi
 
   if [[ -s "$cd_file" ]]; then cd "$(<"$cd_file")"; fi
   rm -f "$cd_file"

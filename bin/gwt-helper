@@ -13,10 +13,13 @@
 # .worktreeinclude: matching gitignored files are copied from the main worktree
 # into a new worktree on `add`. See the wrapper's header for the full contract;
 # the copy set is the intersection of "ignored & untracked" with the patterns in
-# .worktreeinclude, and symlinks are dereferenced (cp -RL) so the worktree gets a
-# real file rather than a dangling link.
+# .worktreeinclude, and symlinks are dereferenced (cp -L) so the worktree gets a
+# real file rather than a dangling link. Regular entries are cloned with one APFS
+# clonefile(2) copy-on-write syscall, falling back to a plain deep copy when that
+# can't apply (a symlinked entry, cross-volume, or non-APFS).
 
 require "fileutils"
+require "fiddle"
 require "timeout"
 
 module Gwt
@@ -141,6 +144,17 @@ module Gwt
 
   # Real filesystem side-effects, behind a seam so tests can fake them.
   class System
+    CLONEFILE =
+      begin
+        Fiddle::Function.new(
+          Fiddle.dlopen(nil)["clonefile"],
+          [Fiddle::TYPE_VOIDP, Fiddle::TYPE_VOIDP, Fiddle::TYPE_INT],
+          Fiddle::TYPE_INT
+        )
+      rescue Fiddle::DLError
+        nil
+      end
+
     def dir?(path) = File.directory?(path)
 
     def exist?(path) = File.exist?(path)
@@ -153,14 +167,27 @@ module Gwt
 
     def copy_into(src, dst)
       FileUtils.mkdir_p(File.dirname(dst))
+      return true if !File.symlink?(src) && clonefile(src, dst)
+
+      FileUtils.rm_rf(dst)
       system("cp", "-RL", src, dst)
     end
 
     def which?(cmd) = system("command -v #{cmd} >/dev/null 2>&1")
+
+    private
+
+    def clonefile(src, dst)
+      return false unless CLONEFILE
+
+      CLONEFILE.call(src, dst, 0).zero?
+    rescue StandardError
+      false
+    end
   end
 
   class App
-    def initialize(git:, sys:, out:, err:, cd:, confirm:, pwd:, exec:, worktree_subdir: ".claude/worktrees")
+    def initialize(git:, sys:, out:, err:, cd:, confirm:, pwd:, exec:, worktree_subdir: ".claude/worktrees", timing: false)
       @git = git
       @sys = sys
       @out = out
@@ -170,6 +197,7 @@ module Gwt
       @pwd = pwd
       @exec = exec
       @worktree_subdir = worktree_subdir
+      @timing = timing
     end
 
     def run(argv)
@@ -204,13 +232,25 @@ module Gwt
     # idempotent and the occasional failure (index lock contention, a dropped
     # pipe) clears on a second look.
     def capture_worktree_list
-      out, ok = @git.capture("worktree", "list", "--porcelain", timeout: 10)
-      return [out, ok] if ok
+      timed("worktree list") do
+        out, ok = @git.capture("worktree", "list", "--porcelain", timeout: 10)
+        next [out, ok] if ok
 
-      @git.capture("worktree", "list", "--porcelain", timeout: 10)
+        @git.capture("worktree", "list", "--porcelain", timeout: 10)
+      end
     end
 
     private
+
+    def timed(label)
+      return yield unless @timing
+
+      start = Process.clock_gettime(Process::CLOCK_MONOTONIC)
+      result = yield
+      ms = ((Process.clock_gettime(Process::CLOCK_MONOTONIC) - start) * 1000).round(1)
+      @err.puts "gwt[timing] #{label}: #{ms}ms"
+      result
+    end
 
     def cmd_add(args)
       create_branch = args.first == "-b"
@@ -236,14 +276,16 @@ module Gwt
         )
       end
 
-      ok = if create_branch
-             @git.run("worktree", "add", "-b", branch, wt_dir)
-           else
-             @git.run("worktree", "add", wt_dir, branch)
-           end
+      ok = timed("worktree add") do
+        if create_branch
+          @git.run("worktree", "add", "-b", branch, wt_dir)
+        else
+          @git.run("worktree", "add", wt_dir, branch)
+        end
+      end
       return 1 unless ok
 
-      apply_include(@root, wt_dir)
+      timed("worktreeinclude") { apply_include(@root, wt_dir) }
       change_dir(wt_dir)
       0
     end
@@ -446,18 +488,22 @@ module Gwt
       include = "#{src_root}/.worktreeinclude"
       return unless File.file?(include)
 
-      ignored, = @git.capture("-C", src_root, "ls-files", "--others", "--ignored", "--exclude-standard", "--directory")
-      matched, = @git.capture("-C", src_root, "ls-files", "--others", "--ignored", "--exclude-from=#{include}", "--directory")
-      ignored_set = ignored.split("\n")
+      ignored_set, matched = timed("worktreeinclude scan") do
+        ignored, = @git.capture("-C", src_root, "ls-files", "--others", "--ignored", "--exclude-standard", "--directory")
+        matched, = @git.capture("-C", src_root, "ls-files", "--others", "--ignored", "--exclude-from=#{include}", "--directory")
+        [ignored.split("\n"), matched]
+      end
 
       copied = []
-      matched.split("\n").each do |rel|
-        next if rel.empty?
-        next unless ignored_set.include?(rel)
+      timed("worktreeinclude copy") do
+        matched.split("\n").each do |rel|
+          next if rel.empty?
+          next unless ignored_set.include?(rel)
 
-        rel = rel.chomp("/")
-        @sys.copy_into("#{src_root}/#{rel}", "#{dst_root}/#{rel}")
-        copied << rel
+          rel = rel.chomp("/")
+          @sys.copy_into("#{src_root}/#{rel}", "#{dst_root}/#{rel}")
+          copied << rel
+        end
       end
 
       @out.puts "gwt: copied #{copied.length} entries from .worktreeinclude: #{copied.join(' ')}" unless copied.empty?
@@ -537,7 +583,8 @@ if __FILE__ == $PROGRAM_NAME
     confirm: confirm,
     pwd: Dir.pwd,
     exec: ->(*args) { exec(*args) },
-    worktree_subdir: subdir
+    worktree_subdir: subdir,
+    timing: !ENV["GWT_TIMING"].to_s.empty?
   )
 
   exit app.run(ARGV)

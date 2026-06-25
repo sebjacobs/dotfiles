@@ -471,7 +471,8 @@ module Gwt
     # block's value. Emits the appropriate stderr message and a non-zero code on
     # no/ambiguous match.
     def resolve(name)
-      matches = Gwt.fuzzy_match(worktree_dirs.map { |dir| File.basename(dir) }, name)
+      query = Gwt.encode_branch(name)
+      matches = Gwt.fuzzy_match(worktree_dirs.map { |dir| File.basename(dir) }, query)
       case matches.length
       when 0
         error("No worktree matching: #{name}")

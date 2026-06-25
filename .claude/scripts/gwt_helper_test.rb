@@ -274,6 +274,12 @@ class GwtAppTest < Minitest::Test
     assert_equal ["#{WT_BASE}/foobar"], @cd
   end
 
+  def test_cd_accepts_slashed_branch_name
+    app, = build(worktrees: [["feedback+x", "feedback/x"]])
+    assert_equal 0, app.run(["cd", "feedback/x"])
+    assert_equal ["#{WT_BASE}/feedback+x"], @cd
+  end
+
   def test_cd_ambiguous_match_errors
     app, = build(worktrees: [["foo-a", "b"], ["foo-b", "b"]])
     assert_equal 1, app.run(["cd", "foo"])

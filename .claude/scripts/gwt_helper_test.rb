@@ -398,6 +398,25 @@ class GwtAppTest < Minitest::Test
     assert_includes git.runs, ["worktree", "remove", "#{WT_BASE}/foo", "--force"]
   end
 
+  def test_rm_accepts_slashed_branch_name_and_removes_encoded_dir
+    app, git, = build(worktrees: [["feedback+x", "feedback/x"]], confirm: ->(_) { true })
+    assert_equal 0, app.run(["rm", "feedback/x"])
+    assert_includes git.runs, ["worktree", "remove", "#{WT_BASE}/feedback+x"]
+  end
+
+  def test_rm_prefix_matches_unique_worktree
+    app, git, = build(worktrees: [["feedback+suggestions", "feedback/suggestions"], ["other", "b"]], confirm: ->(_) { true })
+    assert_equal 0, app.run(["rm", "feedback/suggestion"])
+    assert_includes git.runs, ["worktree", "remove", "#{WT_BASE}/feedback+suggestions"]
+  end
+
+  def test_rm_ambiguous_match_aborts_without_removing
+    app, git, = build(worktrees: [["foo-a", "b"], ["foo-b", "b"]], confirm: ->(_) { flunk "should not prompt when ambiguous" })
+    assert_equal 1, app.run(["rm", "foo"])
+    assert_empty git.runs.select { |r| r.first == "worktree" && r[1] == "remove" }
+    assert_match(/Multiple worktrees match 'foo'/, @err.string)
+  end
+
   def test_rm_missing_worktree_errors
     app, = build
     assert_equal 1, app.run(["rm", "nope"])

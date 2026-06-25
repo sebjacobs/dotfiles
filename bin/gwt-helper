@@ -397,29 +397,36 @@ module Gwt
     end
 
     def cmd_rm(args)
-      force = args.first == "-f"
-      args = args.drop(1) if force
+      force = args.any? { |a| ["-f", "--force"].include?(a) }
+      args = args.reject { |a| ["-f", "--force"].include?(a) }
       name = args.first
       return error("Usage: gwt rm [-f] <name>") if name.nil? || name.empty?
 
-      wt_dir = "#{@wt_base}/#{name}"
+      matches = Gwt.fuzzy_match(worktree_dirs.map { |dir| File.basename(dir) }, Gwt.encode_branch(name))
+      if matches.length > 1
+        @err.puts "Multiple worktrees match '#{name}':"
+        matches.each { |m| @err.puts "  #{m}" }
+        return 1
+      end
 
-      if registered?(wt_dir)
-        return 1 unless force || @confirm.call("Remove worktree '#{name}'? [y/N] ")
+      if matches.length == 1
+        wt_dir = "#{@wt_base}/#{matches.first}"
+        return 1 unless force || @confirm.call("Remove worktree '#{matches.first}'? [y/N] ")
 
         change_dir(@root) if @pwd.start_with?(wt_dir)
         git_args = ["worktree", "remove", wt_dir]
         git_args << "--force" if force
-        @git.run(*git_args) ? 0 : 1
-      elsif @sys.dir?(wt_dir)
-        return 1 unless force || @confirm.call("'#{name}' is an orphaned directory git no longer tracks. Remove it? [y/N] ")
-
-        change_dir(@root) if @pwd.start_with?(wt_dir)
-        @sys.remove(wt_dir)
-        0
-      else
-        error("No worktree: #{name}")
+        return @git.run(*git_args) ? 0 : 1
       end
+
+      wt_dir = "#{@wt_base}/#{Gwt.encode_branch(name)}"
+      return error("No worktree: #{name}") unless @sys.dir?(wt_dir)
+
+      return 1 unless force || @confirm.call("'#{name}' is an orphaned directory git no longer tracks. Remove it? [y/N] ")
+
+      change_dir(@root) if @pwd.start_with?(wt_dir)
+      @sys.remove(wt_dir)
+      0
     end
 
     def cmd_prune(args)
@@ -471,7 +478,8 @@ module Gwt
     # block's value. Emits the appropriate stderr message and a non-zero code on
     # no/ambiguous match.
     def resolve(name)
-      matches = Gwt.fuzzy_match(worktree_dirs.map { |dir| File.basename(dir) }, name)
+      query = Gwt.encode_branch(name)
+      matches = Gwt.fuzzy_match(worktree_dirs.map { |dir| File.basename(dir) }, query)
       case matches.length
       when 0
         error("No worktree matching: #{name}")

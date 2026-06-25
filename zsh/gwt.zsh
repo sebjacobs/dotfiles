@@ -5,7 +5,7 @@
 #        gwt cd <name>          cd into an existing worktree
 #        gwt zed [<name>]       Open a worktree in a new Zed window (current if no name)
 #        gwt ls                 List worktrees
-#        gwt rm <name>          Remove a worktree (with confirmation)
+#        gwt rm [-f] <name>     Remove a worktree (fuzzy name like `cd`; -f/--force skips the prompt, may trail the name)
 #        gwt root [-p|--path]   cd back to the main worktree root (or echo it with -p)
 #        gwt status             Overview of all worktrees
 #        gwt path [<name>]      Echo the absolute path of a worktree (current if no name)

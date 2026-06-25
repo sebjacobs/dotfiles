@@ -397,8 +397,8 @@ module Gwt
     end
 
     def cmd_rm(args)
-      force = args.first == "-f"
-      args = args.drop(1) if force
+      force = args.any? { |a| ["-f", "--force"].include?(a) }
+      args = args.reject { |a| ["-f", "--force"].include?(a) }
       name = args.first
       return error("Usage: gwt rm [-f] <name>") if name.nil? || name.empty?
 

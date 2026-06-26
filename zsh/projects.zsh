@@ -38,7 +38,7 @@ proj() {
 _proj_path_for() {
   local key="$1" k v
   [[ -s "$PROJ_PATHS_FILE" ]] || return
-  while IFS=$'\t' read -r k v; do
+  while IFS=$'\t' read -r k v || [[ -n "$k" ]]; do
     [[ "$k" == "$key" ]] && { print -r -- "$v"; return; }
   done < "$PROJ_PATHS_FILE"
 }

@@ -67,8 +67,6 @@ files=(
   ".config/opencode/package-lock.json"
   ".config/opencode/bun.lock"
   ".config/helix/config.toml"
-  "Library/LaunchAgents/com.sebjacobs.ruby-lsp-reap.plist"
-  "Library/LaunchAgents/com.sebjacobs.brewup.plist"
 )
 
 for file in "${files[@]}"
@@ -90,6 +88,23 @@ do
   source="$DOTFILES_HOME/bin/$file"
   target="$HOME/bin/$file"
   ln -snf $source $target
+done
+
+# launchd agents: symlink every repo-managed $LAUNCHD_PREFIX.* plist into
+# ~/Library/LaunchAgents and (re)load it, so a fresh checkout brings the agents
+# up without a re-login. Globbing the prefix rather than naming files means a new
+# agent is picked up just by dropping its plist into Library/LaunchAgents/ here.
+# Done in sh rather than `svc install` because setup runs before a modern Ruby is
+# guaranteed, and svc (Ruby 3+ syntax) may not run yet at this point.
+PREFIX="${LAUNCHD_PREFIX:-com.sebjacobs}"
+for plist in "$DOTFILES_HOME"/Library/LaunchAgents/"$PREFIX".*.plist
+do
+  [ -e "$plist" ] || continue
+  target="$HOME/Library/LaunchAgents/$(basename "$plist")"
+  ln -snf "$plist" "$target"
+  label="$(basename "$plist" .plist)"
+  launchctl bootout "gui/$(id -u)/$label" 2>/dev/null
+  launchctl bootstrap "gui/$(id -u)" "$target" 2>/dev/null || true
 done
 
 # SDKMAN runs compinit and a chpwd hook on every shell that sources sdkman-init.sh

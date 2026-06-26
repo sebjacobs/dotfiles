@@ -9,6 +9,8 @@ path+=(/usr/bin /bin /usr/sbin /sbin)
 
 export EDITOR='zed --wait'
 
+export LAUNCHD_PREFIX="com.sebjacobs"
+
 DEFAULT_RUBY=ruby-4.0.5
 if [[ -o interactive ]]; then
   source /opt/homebrew/opt/chruby/share/chruby/chruby.sh

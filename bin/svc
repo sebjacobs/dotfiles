@@ -1,0 +1,432 @@
+#!/usr/bin/env ruby
+# frozen_string_literal: true
+
+# svc — manage my personal launchd agents.
+#
+# Operates on the set of agents whose label/plist starts with $LAUNCHD_PREFIX
+# (default com.sebjacobs) in ~/Library/LaunchAgents. The prefix is the opt-in
+# contract: any app names its agents "$LAUNCHD_PREFIX.<job>" to appear here.
+#
+# All launchd and filesystem side-effects sit behind the Launchctl and System
+# seams so the resolution and formatting logic stays pure and unit-testable
+# (see test/bin/svc_test.rb). Plists are read with `plutil -convert json`
+# straight into a Ruby Hash, so schedule_of and friends work on plain data.
+
+require "json"
+require "fileutils"
+
+module Svc
+  module_function
+
+  DAYS = %w[Sun Mon Tue Wed Thu Fri Sat].freeze
+
+  # Human-readable schedule for a parsed plist: a calendar time (optionally with
+  # a weekday), a fixed interval, "at login" (RunAtLoad), or "on demand".
+  def schedule_of(plist)
+    if (cal = plist["StartCalendarInterval"])
+      return "multiple (calendar)" if cal.is_a?(Array)
+
+      weekday = cal["Weekday"]
+      day = weekday ? "#{DAYS[weekday] || '?'} " : ""
+      return format("%s%02d:%02d (calendar)", day, cal["Hour"] || 0, cal["Minute"] || 0)
+    end
+
+    interval = plist["StartInterval"]
+    return "every #{interval}s" if interval
+
+    plist["RunAtLoad"] ? "at login" : "on demand"
+  end
+
+  # Whether `launchctl print-disabled` reports +label+ as disabled. macOS has
+  # used both "=> disabled" and "=> true" for the disabled state across
+  # versions, so accept either.
+  def disabled?(print_disabled_output, label)
+    print_disabled_output.to_s.each_line.any? do |line|
+      line.include?(%("#{label}" => disabled)) || line.include?(%("#{label}" => true))
+    end
+  end
+
+  # The status (last exit code) column for +label+ in `launchctl list` output,
+  # whose columns are "PID Status Label"; nil when the label isn't listed.
+  def exit_status(list_output, label)
+    list_output.to_s.each_line do |line|
+      cols = line.split
+      return cols[1] if cols[2] == label
+    end
+    nil
+  end
+
+  # Resolve a query against agent short-names: exact match wins, else prefix
+  # matches, else substring matches. Mirrors gwt/proj's cascade. Returns an array
+  # (0, 1, or many).
+  def fuzzy_match(names, query)
+    return [query] if names.include?(query)
+
+    prefix = names.select { |n| n.start_with?(query) }
+    return prefix unless prefix.empty?
+
+    names.select { |n| n.include?(query) }
+  end
+
+  # Why a plist can't be installed, or nil if its name is fine. The opt-in
+  # contract is enforced on the filename: it must be a .plist named
+  # "<prefix>.<job>.plist" so it joins the managed, prefix-globbed set.
+  def install_name_error(basename, prefix)
+    return "not a .plist file" unless basename.end_with?(".plist")
+    return nil if basename.start_with?("#{prefix}.")
+
+    %(must be named "#{prefix}.<job>.plist" to opt into svc (got "#{basename}"))
+  end
+
+  # The command an agent runs: a bare Program, else the ProgramArguments joined,
+  # else "(none)" when the plist declares neither.
+  def program_of(plist)
+    return plist["Program"] if plist["Program"]
+
+    args = plist["ProgramArguments"]
+    return args.join(" ") if args.is_a?(Array) && !args.empty?
+
+    "(none)"
+  end
+
+  # Real launchctl calls, behind a seam so tests can fake them.
+  class Launchctl
+    def list = capture("launchctl", "list")
+
+    def print_disabled(domain) = capture("launchctl", "print-disabled", domain)
+
+    # Each of these loads/controls a service and returns [combined output,
+    # success]. bootstrap takes the plist path; the rest act on the service
+    # target "<domain>/<label>".
+    def bootstrap(domain, path) = run("launchctl", "bootstrap", domain, path)
+
+    def bootout(domain, label) = run("launchctl", "bootout", "#{domain}/#{label}")
+
+    def enable(domain, label) = run("launchctl", "enable", "#{domain}/#{label}")
+
+    def disable(domain, label) = run("launchctl", "disable", "#{domain}/#{label}")
+
+    def kickstart(domain, label) = run("launchctl", "kickstart", "-k", "#{domain}/#{label}")
+
+    private
+
+    def capture(*args)
+      IO.popen(args, err: File::NULL, &:read)
+    rescue SystemCallError
+      ""
+    end
+
+    def run(*args)
+      out = IO.popen(args, err: [:child, :out], &:read)
+      [out, $?.success?]
+    rescue SystemCallError => e
+      [e.message, false]
+    end
+  end
+
+  # Real filesystem side-effects, behind a seam so tests can fake them.
+  class System
+    def plists(dir, prefix)
+      Dir.glob(File.join(dir, "#{prefix}.*.plist")).sort
+    end
+
+    def read_plist(path)
+      json = IO.popen(["plutil", "-convert", "json", "-o", "-", path], err: File::NULL, &:read)
+      $?.success? ? JSON.parse(json) : {}
+    rescue SystemCallError, JSON::ParserError
+      {}
+    end
+
+    def exist?(path) = File.exist?(path)
+
+    def mtime(path) = File.mtime(path)
+
+    def last_line(path)
+      IO.popen(["tail", "-n", "1", path], err: File::NULL, &:read).chomp
+    rescue SystemCallError
+      ""
+    end
+
+    def realpath(path) = File.realpath(path)
+
+    def symlink?(path) = File.symlink?(path)
+
+    def readlink(path) = File.readlink(path)
+
+    def symlink(target, link)
+      FileUtils.mkdir_p(File.dirname(link))
+      File.symlink(target, link)
+    end
+  end
+
+  class App
+    def initialize(launchctl:, sys:, out:, err:, prefix:, agents_dir:, domain:, exec:, editor:)
+      @launchctl = launchctl
+      @sys = sys
+      @out = out
+      @err = err
+      @prefix = prefix
+      @agents_dir = agents_dir
+      @domain = domain
+      @exec = exec
+      @editor = editor
+    end
+
+    def run(argv)
+      cmd, *rest = argv
+      case cmd
+      when nil, "ls" then cmd_ls
+      when "show" then cmd_show(rest)
+      when "tail" then cmd_tail(rest)
+      when "install" then cmd_install(rest)
+      when "edit" then cmd_edit(rest)
+      when "enable" then cmd_enable(rest)
+      when "disable" then cmd_disable(rest)
+      when "load" then cmd_load(rest)
+      when "unload" then cmd_unload(rest)
+      when "restart" then cmd_restart(rest)
+      when "help", "-h", "--help" then usage(0)
+      else usage
+      end
+    end
+
+    private
+
+    # Every agent under @agents_dir matching the prefix, read once: each entry is
+    # {path:, label:, plist:}. label falls back to the filename when the plist has
+    # no Label key.
+    def agents
+      @agents ||= @sys.plists(@agents_dir, @prefix).map do |path|
+        plist = @sys.read_plist(path)
+        { path: path, label: plist["Label"] || File.basename(path, ".plist"), plist: plist }
+      end
+    end
+
+    def cmd_ls
+      if agents.empty?
+        @out.puts "No #{@prefix}.* agents in #{@agents_dir}"
+        return 0
+      end
+
+      disabled = @launchctl.print_disabled(@domain)
+      list = @launchctl.list
+
+      agents.each { |agent| print_entry(agent, disabled, list) }
+      0
+    end
+
+    def cmd_show(args)
+      name = args.first
+      return error("Usage: svc show <job>") if name.nil? || name.empty?
+
+      agent = resolve(name)
+      return 1 unless agent
+
+      plist = agent[:plist]
+      log = plist["StandardOutPath"]
+      @out.printf("\033[1m%s\033[0m\n", agent[:label])
+      @out.printf("  plist    : %s\n", agent[:path])
+      @out.printf("  schedule : %s\n", Svc.schedule_of(plist))
+      @out.printf("  state    : %s\n", state_line(agent[:label], @launchctl.print_disabled(@domain), @launchctl.list))
+      @out.printf("  program  : %s\n", Svc.program_of(plist))
+      @out.printf("  log      : %s\n", log || "(none)")
+      @out.printf("  last log : %s\n", log_summary(log))
+      0
+    end
+
+    def cmd_install(args)
+      src = args.first
+      return error("Usage: svc install <plist>") if src.nil? || src.empty?
+      return error("No such file: #{src}") unless @sys.exist?(src)
+
+      real = @sys.realpath(src)
+      basename = File.basename(real)
+      if (reason = Svc.install_name_error(basename, @prefix))
+        return error("Refusing to install #{basename}: #{reason}")
+      end
+
+      link = File.join(@agents_dir, basename)
+      return 1 unless ensure_symlink(link, real)
+
+      label = File.basename(basename, ".plist")
+      if Svc.exit_status(@launchctl.list, label)
+        @out.puts "svc: #{basename} is symlinked and already loaded"
+        return 0
+      end
+
+      out, ok = @launchctl.bootstrap(@domain, link)
+      return error("launchctl bootstrap failed for #{basename}: #{out}".strip) unless ok
+
+      @out.puts "svc: installed and loaded #{basename} -> #{real}"
+      0
+    end
+
+    # Ensure @agents_dir holds a symlink to +real+, returning whether it's safe to
+    # proceed. A matching link already in place is fine (idempotent); a link to a
+    # different target, or a real file in the way, is refused rather than clobbered.
+    def ensure_symlink(link, real)
+      if @sys.symlink?(link)
+        return true if @sys.readlink(link) == real
+
+        error("#{link} already exists, pointing to #{@sys.readlink(link)} — remove it first")
+        return false
+      end
+      if @sys.exist?(link)
+        error("#{link} already exists as a real file — remove it first")
+        return false
+      end
+
+      @sys.symlink(real, link)
+      true
+    end
+
+    def cmd_tail(args)
+      name = args.first
+      return error("Usage: svc tail <job>") if name.nil? || name.empty?
+
+      agent = resolve(name)
+      return 1 unless agent
+
+      log = agent[:plist]["StandardOutPath"]
+      if log.nil? || log.empty?
+        return error("#{agent[:label]} has no StandardOutPath (it logs via a shell redirect) — nothing to tail")
+      end
+
+      @exec.call("tail", "-f", "-n", "50", log)
+      0
+    end
+
+    def cmd_edit(args)
+      name = args.first
+      return error("Usage: svc edit <job>") if name.nil? || name.empty?
+
+      agent = resolve(name)
+      return 1 unless agent
+
+      source = @sys.symlink?(agent[:path]) ? @sys.readlink(agent[:path]) : agent[:path]
+      @editor.call(source)
+      reload(agent[:label], agent[:path])
+    end
+
+    # Apply an edited plist: bootout (ignoring failure — it may not be loaded)
+    # then bootstrap from the symlink, so launchd picks up the new definition.
+    def reload(label, link)
+      @launchctl.bootout(@domain, label)
+      out, ok = @launchctl.bootstrap(@domain, link)
+      return error("reload failed for #{label}: #{out}".strip) unless ok
+
+      @out.puts "svc: reloaded #{label}"
+      0
+    end
+
+    def cmd_enable(args) = launchctl_action(args, "enable", "enabled") { |a| @launchctl.enable(@domain, a[:label]) }
+
+    def cmd_disable(args) = launchctl_action(args, "disable", "disabled") { |a| @launchctl.disable(@domain, a[:label]) }
+
+    def cmd_load(args) = launchctl_action(args, "load", "loaded") { |a| @launchctl.bootstrap(@domain, a[:path]) }
+
+    def cmd_unload(args) = launchctl_action(args, "unload", "unloaded") { |a| @launchctl.bootout(@domain, a[:label]) }
+
+    def cmd_restart(args) = launchctl_action(args, "restart", "restarted") { |a| @launchctl.kickstart(@domain, a[:label]) }
+
+    # Resolve a job, run a launchctl action on it, and report. +verb+ names the
+    # command for usage/error text; +past+ is the success participle.
+    def launchctl_action(args, verb, past)
+      name = args.first
+      return error("Usage: svc #{verb} <job>") if name.nil? || name.empty?
+
+      agent = resolve(name)
+      return 1 unless agent
+
+      out, ok = yield(agent)
+      return error("#{verb} failed for #{agent[:label]}: #{out}".strip) unless ok
+
+      @out.puts "svc: #{past} #{agent[:label]}"
+      0
+    end
+
+    def print_entry(agent, disabled, list)
+      plist = agent[:plist]
+      @out.printf("\033[1m%s\033[0m\n", agent[:label])
+      @out.printf("  schedule : %s\n", Svc.schedule_of(plist))
+      @out.printf("  state    : %s\n", state_line(agent[:label], disabled, list))
+      @out.printf("  last log : %s\n", log_summary(plist["StandardOutPath"]))
+      @out.puts
+    end
+
+    # The "enabled/DISABLED   last exit: N" status fragment shared by ls and show.
+    def state_line(label, disabled, list)
+      state = Svc.disabled?(disabled, label) ? "DISABLED" : "enabled"
+      status = Svc.exit_status(list, label)
+      "#{state}   last exit: #{status || 'never run'}"
+    end
+
+    def log_summary(log)
+      return "(no log yet)" unless log && @sys.exist?(log)
+
+      "#{@sys.mtime(log).strftime('%Y-%m-%d %H:%M')} — #{@sys.last_line(log)}"
+    end
+
+    # Resolve a job query (short name or full label) to a unique agent, or nil.
+    # Emits the appropriate stderr message on no/ambiguous match.
+    def resolve(query)
+      short = query.delete_prefix("#{@prefix}.")
+      matches = Svc.fuzzy_match(agents.map { |a| short_name(a[:label]) }, short)
+      case matches.length
+      when 0
+        error("No #{@prefix}.* agent matching: #{query}")
+        nil
+      when 1
+        agents.find { |a| short_name(a[:label]) == matches.first }
+      else
+        @err.puts "Multiple agents match '#{query}':"
+        matches.each { |m| @err.puts "  #{@prefix}.#{m}" }
+        nil
+      end
+    end
+
+    def short_name(label) = label.delete_prefix("#{@prefix}.")
+
+    def error(message)
+      @err.puts message
+      1
+    end
+
+    def usage(code = 1)
+      @out.puts <<~USAGE
+        Usage: svc <ls|show|tail|install|edit|enable|disable|load|unload|restart> [args]
+
+          ls               List #{@prefix}.* agents with schedule, state, last exit, and log tail
+          show <job>       Show one agent's plist path, schedule, state, program, and log
+          tail <job>       Follow an agent's log (tail -f on its StandardOutPath)
+          install <plist>  Symlink a #{@prefix}.* plist into ~/Library/LaunchAgents and load it
+          edit <job>       Open the plist's real file in $EDITOR, then reload it
+          enable <job>     Allow the agent to load (persists across reboots)
+          disable <job>    Stop the agent loading (persists across reboots)
+          load <job>       Register the agent in the current session (bootstrap)
+          unload <job>     Unregister the agent from the current session (bootout)
+          restart <job>    Run/re-run the agent now (kickstart -k)
+      USAGE
+      code
+    end
+  end
+end
+
+if __FILE__ == $PROGRAM_NAME
+  prefix = ENV["LAUNCHD_PREFIX"]
+  prefix = "com.sebjacobs" if prefix.nil? || prefix.empty?
+
+  app = Svc::App.new(
+    launchctl: Svc::Launchctl.new,
+    sys: Svc::System.new,
+    out: $stdout,
+    err: $stderr,
+    prefix: prefix,
+    agents_dir: File.join(Dir.home, "Library/LaunchAgents"),
+    domain: "gui/#{Process.uid}",
+    exec: ->(*args) { exec(*args) },
+    editor: ->(path) { system(*ENV.fetch("EDITOR", "vi").split, path) }
+  )
+
+  exit app.run(ARGV)
+end

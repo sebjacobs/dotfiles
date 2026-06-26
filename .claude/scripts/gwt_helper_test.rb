@@ -262,6 +262,28 @@ class GwtAppTest < Minitest::Test
     assert_empty @cd
   end
 
+  def test_add_rejects_a_name_colliding_with_a_subcommand
+    app, git, = build
+    assert_equal 1, app.run(["add", "cd"])
+    assert_match(/"cd" is a reserved gwt subcommand/, @err.string)
+    assert_empty git.runs
+    assert_empty @cd
+  end
+
+  def test_add_rejects_a_reserved_name_with_dash_b
+    app, git, = build
+    assert_equal 1, app.run(["add", "-b", "status"])
+    assert_match(/"status" is a reserved gwt subcommand/, @err.string)
+    assert_empty git.runs
+    assert_empty @cd
+  end
+
+  def test_add_allows_a_slashed_name_whose_segment_matches_a_subcommand
+    app, git, = build
+    assert_equal 0, app.run(["add", "feature/cd"])
+    assert_includes git.runs, ["worktree", "add", "#{WT_BASE}/feature+cd", "feature/cd"]
+  end
+
   def test_cd_exact_match
     app, = build(worktrees: [["foo", "b"]])
     assert_equal 0, app.run(["cd", "foo"])
@@ -485,9 +507,28 @@ class GwtAppTest < Minitest::Test
     assert_match(/↑2 ↓1/, @out.string)
   end
 
-  def test_unknown_command_prints_usage
+  def test_bare_name_cds_into_a_matching_worktree
+    app, = build(worktrees: [["foo", "b"]])
+    assert_equal 0, app.run(["foo"])
+    assert_equal ["#{WT_BASE}/foo"], @cd
+  end
+
+  def test_bare_name_fuzzy_matches_like_cd
+    app, = build(worktrees: [["foobar", "b"], ["other", "b"]])
+    assert_equal 0, app.run(["foo"])
+    assert_equal ["#{WT_BASE}/foobar"], @cd
+  end
+
+  def test_bare_name_with_no_match_errors_like_cd
+    app, = build(worktrees: [["alpha", "b"]])
+    assert_equal 1, app.run(["zzz"])
+    assert_empty @cd
+    assert_match(/No worktree matching: zzz/, @err.string)
+  end
+
+  def test_no_args_prints_usage
     app, = build
-    assert_equal 1, app.run(["bogus"])
+    assert_equal 1, app.run([])
     assert_match(/Usage: gwt/, @out.string)
   end
 

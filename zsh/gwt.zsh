@@ -3,6 +3,7 @@
 #        gwt add -b <branch>    Create branch + worktree and cd into it
 #        gwt cp [-f] <path>     Copy <path> from root into every worktree (-f skips the prompt)
 #        gwt cd <name>          cd into an existing worktree
+#        gwt <name>             Shorthand for `gwt cd <name>` (any non-subcommand name)
 #        gwt zed [<name>]       Open a worktree in a new Zed window (current if no name)
 #        gwt ls                 List worktrees
 #        gwt rm [-f] <name>     Remove a worktree (fuzzy name like `cd`; -f/--force skips the prompt, may trail the name)
@@ -65,6 +66,9 @@ _gwt() {
 
   if (( CURRENT == 2 )); then
     compadd -- add cp cd zed ls rm root status path
+    if [[ -d "$wt_base" ]]; then
+      compadd -- "$wt_base"/*(/:t)
+    fi
   elif (( CURRENT == 3 )); then
     case "${words[2]}" in
       cd|rm|path|zed)

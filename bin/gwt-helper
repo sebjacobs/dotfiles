@@ -25,6 +25,11 @@ require "timeout"
 module Gwt
   module_function
 
+  # The verbs gwt dispatches on. They double as a reserved-name list: `gwt add`
+  # refuses to create a worktree whose directory name would collide with one, so
+  # the bare `gwt <name>` cd shortcut can never be shadowed by a worktree.
+  SUBCOMMANDS = %w[add cp cd path zed ls rm prune root status].freeze
+
   # Encode slashes so a branch maps to a single worktree folder
   # (spike/twitter-classifier -> spike+twitter-classifier).
   def encode_branch(branch) = branch.gsub("/", "+")
@@ -213,6 +218,7 @@ module Gwt
 
       @wt_base = "#{@root}/#{@worktree_subdir}"
       case cmd
+      when nil      then usage
       when "add"    then cmd_add(rest)
       when "cp"     then cmd_cp(rest)
       when "cd"     then cmd_cd(rest)
@@ -223,7 +229,7 @@ module Gwt
       when "status" then cmd_status
       when "rm"     then cmd_rm(rest)
       when "prune"  then cmd_prune(rest)
-      else usage
+      else cmd_cd(argv)
       end
     end
 
@@ -260,6 +266,10 @@ module Gwt
 
       if (reason = Gwt.slug_error(branch))
         return error(%(Invalid worktree name "#{branch}": #{reason}))
+      end
+
+      if Gwt::SUBCOMMANDS.include?(Gwt.encode_branch(branch))
+        return error(%("#{branch}" is a reserved gwt subcommand — pick another name))
       end
 
       wt_dir = "#{@wt_base}/#{Gwt.encode_branch(branch)}"
@@ -457,6 +467,7 @@ module Gwt
     def usage(code = 1)
       @out.puts <<~USAGE
         Usage: gwt <add|cp|cd|zed|ls|rm|prune|root|status|path> [args]
+               gwt <name>           Shorthand for `gwt cd <name>`
 
           add [-b] <branch>    Create worktree and cd into it
           cp [-f] <path>       Copy <path> from root into every worktree (-f skips the prompt)

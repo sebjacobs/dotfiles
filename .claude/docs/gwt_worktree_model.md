@@ -1,7 +1,7 @@
 # Worktree handling: Claude Code CLI vs `gwt`
 
 Reference for how the Claude Code CLI manages `.claude/worktrees/`, and the
-contract `gwt` (`bin/gwt-helper`) follows to stay consistent with it.
+contract `gwt` (`lib/gwt.rb`) follows to stay consistent with it.
 
 ## Principle: git is the source of truth
 

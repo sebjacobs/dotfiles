@@ -1,7 +1,7 @@
 #!/usr/bin/env ruby
 # frozen_string_literal: true
 
-# gwt-helper — git worktree helpers for .claude/worktrees/.
+# gwt — git worktree helpers for .claude/worktrees/.
 #
 # This is the logic half of `gwt`; the thin zsh wrapper in zsh/gwt.zsh owns the
 # one thing a subprocess cannot do — change the interactive shell's directory.

@@ -1,7 +1,7 @@
 #!/usr/bin/env ruby
 # frozen_string_literal: true
 
-# proj-helper — quick cd into personal, client, or open-source projects.
+# proj — quick cd into personal, client, or open-source projects.
 #
 # This is the logic half of `proj`; the thin zsh wrapper in zsh/projects.zsh
 # owns the one thing a subprocess cannot do — change the interactive shell's
@@ -10,8 +10,8 @@
 # else (map building, current-root resolution, fuzzy matching) lives here, in
 # Ruby, so it can be unit-tested without a shell.
 #
-# `proj <project> <worktree>` cd's into the project, then delegates to gwt-helper
-# (loaded in-process, with the project as its root) to land inside that worktree
+# `proj <project> <worktree>` cd's into the project, then delegates to gwt
+# (required in-process, with the project as its root) to land inside that worktree
 # under <project>/.claude/worktrees/. The project-root cd happens first, so an
 # unresolved worktree name still leaves the shell in the project root.
 #
@@ -237,15 +237,14 @@ if __FILE__ == $PROGRAM_NAME
     File.write(file, map.map { |key, path| "#{key}\t#{path}" }.join("\n"))
   end
 
-  # gwt-helper is an extensionless executable, so `load` (not require, which only
-  # finds .rb) pulls it in; its `__FILE__ == $PROGRAM_NAME` guard keeps its CLI
-  # body dormant, exposing just the Gwt module.
-  load File.expand_path("gwt-helper", __dir__)
+  # Pull in the sibling gwt.rb for its Gwt module; its `__FILE__ == $PROGRAM_NAME`
+  # guard keeps its CLI body dormant when required rather than run directly.
+  require_relative "gwt"
 
   subdir = ENV.fetch("GWT_WORKTREE_DIR", ".claude/worktrees")
   subdir = ".claude/worktrees" if subdir.empty?
 
-  # Resolve a worktree under the named project by driving gwt-helper in-process
+  # Resolve a worktree under the named project by driving gwt in-process
   # with the project as its root. It shares cd_sink, so a unique match overwrites
   # the project-root cd target written moments earlier.
   worktree_sink = lambda do |project_path, name|

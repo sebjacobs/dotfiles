@@ -3,7 +3,7 @@
 
 require_relative "../test_helper"
 require "tmpdir"
-ScriptTest.load_script("../bin/gwt-helper")
+ScriptTest.load_script("../lib/gwt.rb")
 
 class GwtPureTest < Minitest::Test
   def test_encode_branch_replaces_slashes

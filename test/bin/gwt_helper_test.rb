@@ -557,6 +557,22 @@ class GwtAppTest < Minitest::Test
     assert_equal ["/repo/wt/foo"], @cd
   end
 
+  def test_root_override_resolves_worktree_of_another_repo
+    porc = "worktree /other\nbranch refs/heads/main\n\n" \
+           "worktree /other/.claude/worktrees/foo\nbranch refs/heads/feature/x\n\n"
+    git = FakeGit.new(captures: { "-C /other worktree list --porcelain" => [porc, true] })
+    out = StringIO.new
+    err = StringIO.new
+    cd = []
+    app = Gwt::App.new(
+      git: git, sys: FakeSys.new, out: out, err: err,
+      cd: ->(p) { cd << p }, confirm: ->(_) { false }, pwd: "/elsewhere",
+      exec: ->(*) {}, worktree_subdir: ".claude/worktrees", root_override: "/other"
+    )
+    assert_equal 0, app.run(["cd", "foo"])
+    assert_equal ["/other/.claude/worktrees/foo"], cd
+  end
+
   def test_not_in_git_repo_errors
     git = FakeGit.new(captures: { "worktree list --porcelain" => ["", false] })
     app, = build(git: git)

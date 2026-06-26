@@ -192,7 +192,7 @@ module Gwt
   end
 
   class App
-    def initialize(git:, sys:, out:, err:, cd:, confirm:, pwd:, exec:, worktree_subdir: ".claude/worktrees", timing: false)
+    def initialize(git:, sys:, out:, err:, cd:, confirm:, pwd:, exec:, worktree_subdir: ".claude/worktrees", root_override: nil, timing: false)
       @git = git
       @sys = sys
       @out = out
@@ -202,6 +202,7 @@ module Gwt
       @pwd = pwd
       @exec = exec
       @worktree_subdir = worktree_subdir
+      @root_override = root_override
       @timing = timing
     end
 
@@ -236,13 +237,16 @@ module Gwt
     # `git worktree list` is the one call every command depends on. Bound it with
     # a timeout so a wedged git can't hang gwt, and retry once: the list is
     # idempotent and the occasional failure (index lock contention, a dropped
-    # pipe) clears on a second look.
+    # pipe) clears on a second look. A non-nil @root_override targets another
+    # repo via `git -C`, so `proj <project> <worktree>` can resolve a worktree
+    # without the shell first cd-ing into that project.
     def capture_worktree_list
+      prefix = @root_override ? ["-C", @root_override] : []
       timed("worktree list") do
-        out, ok = @git.capture("worktree", "list", "--porcelain", timeout: 10)
+        out, ok = @git.capture(*prefix, "worktree", "list", "--porcelain", timeout: 10)
         next [out, ok] if ok
 
-        @git.capture("worktree", "list", "--porcelain", timeout: 10)
+        @git.capture(*prefix, "worktree", "list", "--porcelain", timeout: 10)
       end
     end
 

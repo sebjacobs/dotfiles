@@ -10,13 +10,19 @@
 # else (map building, current-root resolution, fuzzy matching) lives here, in
 # Ruby, so it can be unit-tested without a shell.
 #
+# `proj <project> <worktree>` cd's into the project, then delegates to gwt-helper
+# (loaded in-process, with the project as its root) to land inside that worktree
+# under <project>/.claude/worktrees/. The project-root cd happens first, so an
+# unresolved worktree name still leaves the shell in the project root.
+#
 # Project trees are declared as data in TREES — adding a new kind of project
 # (a new root dir) is a one-line entry, picked up by both the name->path map
 # and the current-root resolver with no other edits.
 #
-# The set of project display-names is also written to $PROJ_CACHE_FILE on every
-# run, so tab-completion can read the list without paying a Ruby boot per
-# keypress — it only shells out (`--list`) once, to warm a cold cache.
+# The set of project display-names is written to $PROJ_CACHE_FILE on every run,
+# and the name->path map to $PROJ_PATHS_FILE, so tab-completion can list a
+# project's worktrees without paying a Ruby boot per keypress — it only shells
+# out (`--list`) once, to warm a cold cache.
 
 require "fileutils"
 
@@ -115,32 +121,69 @@ module Proj
   # resolution logic above stays pure and testable: +cd+ receives the directory
   # to change into, +cache+ receives the key list to persist for completion.
   class App
-    def initialize(trees:, pwd:, out:, err:, cd:, cache:)
+    def initialize(trees:, pwd:, out:, err:, cd:, cache:, paths: ->(_) {}, worktree: nil)
       @trees = trees
       @pwd = pwd
       @out = out
       @err = err
       @cd = cd
       @cache = cache
+      @paths = paths
+      @worktree = worktree
     end
 
     def run(argv)
       name = argv[0]
+      worktree = argv[1]
       root = Proj.root_from_pwd(@pwd, @trees)
 
       return goto_current_root(root) if name == "."
 
       map = Proj.build_map(@trees)
       @cache.call(map.keys.sort)
+      @paths.call(map)
 
       return 0 if name == "--list"
       return print_current_or_list(root, map) if name.nil? || name.empty?
-      return change_dir(map[name]) if map.key?(name)
 
-      resolve(name, map)
+      path = resolve_project(name, map)
+      return 1 if path.nil?
+
+      enter(path, worktree)
     end
 
     private
+
+    # Resolve a project query to its path: exact key wins, else a unique fuzzy
+    # match. Emits the no-match / ambiguous message and returns nil otherwise, so
+    # the caller stays where it is rather than guessing.
+    def resolve_project(name, map)
+      return map[name] if map.key?(name)
+
+      matches = Proj.fuzzy_match(map.keys, name)
+      case matches.length
+      when 0
+        error("No project matching: #{name}")
+        nil
+      when 1
+        map[matches[0]]
+      else
+        @err.puts "Multiple projects match '#{name}':"
+        matches.each { |m| @err.puts "  #{m}" }
+        nil
+      end
+    end
+
+    # cd into the resolved project, then — when a worktree name follows — hand
+    # off to gwt to land inside that worktree. The project-root cd happens first
+    # so an unresolved worktree leaves us somewhere useful; gwt overwrites the cd
+    # target (it shares this @cd sink) on a unique match. Returns gwt's exit code.
+    def enter(path, worktree)
+      return change_dir(path) if worktree.nil? || worktree.empty?
+
+      change_dir(path)
+      @worktree.call(path, worktree)
+    end
 
     def goto_current_root(root)
       return change_dir(root) if root
@@ -158,20 +201,6 @@ module Proj
       @out.puts ""
       map.keys.sort.each { |k| @out.puts k }
       1
-    end
-
-    def resolve(name, map)
-      matches = Proj.fuzzy_match(map.keys, name)
-      case matches.length
-      when 0
-        error("No project matching: #{name}")
-      when 1
-        change_dir(map[matches[0]])
-      else
-        @err.puts "Multiple projects match '#{name}':"
-        matches.each { |m| @err.puts "  #{m}" }
-        1
-      end
     end
 
     def change_dir(path)
@@ -200,13 +229,49 @@ if __FILE__ == $PROGRAM_NAME
     File.write(file, keys.join("\n"))
   end
 
+  paths_sink = lambda do |map|
+    file = ENV["PROJ_PATHS_FILE"]
+    next if file.nil? || file.empty?
+
+    FileUtils.mkdir_p(File.dirname(file))
+    File.write(file, map.map { |key, path| "#{key}\t#{path}" }.join("\n"))
+  end
+
+  # gwt-helper is an extensionless executable, so `load` (not require, which only
+  # finds .rb) pulls it in; its `__FILE__ == $PROGRAM_NAME` guard keeps its CLI
+  # body dormant, exposing just the Gwt module.
+  load File.expand_path("gwt-helper", __dir__)
+
+  subdir = ENV.fetch("GWT_WORKTREE_DIR", ".claude/worktrees")
+  subdir = ".claude/worktrees" if subdir.empty?
+
+  # Resolve a worktree under the named project by driving gwt-helper in-process
+  # with the project as its root. It shares cd_sink, so a unique match overwrites
+  # the project-root cd target written moments earlier.
+  worktree_sink = lambda do |project_path, name|
+    Gwt::App.new(
+      git: Gwt::Git.new,
+      sys: Gwt::System.new,
+      out: $stdout,
+      err: $stderr,
+      cd: cd_sink,
+      confirm: ->(_) { false },
+      pwd: project_path,
+      exec: ->(*args) { exec(*args) },
+      worktree_subdir: subdir,
+      root_override: project_path
+    ).run(["cd", name])
+  end
+
   app = Proj::App.new(
     trees: Proj::TREES,
     pwd: ENV.fetch("PWD", Dir.pwd),
     out: $stdout,
     err: $stderr,
     cd: cd_sink,
-    cache: cache_sink
+    cache: cache_sink,
+    paths: paths_sink,
+    worktree: worktree_sink
   )
 
   exit app.run(ARGV)

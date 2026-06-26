@@ -25,19 +25,22 @@ them.
 ### 1. dotfiles-managed (machine-wide)
 
 The plist lives in [`Library/LaunchAgents/`](../Library/LaunchAgents/) in this
-repo and is symlinked into place by `setup.sh` (add the filename to the `files`
-array there). Example: `com.sebjacobs.ruby-lsp-reap.plist`.
+repo. `setup.sh` globs every `$LAUNCHD_PREFIX.*.plist` there, symlinks each into
+`~/Library/LaunchAgents`, and (re)loads it — so adding an agent is just dropping
+its plist into that directory; no edit to `setup.sh` is needed. Example:
+`com.sebjacobs.ruby-lsp-reap.plist`.
 
 ### 2. per-project
 
 The plist lives in the project repo (e.g. `scripts/launchd/com.sebjacobs.<job>.plist`)
 so it's versioned alongside the code it runs. `setup.sh` can't know about these,
-so symlink and load them by hand once:
+so install it once from the project with `svc`:
 
 ```bash
-ln -s "$PWD/scripts/launchd/com.sebjacobs.<job>.plist" ~/Library/LaunchAgents/
-launchctl bootstrap "gui/$(id -u)" ~/Library/LaunchAgents/com.sebjacobs.<job>.plist
+svc install scripts/launchd/com.sebjacobs.<job>.plist
 ```
+
+This symlinks the real file into `~/Library/LaunchAgents` and bootstraps it.
 
 ## Common gotchas
 
@@ -55,10 +58,12 @@ launchctl bootstrap "gui/$(id -u)" ~/Library/LaunchAgents/com.sebjacobs.<job>.pl
 
 ## Reloading after an edit
 
+`svc edit <job>` opens the plist's real file in `$EDITOR` and reloads it (bootout
++ bootstrap) on exit. To reload a plist you edited some other way:
+
 ```bash
-launchctl bootout   "gui/$(id -u)/com.sebjacobs.<job>"            # unload by label
-launchctl bootstrap "gui/$(id -u)" ~/Library/LaunchAgents/com.sebjacobs.<job>.plist
+svc unload <job> && svc load <job>
 ```
 
-If `bootout` fails with an I/O error because the symlink was already removed,
-unload by the label target directly: `launchctl bootout "gui/$(id -u)/<label>"`.
+To run a job immediately regardless of its schedule, `svc restart <job>`
+(`kickstart -k`).

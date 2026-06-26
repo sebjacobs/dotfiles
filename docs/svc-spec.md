@@ -83,10 +83,11 @@ svc install scripts/launchd/com.sebjacobs.foo.plist
 5. ✅ `svc edit` (resolve link → `$EDITOR` → bootout + bootstrap reload).
 6. ✅ `svc enable|disable|load|unload|restart` (launchctl pass-throughs over a
    shared resolve-act-report helper).
-7. Rewire `setup.sh` to loop `svc install` over
-   `Library/LaunchAgents/$PREFIX.*.plist` (closes the load-gap, makes setup
-   prefix-aware instead of naming files); replace the manual snippet in
-   `docs/launchd.md` with `svc install`.
+7. ✅ Rewired `setup.sh` to glob `Library/LaunchAgents/$PREFIX.*.plist`,
+   symlinking and bootstrapping each (closes the load-gap, prefix-aware instead
+   of naming files). Done in sh, not `svc install`, because setup runs before a
+   modern Ruby is guaranteed. `docs/launchd.md` now points at `svc install` /
+   `svc edit` instead of the manual launchctl snippets.
 
 ## Technology & testing
 

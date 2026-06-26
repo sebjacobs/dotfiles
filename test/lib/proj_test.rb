@@ -75,10 +75,10 @@ class ProjTreeTest < Minitest::Test
     )
 
     @trees = [
-      { dir: File.join(@personal, "PRIVATE"), depth: 1, exclude: ["ARCHIVE"] },
-      { dir: @personal, depth: 1, exclude: ["ARCHIVE", "PRIVATE"] },
-      { dir: @client, depth: 2, exclude: ["ARCHIVE"] },
-      { dir: @opensource, depth: 1, exclude: ["ARCHIVE"] }
+      { dir: File.join(@personal, "PRIVATE"), depth: 1, exclude: ["ARCHIVE"], type: "personal" },
+      { dir: @personal, depth: 1, exclude: ["ARCHIVE", "PRIVATE"], type: "personal" },
+      { dir: @client, depth: 2, exclude: ["ARCHIVE"], type: "client" },
+      { dir: @opensource, depth: 1, exclude: ["ARCHIVE"], type: "opensource" }
     ]
   end
 
@@ -97,6 +97,15 @@ class ProjTreeTest < Minitest::Test
   def test_build_map_personal_wins_collision_over_private
     map = Proj.build_map(@trees)
     assert_equal File.join(@personal, "session-logs"), map["session-logs"]
+  end
+
+  def test_build_types_labels_each_tree
+    types = Proj.build_types(@trees)
+
+    assert_equal "personal", types["cadence"]
+    assert_equal "personal", types["secret"]
+    assert_equal "client", types["nesta/asf_visit_a_heat_pump"]
+    assert_equal "opensource", types["ripgrep"]
   end
 
   def test_build_map_exposes_private_only_projects
@@ -147,7 +156,7 @@ class ProjAppTest < Minitest::Test
     @personal = File.join(@root, "personal")
     FileUtils.mkdir_p(File.join(@personal, "cadence"))
     FileUtils.mkdir_p(File.join(@personal, "cadence-extra"))
-    @trees = [{ dir: @personal, depth: 1, exclude: ["ARCHIVE"] }]
+    @trees = [{ dir: @personal, depth: 1, exclude: ["ARCHIVE"], type: "personal" }]
   end
 
   def teardown
@@ -268,6 +277,16 @@ class ProjAppTest < Minitest::Test
     )
     app.run(["cadence"])
     assert_equal File.join(@personal, "cadence"), captured["cadence"]
+  end
+
+  def test_run_writes_name_to_type_mapping
+    captured = nil
+    app = Proj::App.new(
+      trees: @trees, pwd: @root, out: StringIO.new, err: StringIO.new,
+      cd: ->(_) {}, cache: ->(_) {}, types: ->(map) { captured = map }
+    )
+    app.run(["cadence"])
+    assert_equal "personal", captured["cadence"]
   end
 
   private

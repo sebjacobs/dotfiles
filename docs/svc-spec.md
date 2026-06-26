@@ -1,9 +1,11 @@
 # `svc` — launchd service management CLI (spec)
 
 A single project-agnostic CLI over my personal launchd agents, replacing the
-scattered `jls` + raw `launchctl` workflow. The user-facing command is `svc`
-(logic in `bin/svc-helper`, see Technology & testing below), symlinked onto
-`$PATH` by `setup.sh` like every other `bin/` script, so it runs from any repo.
+scattered `jls` + raw `launchctl` workflow. The command is `bin/svc` (Ruby),
+symlinked onto `$PATH` by `setup.sh` like every other `bin/` script, so it runs
+from any repo. No zsh wrapper — `svc` needs no shell-only behaviour (unlike `gwt`,
+whose wrapper exists only to `cd` the interactive shell), so the executable is
+`bin/svc` directly rather than a `bin/svc-helper` + wrapper pair.
 
 ## The opt-in contract: `LAUNCHD_PREFIX`
 
@@ -70,22 +72,23 @@ svc install scripts/launchd/com.sebjacobs.foo.plist
 
 ## Build order (incremental, each its own commit)
 
-1. `LAUNCHD_PREFIX` env var in `zsh/env.zsh`.
-2. `bin/svc-helper` skeleton (Ruby, `gwt-helper` shape) + `svc ls` with its
-   `svc_helper_test.rb` (port `jls`'s logic, read `$LAUNCHD_PREFIX`).
+1. ✅ `LAUNCHD_PREFIX` env var in `zsh/env.zsh`.
+2. ✅ `bin/svc` (Ruby, `gwt-helper` shape) + `svc ls` with `svc_test.rb`; `jls`
+   deleted (output is byte-identical), docs repointed at `svc`.
 3. `svc show`, `svc tail`.
 4. `svc install` (symlink + bootstrap + prefix validation).
 5. `svc edit` (resolve link → `$EDITOR` → reload).
 6. `svc enable|disable|load|unload|restart`.
 7. Rewire `setup.sh` to loop `svc install` over
    `Library/LaunchAgents/$PREFIX.*.plist` (closes the load-gap, makes setup
-   prefix-aware instead of naming files); retire `jls` (alias to `svc ls` or
-   remove); replace the manual snippet in `docs/launchd.md` with `svc install`.
+   prefix-aware instead of naming files); replace the manual snippet in
+   `docs/launchd.md` with `svc install`.
 
 ## Technology & testing
 
-**Ruby + minitest, mirroring `bin/gwt-helper`.** The repo already has the
-pattern and harness, and `svc` is an ideal fit:
+**Ruby + minitest, mirroring `bin/gwt-helper`** (in `bin/svc`, tests in
+`test/bin/svc_test.rb`). The repo already has the pattern and harness, and
+`svc` is an ideal fit:
 
 - **Pure logic as module functions** (like `Gwt.parse_worktrees`,
   `Gwt.fuzzy_match`) — `svc`'s schedule parsing (`StartCalendarInterval` /
@@ -98,15 +101,8 @@ pattern and harness, and `svc` is an ideal fit:
   (symlink, readlink, exist?). Tests inject a `FakeLaunchctl` so no real agents
   are touched.
 - **Harness already exists** — `.claude/scripts/test_helper.rb`'s `load_script`
-  + the `__FILE__ == $PROGRAM_NAME` guard. Tests go in
+  + the `__FILE__ == $PROGRAM_NAME` guard. Tests live in
   `test/bin/svc_test.rb` alongside `gwt_helper_test.rb`. Run on
   `ruby-4.0.5`.
-
-Logic half lives in `bin/svc-helper` (Ruby). A thin `zsh` wrapper is added only
-if a shell-only need (like `gwt`'s `cd`) ever appears — `svc` likely needs none.
-
-## Decisions still open
-
-- **`jls` fate** — alias to `svc ls`, or delete outright once `svc ls` lands.
 </content>
 </invoke>

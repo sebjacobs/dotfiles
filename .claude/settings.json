@@ -83,10 +83,11 @@
     }
   },
   "effortLevel": "medium",
+  "skipWorkflowUsageWarning": true,
   "theme": "dark-daltonized",
   "inputNeededNotifEnabled": true,
   "agentPushNotifEnabled": true,
   "skipAutoPermissionPrompt": true,
   "voiceEnabled": true,
-  "skipWorkflowUsageWarning": true
+  "tui": "fullscreen"
 }

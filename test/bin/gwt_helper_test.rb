@@ -1,9 +1,9 @@
 #!/usr/bin/env ruby
 # frozen_string_literal: true
 
-require_relative "test_helper"
+require_relative "../test_helper"
 require "tmpdir"
-ScriptTest.load_script("../../bin/gwt-helper")
+ScriptTest.load_script("../bin/gwt-helper")
 
 class GwtPureTest < Minitest::Test
   def test_encode_branch_replaces_slashes

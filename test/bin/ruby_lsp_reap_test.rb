@@ -1,8 +1,8 @@
 #!/usr/bin/env ruby
 # frozen_string_literal: true
 
-require_relative "test_helper"
-ScriptTest.load_script("../../bin/ruby-lsp-reap")
+require_relative "../test_helper"
+ScriptTest.load_script("../bin/ruby-lsp-reap")
 
 class RubyLspReapTest < Minitest::Test
   P = RubyLspReap::Proc_

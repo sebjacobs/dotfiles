@@ -75,6 +75,20 @@ class SvcPureTest < Minitest::Test
   def test_fuzzy_match_empty_when_nothing_matches
     assert_empty Svc.fuzzy_match(%w[brewup reap], "zzz")
   end
+
+  def test_program_of_prefers_bare_program
+    assert_equal "/usr/bin/foo", Svc.program_of({ "Program" => "/usr/bin/foo" })
+  end
+
+  def test_program_of_joins_program_arguments
+    assert_equal "ruby /bin/job --flag",
+                 Svc.program_of({ "ProgramArguments" => ["ruby", "/bin/job", "--flag"] })
+  end
+
+  def test_program_of_none_when_neither_present
+    assert_equal "(none)", Svc.program_of({})
+    assert_equal "(none)", Svc.program_of({ "ProgramArguments" => [] })
+  end
 end
 
 class SvcAppTest < Minitest::Test
@@ -187,6 +201,43 @@ class SvcAppTest < Minitest::Test
     assert_equal 1, build_app.run(["tail"])
     assert_empty @exec_calls
     assert_includes @err.string, "Usage: svc tail <job>"
+  end
+
+  def test_show_prints_path_schedule_state_program_and_log
+    @sys.add_plist("/agents/com.sebjacobs.brewup.plist",
+                   "Label" => "com.sebjacobs.brewup",
+                   "StartCalendarInterval" => { "Weekday" => 1, "Hour" => 10, "Minute" => 0 },
+                   "ProgramArguments" => ["/Users/me/bin/brewup"],
+                   "StandardOutPath" => "/log/brewup.log")
+    @sys.add_log("/log/brewup.log", mtime: Time.new(2026, 6, 26, 10, 1), last_line: "ok")
+    @launchctl.list = "-\t0\tcom.sebjacobs.brewup\n"
+
+    assert_equal 0, build_app.run(["show", "brewup"])
+
+    out = @out.string
+    assert_includes out, "plist    : /agents/com.sebjacobs.brewup.plist"
+    assert_includes out, "schedule : Mon 10:00 (calendar)"
+    assert_includes out, "state    : enabled   last exit: 0"
+    assert_includes out, "program  : /Users/me/bin/brewup"
+    assert_includes out, "log      : /log/brewup.log"
+    assert_includes out, "last log : 2026-06-26 10:01 — ok"
+  end
+
+  def test_show_reports_missing_log_path_as_none
+    @sys.add_plist("/agents/com.sebjacobs.silent.plist", "Label" => "com.sebjacobs.silent")
+
+    build_app.run(["show", "silent"])
+    assert_includes @out.string, "log      : (none)"
+  end
+
+  def test_show_errors_on_no_match
+    assert_equal 1, build_app.run(["show", "nope"])
+    assert_includes @err.string, "No com.sebjacobs.* agent matching: nope"
+  end
+
+  def test_show_without_argument_is_usage_error
+    assert_equal 1, build_app.run(["show"])
+    assert_includes @err.string, "Usage: svc show <job>"
   end
 
   private

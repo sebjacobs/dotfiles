@@ -67,6 +67,17 @@ module Svc
     names.select { |n| n.include?(query) }
   end
 
+  # The command an agent runs: a bare Program, else the ProgramArguments joined,
+  # else "(none)" when the plist declares neither.
+  def program_of(plist)
+    return plist["Program"] if plist["Program"]
+
+    args = plist["ProgramArguments"]
+    return args.join(" ") if args.is_a?(Array) && !args.empty?
+
+    "(none)"
+  end
+
   # Real launchctl calls, behind a seam so tests can fake them.
   class Launchctl
     def list = capture("launchctl", "list")
@@ -122,6 +133,7 @@ module Svc
       cmd, *rest = argv
       case cmd
       when nil, "ls" then cmd_ls
+      when "show" then cmd_show(rest)
       when "tail" then cmd_tail(rest)
       when "help", "-h", "--help" then usage(0)
       else usage
@@ -149,10 +161,26 @@ module Svc
       disabled = @launchctl.print_disabled(@domain)
       list = @launchctl.list
 
-      agents.each do |agent|
-        plist = agent[:plist]
-        print_entry(agent[:label], Svc.schedule_of(plist), disabled, list, plist["StandardOutPath"])
-      end
+      agents.each { |agent| print_entry(agent, disabled, list) }
+      0
+    end
+
+    def cmd_show(args)
+      name = args.first
+      return error("Usage: svc show <job>") if name.nil? || name.empty?
+
+      agent = resolve(name)
+      return 1 unless agent
+
+      plist = agent[:plist]
+      log = plist["StandardOutPath"]
+      @out.printf("\033[1m%s\033[0m\n", agent[:label])
+      @out.printf("  plist    : %s\n", agent[:path])
+      @out.printf("  schedule : %s\n", Svc.schedule_of(plist))
+      @out.printf("  state    : %s\n", state_line(agent[:label], @launchctl.print_disabled(@domain), @launchctl.list))
+      @out.printf("  program  : %s\n", Svc.program_of(plist))
+      @out.printf("  log      : %s\n", log || "(none)")
+      @out.printf("  last log : %s\n", log_summary(log))
       0
     end
 
@@ -172,15 +200,20 @@ module Svc
       0
     end
 
-    def print_entry(label, schedule, disabled, list, log)
+    def print_entry(agent, disabled, list)
+      plist = agent[:plist]
+      @out.printf("\033[1m%s\033[0m\n", agent[:label])
+      @out.printf("  schedule : %s\n", Svc.schedule_of(plist))
+      @out.printf("  state    : %s\n", state_line(agent[:label], disabled, list))
+      @out.printf("  last log : %s\n", log_summary(plist["StandardOutPath"]))
+      @out.puts
+    end
+
+    # The "enabled/DISABLED   last exit: N" status fragment shared by ls and show.
+    def state_line(label, disabled, list)
       state = Svc.disabled?(disabled, label) ? "DISABLED" : "enabled"
       status = Svc.exit_status(list, label)
-
-      @out.printf("\033[1m%s\033[0m\n", label)
-      @out.printf("  schedule : %s\n", schedule)
-      @out.printf("  state    : %s   last exit: %s\n", state, status || "never run")
-      @out.printf("  last log : %s\n", log_summary(log))
-      @out.puts
+      "#{state}   last exit: #{status || 'never run'}"
     end
 
     def log_summary(log)
@@ -216,9 +249,10 @@ module Svc
 
     def usage(code = 1)
       @out.puts <<~USAGE
-        Usage: svc <ls|tail> [args]
+        Usage: svc <ls|show|tail> [args]
 
           ls            List #{@prefix}.* agents with schedule, state, last exit, and log tail
+          show <job>    Show one agent's plist path, schedule, state, program, and log
           tail <job>    Follow an agent's log (tail -f on its StandardOutPath)
       USAGE
       code

@@ -1,0 +1,46 @@
+# The dot toolchain registry — name -> location + description.
+#
+# A hand-edited directory of the CLIs I own, read by `bin/dot`. A tool joins by
+# being listed here, wherever its code lives: a relative `location` resolves
+# against ~/dotfiles, a ~/absolute one is used as-is (so out-of-repo tools link
+# in too). `dot ls` reads `desc`; `dot show`/`dot where` resolve `location`.
+
+brewup:
+  desc: Update Homebrew and upgrade all formulae
+  location: bin/brewup
+  repo: dotfiles
+
+dox:
+  desc: docker-compose + git-worktree isolation helper
+  location: ~/.local/bin/dox
+  repo: dox
+
+gwt:
+  desc: Git worktree manager for .claude/worktrees
+  location: bin/gwt-helper
+  repo: dotfiles
+
+ollama-warm:
+  desc: Boot the Ollama daemon and pre-load a model
+  location: bin/ollama-warm
+  repo: dotfiles
+
+proj:
+  desc: Quick cd into personal, client, or open-source projects
+  location: bin/proj-helper
+  repo: dotfiles
+
+ruby-lsp-reap:
+  desc: Reap orphaned ruby-lsp processes
+  location: bin/ruby-lsp-reap
+  repo: dotfiles
+
+svc:
+  desc: Manage personal launchd agents
+  location: bin/svc
+  repo: dotfiles
+
+zcompreset:
+  desc: Clear zsh's completion cache
+  location: bin/zcompreset
+  repo: dotfiles

@@ -1,0 +1,31 @@
+#compdef svc
+
+# Completion for `svc` (bin/svc — manage com.sebjacobs.* launchd agents).
+#
+# First word: the subcommands. For the job-taking subcommands, the second word
+# completes the managed agents' short-names — the same names `svc` resolves —
+# derived straight from the plist filenames in ~/Library/LaunchAgents so no
+# Ruby boots per keypress. The short-name is the filename with the
+# "$LAUNCHD_PREFIX." prefix and ".plist" suffix stripped, mirroring the helper's
+# own short_name. `install` completes a plist path instead.
+
+_svc_jobs() {
+  local prefix="${LAUNCHD_PREFIX:-com.sebjacobs}"
+  local -a jobs
+  jobs=("$HOME"/Library/LaunchAgents/"$prefix".*.plist(N:t:r))
+  jobs=("${jobs[@]#$prefix.}")
+  (( ${#jobs} )) && compadd -- $jobs
+}
+
+_svc() {
+  if (( CURRENT == 2 )); then
+    compadd -- ls show tail install edit enable disable load unload restart help
+  elif (( CURRENT == 3 )); then
+    case "${words[2]}" in
+      show|tail|edit|enable|disable|load|unload|restart) _svc_jobs ;;
+      install) _files -g '*.plist' ;;
+    esac
+  fi
+}
+
+_svc "$@"

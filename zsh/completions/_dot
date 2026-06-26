@@ -1,0 +1,28 @@
+#compdef dot
+
+# Completion for `dot` (bin/dot — the directory of CLIs I own).
+#
+# First word: the subcommands. `show` and `where` take a registered tool, so
+# their second word completes the registry's tool names — the top-level keys of
+# ~/.config/dot/tools.yml, read directly so no Ruby boots per keypress.
+
+_dot_tools() {
+  local manifest="${XDG_CONFIG_HOME:-$HOME/.config}/dot/tools.yml"
+  [[ -r "$manifest" ]] || return
+  local -a tools
+  tools=("${(@f)$(grep -oE '^[A-Za-z0-9_-]+:' "$manifest" 2>/dev/null)}")
+  tools=("${tools[@]%:}")
+  (( ${#tools} )) && compadd -- $tools
+}
+
+_dot() {
+  if (( CURRENT == 2 )); then
+    compadd -- ls show where reload help
+  elif (( CURRENT == 3 )); then
+    case "${words[2]}" in
+      show|where) _dot_tools ;;
+    esac
+  fi
+}
+
+_dot "$@"

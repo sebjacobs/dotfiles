@@ -20,6 +20,16 @@ gwt:
   location: lib/gwt.rb
   repo: dotfiles
 
+jotter:
+  desc: Session-note logging CLI (write, search, ls)
+  location: /opt/homebrew/bin/jotter
+  repo: jotter
+
+notes:
+  desc: CLI for Google Keep notes
+  location: ~/.local/bin/notes
+  repo: notes
+
 ollama-warm:
   desc: Boot the Ollama daemon and pre-load a model
   location: bin/ollama-warm
@@ -39,3 +49,8 @@ svc:
   desc: Manage personal launchd agents
   location: bin/svc
   repo: dotfiles
+
+tasks:
+  desc: CLI for Google Tasks
+  location: ~/.local/bin/tasks
+  repo: tasks

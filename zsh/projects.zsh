@@ -13,6 +13,7 @@
 
 PROJ_CACHE_FILE="${XDG_CACHE_HOME:-$HOME/.cache}/proj/keys"
 PROJ_PATHS_FILE="${XDG_CACHE_HOME:-$HOME/.cache}/proj/paths"
+PROJ_TYPES_FILE="${XDG_CACHE_HOME:-$HOME/.cache}/proj/types"
 
 # The logic lives in lib/proj.rb (Ruby, unit-tested). A subprocess cannot
 # change this shell's directory, so the helper writes the cd target to the file
@@ -24,7 +25,7 @@ proj() {
   local cd_file rc
   cd_file=$(mktemp "${TMPDIR:-/tmp}/proj-cd.XXXXXX")
 
-  PROJ_CD_FILE="$cd_file" PROJ_CACHE_FILE="$PROJ_CACHE_FILE" PROJ_PATHS_FILE="$PROJ_PATHS_FILE" "$helper" "$@"
+  PROJ_CD_FILE="$cd_file" PROJ_CACHE_FILE="$PROJ_CACHE_FILE" PROJ_PATHS_FILE="$PROJ_PATHS_FILE" PROJ_TYPES_FILE="$PROJ_TYPES_FILE" "$helper" "$@"
   rc=$?
 
   if [[ -s "$cd_file" ]]; then cd "$(<"$cd_file")"; fi
@@ -37,7 +38,7 @@ proj() {
 _proj_path_for() {
   local key="$1" k v
   [[ -s "$PROJ_PATHS_FILE" ]] || return
-  while IFS=$'\t' read -r k v; do
+  while IFS=$'\t' read -r k v || [[ -n "$k" ]]; do
     [[ "$k" == "$key" ]] && { print -r -- "$v"; return; }
   done < "$PROJ_PATHS_FILE"
 }
@@ -78,18 +79,43 @@ _proj_match_keys() {
 # Tab completion reads the cached name list rather than spawning Ruby per
 # keypress. A cold cache is warmed once with a single `--list` call. The first
 # argument fuzzy-matches project names (so `asf` completes
-# `nesta/asf_visit_a_heat_pump`); the second completes worktree names under the
-# chosen project, resolving a partial project name the same way.
+# `nesta/asf_visit_a_heat_pump`), grouped by type — personal, then client, then
+# opensource — from the cached name->type map; the second completes worktree
+# names under the chosen project, resolving a partial project name the same way.
 _proj() {
-  if [[ ! -s "$PROJ_CACHE_FILE" || ! -s "$PROJ_PATHS_FILE" ]]; then
-    PROJ_CACHE_FILE="$PROJ_CACHE_FILE" PROJ_PATHS_FILE="$PROJ_PATHS_FILE" \
+  if [[ ! -s "$PROJ_CACHE_FILE" || ! -s "$PROJ_PATHS_FILE" || ! -s "$PROJ_TYPES_FILE" ]]; then
+    PROJ_CACHE_FILE="$PROJ_CACHE_FILE" PROJ_PATHS_FILE="$PROJ_PATHS_FILE" PROJ_TYPES_FILE="$PROJ_TYPES_FILE" \
       "$HOME/dotfiles/lib/proj.rb" --list >/dev/null 2>&1
   fi
 
   if (( CURRENT == 2 )); then
     local -a matches
     matches=("${(@f)$(_proj_match_keys "${words[2]}")}")
-    (( ${#matches} )) && compadd -U -- $matches
+    (( ${#matches} )) || return
+
+    typeset -A typeof
+    if [[ -s "$PROJ_TYPES_FILE" ]]; then
+      local k v
+      while IFS=$'\t' read -r k v || [[ -n "$k" ]]; do typeof[$k]=$v; done < "$PROJ_TYPES_FILE"
+    fi
+
+    zstyle ':completion:*:*:proj:*' group-name ''
+    zstyle ':completion:*:*:proj:*' group-order personal client opensource
+
+    local -a personal client opensource untyped
+    local m
+    for m in $matches; do
+      case "${typeof[$m]}" in
+        personal)   personal+=$m ;;
+        client)     client+=$m ;;
+        opensource) opensource+=$m ;;
+        *)          untyped+=$m ;;
+      esac
+    done
+    (( ${#personal} ))   && compadd -U -J personal   -X 'personal'   -- $personal
+    (( ${#client} ))     && compadd -U -J client     -X 'client'     -- $client
+    (( ${#opensource} )) && compadd -U -J opensource -X 'opensource' -- $opensource
+    (( ${#untyped} ))    && compadd -U -- $untyped
   elif (( CURRENT == 3 )); then
     local -a matches
     matches=("${(@f)$(_proj_match_keys "${words[2]}")}")

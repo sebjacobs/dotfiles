@@ -36,20 +36,30 @@ module Proj
   # Each tree is one searchable root. `depth` is how many path segments below
   # `dir` form a project: 1 keys projects by basename (`cadence`), 2 keys them
   # namespaced (`nesta/asf_visit_a_heat_pump`). `exclude` drops any project
-  # whose segments hit those names. Order is precedence — later trees overwrite
-  # earlier ones on a key collision, so PRIVATE is listed before personal/* and
-  # personal wins `session-logs`. Add a kind of project by adding a line here.
+  # whose segments hit those names. `type` is the completion grouping label —
+  # PRIVATE shares `personal` since it lives under the personal root. Order is
+  # precedence — later trees overwrite earlier ones on a key collision, so
+  # PRIVATE is listed before personal/* and personal wins `session-logs`. Add a
+  # kind of project by adding a line here.
   TREES = [
-    { dir: File.join(PROJ_DIR, "PRIVATE"), depth: 1, exclude: ["ARCHIVE"] },
-    { dir: PROJ_DIR, depth: 1, exclude: ["ARCHIVE", "PRIVATE"] },
-    { dir: CLIENT_DIR, depth: 2, exclude: ["ARCHIVE"] },
-    { dir: OPENSOURCE_DIR, depth: 1, exclude: ["ARCHIVE"] }
+    { dir: File.join(PROJ_DIR, "PRIVATE"), depth: 1, exclude: ["ARCHIVE"], type: "personal" },
+    { dir: PROJ_DIR, depth: 1, exclude: ["ARCHIVE", "PRIVATE"], type: "personal" },
+    { dir: CLIENT_DIR, depth: 2, exclude: ["ARCHIVE"], type: "client" },
+    { dir: OPENSOURCE_DIR, depth: 1, exclude: ["ARCHIVE"], type: "opensource" }
   ].freeze
 
   # Build the display-name -> path map by walking every tree in precedence order.
   def build_map(trees = TREES)
     trees.each_with_object({}) do |tree, map|
       project_dirs(tree).each { |dir| map[key_for(dir, tree[:depth])] = dir }
+    end
+  end
+
+  # Build the display-name -> type map, walking trees in the same precedence
+  # order as build_map so a collision's type matches its winning path.
+  def build_types(trees = TREES)
+    trees.each_with_object({}) do |tree, types|
+      project_dirs(tree).each { |dir| types[key_for(dir, tree[:depth])] = tree[:type] }
     end
   end
 
@@ -121,7 +131,7 @@ module Proj
   # resolution logic above stays pure and testable: +cd+ receives the directory
   # to change into, +cache+ receives the key list to persist for completion.
   class App
-    def initialize(trees:, pwd:, out:, err:, cd:, cache:, paths: ->(_) {}, worktree: nil)
+    def initialize(trees:, pwd:, out:, err:, cd:, cache:, paths: ->(_) {}, types: ->(_) {}, worktree: nil)
       @trees = trees
       @pwd = pwd
       @out = out
@@ -129,6 +139,7 @@ module Proj
       @cd = cd
       @cache = cache
       @paths = paths
+      @types = types
       @worktree = worktree
     end
 
@@ -142,6 +153,7 @@ module Proj
       map = Proj.build_map(@trees)
       @cache.call(map.keys.sort)
       @paths.call(map)
+      @types.call(Proj.build_types(@trees))
 
       return 0 if name == "--list"
       return print_current_or_list(root, map) if name.nil? || name.empty?
@@ -237,6 +249,14 @@ if __FILE__ == $PROGRAM_NAME
     File.write(file, map.map { |key, path| "#{key}\t#{path}" }.join("\n"))
   end
 
+  types_sink = lambda do |map|
+    file = ENV["PROJ_TYPES_FILE"]
+    next if file.nil? || file.empty?
+
+    FileUtils.mkdir_p(File.dirname(file))
+    File.write(file, map.map { |key, type| "#{key}\t#{type}" }.join("\n"))
+  end
+
   # Pull in the sibling gwt.rb for its Gwt module; its `__FILE__ == $PROGRAM_NAME`
   # guard keeps its CLI body dormant when required rather than run directly.
   require_relative "gwt"
@@ -270,6 +290,7 @@ if __FILE__ == $PROGRAM_NAME
     cd: cd_sink,
     cache: cache_sink,
     paths: paths_sink,
+    types: types_sink,
     worktree: worktree_sink
   )
 

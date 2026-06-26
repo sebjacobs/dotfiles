@@ -85,7 +85,7 @@ do
 done
 
 
-for file in $(ls ./bin)
+for file in $(ls "$DOTFILES_HOME/bin")
 do
   source="$DOTFILES_HOME/bin/$file"
   target="$HOME/bin/$file"

@@ -31,13 +31,13 @@
 
 __gwt_root() { git worktree list --porcelain 2>/dev/null | head -1 | sed 's/^worktree //'; }
 
-# The logic lives in bin/gwt-helper (Ruby, unit-tested). A subprocess cannot
+# The logic lives in lib/gwt.rb (Ruby, unit-tested). A subprocess cannot
 # change this shell's directory, so the helper writes the cd target to the file
 # named by $GWT_CD_FILE and we cd there on return — the one thing the shell must
 # own. Everything else (resolution, fuzzy matching, .worktreeinclude, status)
 # is the helper's job.
 gwt() {
-  local helper="$HOME/dotfiles/bin/gwt-helper"
+  local helper="$HOME/dotfiles/lib/gwt.rb"
   local cd_file rc
   cd_file=$(mktemp "${TMPDIR:-/tmp}/gwt-cd.XXXXXX")
 

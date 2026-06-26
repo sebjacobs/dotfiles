@@ -123,4 +123,10 @@ if [ -f "$sdkman_config" ] && grep -q '^sdkman_auto_complete=true$' "$sdkman_con
   echo "patched sdkman config to defer auto_complete/auto_env to the environment"
 fi
 
+# Clear the zsh completion cache so a completion that was just (re)symlinked onto
+# $fpath is picked up by the next shell rather than hidden behind a stale
+# ~/.zcompdump. Done here in sh to keep setup dependency-free (it may run before a
+# modern Ruby is on PATH). Start a new shell afterwards to rebuild the cache.
+rm -f "$HOME"/.zcompdump*
+
 echo "finished symlinking dotfiles"

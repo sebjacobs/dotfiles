@@ -3,7 +3,8 @@
 
 require_relative "../test_helper"
 require "tmpdir"
-ScriptTest.load_script("../bin/proj-helper")
+require "open3"
+ScriptTest.load_script("../lib/proj.rb")
 
 class ProjPureTest < Minitest::Test
   def test_fuzzy_match_prefers_prefix_over_substring
@@ -282,5 +283,19 @@ class ProjAppTest < Minitest::Test
       cd: ->(path) { cd << path }, cache: ->(_) {}, paths: ->(_) {}, worktree: resolver
     )
     [app, cd, out, err, wt_calls]
+  end
+end
+
+class ProjDelegationLoadTest < Minitest::Test
+  HELPER = File.expand_path("../../lib/proj.rb", __dir__)
+
+  def test_cli_loads_sibling_gwt_helper_without_a_load_error
+    Dir.mktmpdir do |empty|
+      env = { "PROJ_DIR" => empty, "CLIENT_DIR" => empty, "OPENSOURCE_DIR" => empty,
+              "PROJ_CD_FILE" => "", "PROJ_CACHE_FILE" => "", "PROJ_PATHS_FILE" => "" }
+      _out, err, _status = Open3.capture3(env, RbConfig.ruby, HELPER, "no-such-project")
+      refute_match(/cannot load such file/, err)
+      refute_match(/LoadError/, err)
+    end
   end
 end

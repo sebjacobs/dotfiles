@@ -8,19 +8,19 @@
 #   proj .                   cd to the current project root
 #   proj                     print current project, or list all available
 #
-# The searchable project trees are declared in bin/proj-helper's TREES list;
+# The searchable project trees are declared in lib/proj.rb's TREES list;
 # add a new kind of project (a new root dir) there in one line.
 
 PROJ_CACHE_FILE="${XDG_CACHE_HOME:-$HOME/.cache}/proj/keys"
 PROJ_PATHS_FILE="${XDG_CACHE_HOME:-$HOME/.cache}/proj/paths"
 
-# The logic lives in bin/proj-helper (Ruby, unit-tested). A subprocess cannot
+# The logic lives in lib/proj.rb (Ruby, unit-tested). A subprocess cannot
 # change this shell's directory, so the helper writes the cd target to the file
 # named by $PROJ_CD_FILE and we cd there on return — the one thing the shell
 # must own. The helper also rewrites $PROJ_CACHE_FILE (the project name list) on
 # every run, so completion stays Ruby-free.
 proj() {
-  local helper="$HOME/dotfiles/bin/proj-helper"
+  local helper="$HOME/dotfiles/lib/proj.rb"
   local cd_file rc
   cd_file=$(mktemp "${TMPDIR:-/tmp}/proj-cd.XXXXXX")
 
@@ -48,7 +48,7 @@ _proj_path_for() {
 _proj() {
   if [[ ! -s "$PROJ_CACHE_FILE" || ! -s "$PROJ_PATHS_FILE" ]]; then
     PROJ_CACHE_FILE="$PROJ_CACHE_FILE" PROJ_PATHS_FILE="$PROJ_PATHS_FILE" \
-      "$HOME/dotfiles/bin/proj-helper" --list >/dev/null 2>&1
+      "$HOME/dotfiles/lib/proj.rb" --list >/dev/null 2>&1
   fi
 
   if (( CURRENT == 2 )); then

@@ -17,7 +17,7 @@ dox:
 
 gwt:
   desc: Git worktree manager for .claude/worktrees
-  location: bin/gwt-helper
+  location: lib/gwt.rb
   repo: dotfiles
 
 ollama-warm:
@@ -27,7 +27,7 @@ ollama-warm:
 
 proj:
   desc: Quick cd into personal, client, or open-source projects
-  location: bin/proj-helper
+  location: lib/proj.rb
   repo: dotfiles
 
 ruby-lsp-reap:
@@ -38,9 +38,4 @@ ruby-lsp-reap:
 svc:
   desc: Manage personal launchd agents
   location: bin/svc
-  repo: dotfiles
-
-zcompreset:
-  desc: Clear zsh's completion cache
-  location: bin/zcompreset
   repo: dotfiles

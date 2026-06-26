@@ -1,8 +1,8 @@
 #!/usr/bin/env ruby
 # frozen_string_literal: true
 
-require_relative "test_helper"
-ScriptTest.load_script("md_to_commit.rb")
+require_relative "../test_helper"
+ScriptTest.load_script("../.claude/scripts/md_to_commit.rb")
 
 class MdToCommitTest < Minitest::Test
   def convert(md, **opts) = MdToCommit.convert(md, **opts)
@@ -96,7 +96,7 @@ class MdToCommitTest < Minitest::Test
 
   # --- fixture snapshots ---------------------------------------------------
 
-  Dir[File.join(__dir__, "fixtures", "*.md")].each do |md_path|
+  Dir[File.join(__dir__, "..", "fixtures", "*.md")].each do |md_path|
     name = File.basename(md_path, ".md")
     define_method("test_fixture_#{name}") do
       expected = File.read(md_path.sub(/\.md\z/, ".txt"))

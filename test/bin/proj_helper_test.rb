@@ -1,9 +1,9 @@
 #!/usr/bin/env ruby
 # frozen_string_literal: true
 
-require_relative "test_helper"
+require_relative "../test_helper"
 require "tmpdir"
-ScriptTest.load_script("../../bin/proj-helper")
+ScriptTest.load_script("../bin/proj-helper")
 
 class ProjPureTest < Minitest::Test
   def test_fuzzy_match_prefers_prefix_over_substring

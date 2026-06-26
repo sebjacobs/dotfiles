@@ -85,7 +85,11 @@ export PATH=$ANDROID_HOME/tools:$PATH
 
 export CLAUDE_CODE_DISABLE_AUTO_MEMORY=1
 
-[ -f "$HOME/.cargo/env" ] && . "$HOME/.cargo/env"
+# rustup's ~/.cargo/env only prepends .cargo/bin when it's absent, so on .zshrc's
+# re-source (after /etc/zprofile's path_helper reshuffles PATH) it no-ops and
+# Homebrew's bin shadows the shims. Prepend unconditionally instead; typeset -U
+# dedupes. Stays below the personal bins added next so ~/bin still wins.
+path=("$HOME/.cargo/bin" $path)
 
 # ~/.local/bin then ~/bin prepended last so personal scripts/shims win over
 # language-managed bins and macOS path_helper reordering in login shells.

@@ -79,6 +79,10 @@ else
   unset _sdkman_home _sdkman_name
 fi
 
+export ANDROID_HOME=/Users/sebjacobs/Library/Android/sdk
+export PATH=$ANDROID_HOME/platform-tools:$PATH
+export PATH=$ANDROID_HOME/tools:$PATH
+
 export CLAUDE_CODE_DISABLE_AUTO_MEMORY=1
 
 [ -f "$HOME/.cargo/env" ] && . "$HOME/.cargo/env"

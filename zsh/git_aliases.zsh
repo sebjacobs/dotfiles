@@ -20,3 +20,22 @@ alias gam="git commit --amend"
 alias gcon="git rebase --continue || git cherry-pick --continue"
 alias gab="git rebase --abort || git cherry-pick --abort"
 alias gls="git ls-files --others --exclude tmp --exclude .venv --exclude storage --exclude log --exclude .ruby-lsp --exclude .bundle --exclude .claude"
+
+grod() {
+  local target
+  if [ "$#" -gt 0 ]; then
+    case "$1" in
+      root|--root) target="--root" ;;
+      *) target="$1" ;;
+    esac
+  elif git rev-parse --verify --quiet origin/main >/dev/null; then
+    target="origin/main"
+  elif git rev-parse --verify --quiet main >/dev/null; then
+    target="main"
+  else
+    echo "grod: no explicit ref given and neither origin/main nor main exists" >&2
+    return 1
+  fi
+
+  git rebase "$target" --reset-author-date
+}

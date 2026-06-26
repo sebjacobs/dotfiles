@@ -112,6 +112,7 @@ class SvcAppTest < Minitest::Test
     @out = StringIO.new
     @err = StringIO.new
     @exec_calls = []
+    @editor_calls = []
   end
 
   def test_ls_reports_no_agents_when_none_match
@@ -316,25 +317,95 @@ class SvcAppTest < Minitest::Test
     assert_includes @err.string, "Usage: svc install <plist>"
   end
 
+  def test_edit_opens_the_real_source_then_reloads
+    @sys.add_plist("/agents/com.sebjacobs.job.plist", "Label" => "com.sebjacobs.job")
+    @sys.add_symlink("/agents/com.sebjacobs.job.plist", "/proj/com.sebjacobs.job.plist")
+
+    assert_equal 0, build_app.run(["edit", "job"])
+
+    assert_equal ["/proj/com.sebjacobs.job.plist"], @editor_calls
+    assert_equal [["gui/501", "com.sebjacobs.job"]], @launchctl.booted_out
+    assert_equal [["gui/501", "/agents/com.sebjacobs.job.plist"]], @launchctl.bootstrapped
+    assert_includes @out.string, "reloaded com.sebjacobs.job"
+  end
+
+  def test_edit_opens_the_path_directly_when_not_a_symlink
+    @sys.add_plist("/agents/com.sebjacobs.job.plist", "Label" => "com.sebjacobs.job")
+
+    build_app.run(["edit", "job"])
+    assert_equal ["/agents/com.sebjacobs.job.plist"], @editor_calls
+  end
+
+  def test_edit_surfaces_a_reload_failure
+    @sys.add_plist("/agents/com.sebjacobs.job.plist", "Label" => "com.sebjacobs.job")
+    @launchctl.bootstrap_result = ["Bootstrap failed", false]
+
+    assert_equal 1, build_app.run(["edit", "job"])
+    assert_includes @err.string, "reload failed for com.sebjacobs.job"
+  end
+
+  def test_enable_disable_load_unload_restart_act_on_the_resolved_agent
+    @sys.add_plist("/agents/com.sebjacobs.job.plist", "Label" => "com.sebjacobs.job")
+    app = build_app
+
+    assert_equal 0, app.run(["enable", "job"])
+    assert_equal 0, app.run(["disable", "job"])
+    assert_equal 0, app.run(["load", "job"])
+    assert_equal 0, app.run(["unload", "job"])
+    assert_equal 0, app.run(["restart", "job"])
+
+    assert_equal [["gui/501", "com.sebjacobs.job"]], @launchctl.enabled_calls
+    assert_equal [["gui/501", "com.sebjacobs.job"]], @launchctl.disabled_calls
+    assert_equal [["gui/501", "/agents/com.sebjacobs.job.plist"]], @launchctl.bootstrapped
+    assert_equal [["gui/501", "com.sebjacobs.job"]], @launchctl.booted_out
+    assert_equal [["gui/501", "com.sebjacobs.job"]], @launchctl.kickstarted
+    assert_includes @out.string, "restarted com.sebjacobs.job"
+  end
+
+  def test_restart_surfaces_a_failure
+    @sys.add_plist("/agents/com.sebjacobs.job.plist", "Label" => "com.sebjacobs.job")
+    @launchctl.action_result = ["No such process", false]
+
+    assert_equal 1, build_app.run(["restart", "job"])
+    assert_includes @err.string, "restart failed for com.sebjacobs.job: No such process"
+  end
+
+  def test_state_verbs_error_on_no_match_without_acting
+    assert_equal 1, build_app.run(["enable", "nope"])
+    assert_empty @launchctl.enabled_calls
+    assert_includes @err.string, "No com.sebjacobs.* agent matching: nope"
+  end
+
+  def test_state_verbs_without_argument_are_usage_errors
+    assert_equal 1, build_app.run(["restart"])
+    assert_includes @err.string, "Usage: svc restart <job>"
+  end
+
   private
 
   def build_app
     Svc::App.new(
       launchctl: @launchctl, sys: @sys, out: @out, err: @err,
       prefix: "com.sebjacobs", agents_dir: "/agents", domain: "gui/501",
-      exec: ->(*args) { @exec_calls << args }
+      exec: ->(*args) { @exec_calls << args },
+      editor: ->(path) { @editor_calls << path }
     )
   end
 
   class FakeLaunchctl
-    attr_accessor :list, :disabled, :bootstrap_result
-    attr_reader :bootstrapped
+    attr_accessor :list, :disabled, :bootstrap_result, :action_result
+    attr_reader :bootstrapped, :booted_out, :enabled_calls, :disabled_calls, :kickstarted
 
     def initialize
       @list = ""
       @disabled = ""
       @bootstrap_result = ["", true]
+      @action_result = ["", true]
       @bootstrapped = []
+      @booted_out = []
+      @enabled_calls = []
+      @disabled_calls = []
+      @kickstarted = []
     end
 
     def print_disabled(_domain) = @disabled
@@ -342,6 +413,26 @@ class SvcAppTest < Minitest::Test
     def bootstrap(domain, path)
       @bootstrapped << [domain, path]
       @bootstrap_result
+    end
+
+    def bootout(domain, label)
+      @booted_out << [domain, label]
+      @action_result
+    end
+
+    def enable(domain, label)
+      @enabled_calls << [domain, label]
+      @action_result
+    end
+
+    def disable(domain, label)
+      @disabled_calls << [domain, label]
+      @action_result
+    end
+
+    def kickstart(domain, label)
+      @kickstarted << [domain, label]
+      @action_result
     end
   end
 

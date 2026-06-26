@@ -80,8 +80,9 @@ svc install scripts/launchd/com.sebjacobs.foo.plist
    fuzzy job-resolver (short name or full label) that `enable`/`restart` reuse.
 4. ✅ `svc install` (symlink the real file + bootstrap, prefix-validated,
    idempotent, refuses to clobber a foreign link).
-5. `svc edit` (resolve link → `$EDITOR` → reload).
-6. `svc enable|disable|load|unload|restart`.
+5. ✅ `svc edit` (resolve link → `$EDITOR` → bootout + bootstrap reload).
+6. ✅ `svc enable|disable|load|unload|restart` (launchctl pass-throughs over a
+   shared resolve-act-report helper).
 7. Rewire `setup.sh` to loop `svc install` over
    `Library/LaunchAgents/$PREFIX.*.plist` (closes the load-gap, makes setup
    prefix-aware instead of naming files); replace the manual snippet in

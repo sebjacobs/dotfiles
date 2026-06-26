@@ -95,13 +95,18 @@ module Svc
 
     def print_disabled(domain) = capture("launchctl", "print-disabled", domain)
 
-    # Load a plist into the given domain. Returns [combined output, success].
-    def bootstrap(domain, path)
-      out = IO.popen(["launchctl", "bootstrap", domain, path], err: [:child, :out], &:read)
-      [out, $?.success?]
-    rescue SystemCallError => e
-      [e.message, false]
-    end
+    # Each of these loads/controls a service and returns [combined output,
+    # success]. bootstrap takes the plist path; the rest act on the service
+    # target "<domain>/<label>".
+    def bootstrap(domain, path) = run("launchctl", "bootstrap", domain, path)
+
+    def bootout(domain, label) = run("launchctl", "bootout", "#{domain}/#{label}")
+
+    def enable(domain, label) = run("launchctl", "enable", "#{domain}/#{label}")
+
+    def disable(domain, label) = run("launchctl", "disable", "#{domain}/#{label}")
+
+    def kickstart(domain, label) = run("launchctl", "kickstart", "-k", "#{domain}/#{label}")
 
     private
 
@@ -109,6 +114,13 @@ module Svc
       IO.popen(args, err: File::NULL, &:read)
     rescue SystemCallError
       ""
+    end
+
+    def run(*args)
+      out = IO.popen(args, err: [:child, :out], &:read)
+      [out, $?.success?]
+    rescue SystemCallError => e
+      [e.message, false]
     end
   end
 
@@ -148,7 +160,7 @@ module Svc
   end
 
   class App
-    def initialize(launchctl:, sys:, out:, err:, prefix:, agents_dir:, domain:, exec:)
+    def initialize(launchctl:, sys:, out:, err:, prefix:, agents_dir:, domain:, exec:, editor:)
       @launchctl = launchctl
       @sys = sys
       @out = out
@@ -157,6 +169,7 @@ module Svc
       @agents_dir = agents_dir
       @domain = domain
       @exec = exec
+      @editor = editor
     end
 
     def run(argv)
@@ -166,6 +179,12 @@ module Svc
       when "show" then cmd_show(rest)
       when "tail" then cmd_tail(rest)
       when "install" then cmd_install(rest)
+      when "edit" then cmd_edit(rest)
+      when "enable" then cmd_enable(rest)
+      when "disable" then cmd_disable(rest)
+      when "load" then cmd_load(rest)
+      when "unload" then cmd_unload(rest)
+      when "restart" then cmd_restart(rest)
       when "help", "-h", "--help" then usage(0)
       else usage
       end
@@ -277,6 +296,55 @@ module Svc
       0
     end
 
+    def cmd_edit(args)
+      name = args.first
+      return error("Usage: svc edit <job>") if name.nil? || name.empty?
+
+      agent = resolve(name)
+      return 1 unless agent
+
+      source = @sys.symlink?(agent[:path]) ? @sys.readlink(agent[:path]) : agent[:path]
+      @editor.call(source)
+      reload(agent[:label], agent[:path])
+    end
+
+    # Apply an edited plist: bootout (ignoring failure — it may not be loaded)
+    # then bootstrap from the symlink, so launchd picks up the new definition.
+    def reload(label, link)
+      @launchctl.bootout(@domain, label)
+      out, ok = @launchctl.bootstrap(@domain, link)
+      return error("reload failed for #{label}: #{out}".strip) unless ok
+
+      @out.puts "svc: reloaded #{label}"
+      0
+    end
+
+    def cmd_enable(args) = launchctl_action(args, "enable", "enabled") { |a| @launchctl.enable(@domain, a[:label]) }
+
+    def cmd_disable(args) = launchctl_action(args, "disable", "disabled") { |a| @launchctl.disable(@domain, a[:label]) }
+
+    def cmd_load(args) = launchctl_action(args, "load", "loaded") { |a| @launchctl.bootstrap(@domain, a[:path]) }
+
+    def cmd_unload(args) = launchctl_action(args, "unload", "unloaded") { |a| @launchctl.bootout(@domain, a[:label]) }
+
+    def cmd_restart(args) = launchctl_action(args, "restart", "restarted") { |a| @launchctl.kickstart(@domain, a[:label]) }
+
+    # Resolve a job, run a launchctl action on it, and report. +verb+ names the
+    # command for usage/error text; +past+ is the success participle.
+    def launchctl_action(args, verb, past)
+      name = args.first
+      return error("Usage: svc #{verb} <job>") if name.nil? || name.empty?
+
+      agent = resolve(name)
+      return 1 unless agent
+
+      out, ok = yield(agent)
+      return error("#{verb} failed for #{agent[:label]}: #{out}".strip) unless ok
+
+      @out.puts "svc: #{past} #{agent[:label]}"
+      0
+    end
+
     def print_entry(agent, disabled, list)
       plist = agent[:plist]
       @out.printf("\033[1m%s\033[0m\n", agent[:label])
@@ -326,12 +394,18 @@ module Svc
 
     def usage(code = 1)
       @out.puts <<~USAGE
-        Usage: svc <ls|show|tail|install> [args]
+        Usage: svc <ls|show|tail|install|edit|enable|disable|load|unload|restart> [args]
 
           ls               List #{@prefix}.* agents with schedule, state, last exit, and log tail
           show <job>       Show one agent's plist path, schedule, state, program, and log
           tail <job>       Follow an agent's log (tail -f on its StandardOutPath)
           install <plist>  Symlink a #{@prefix}.* plist into ~/Library/LaunchAgents and load it
+          edit <job>       Open the plist's real file in $EDITOR, then reload it
+          enable <job>     Allow the agent to load (persists across reboots)
+          disable <job>    Stop the agent loading (persists across reboots)
+          load <job>       Register the agent in the current session (bootstrap)
+          unload <job>     Unregister the agent from the current session (bootout)
+          restart <job>    Run/re-run the agent now (kickstart -k)
       USAGE
       code
     end
@@ -350,7 +424,8 @@ if __FILE__ == $PROGRAM_NAME
     prefix: prefix,
     agents_dir: File.join(Dir.home, "Library/LaunchAgents"),
     domain: "gui/#{Process.uid}",
-    exec: ->(*args) { exec(*args) }
+    exec: ->(*args) { exec(*args) },
+    editor: ->(path) { system(*ENV.fetch("EDITOR", "vi").split, path) }
   )
 
   exit app.run(ARGV)

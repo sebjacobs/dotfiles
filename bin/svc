@@ -13,6 +13,7 @@
 # straight into a Ruby Hash, so schedule_of and friends work on plain data.
 
 require "json"
+require "fileutils"
 
 module Svc
   module_function
@@ -67,6 +68,16 @@ module Svc
     names.select { |n| n.include?(query) }
   end
 
+  # Why a plist can't be installed, or nil if its name is fine. The opt-in
+  # contract is enforced on the filename: it must be a .plist named
+  # "<prefix>.<job>.plist" so it joins the managed, prefix-globbed set.
+  def install_name_error(basename, prefix)
+    return "not a .plist file" unless basename.end_with?(".plist")
+    return nil if basename.start_with?("#{prefix}.")
+
+    %(must be named "#{prefix}.<job>.plist" to opt into svc (got "#{basename}"))
+  end
+
   # The command an agent runs: a bare Program, else the ProgramArguments joined,
   # else "(none)" when the plist declares neither.
   def program_of(plist)
@@ -83,6 +94,14 @@ module Svc
     def list = capture("launchctl", "list")
 
     def print_disabled(domain) = capture("launchctl", "print-disabled", domain)
+
+    # Load a plist into the given domain. Returns [combined output, success].
+    def bootstrap(domain, path)
+      out = IO.popen(["launchctl", "bootstrap", domain, path], err: [:child, :out], &:read)
+      [out, $?.success?]
+    rescue SystemCallError => e
+      [e.message, false]
+    end
 
     private
 
@@ -115,6 +134,17 @@ module Svc
     rescue SystemCallError
       ""
     end
+
+    def realpath(path) = File.realpath(path)
+
+    def symlink?(path) = File.symlink?(path)
+
+    def readlink(path) = File.readlink(path)
+
+    def symlink(target, link)
+      FileUtils.mkdir_p(File.dirname(link))
+      File.symlink(target, link)
+    end
   end
 
   class App
@@ -135,6 +165,7 @@ module Svc
       when nil, "ls" then cmd_ls
       when "show" then cmd_show(rest)
       when "tail" then cmd_tail(rest)
+      when "install" then cmd_install(rest)
       when "help", "-h", "--help" then usage(0)
       else usage
       end
@@ -182,6 +213,52 @@ module Svc
       @out.printf("  log      : %s\n", log || "(none)")
       @out.printf("  last log : %s\n", log_summary(log))
       0
+    end
+
+    def cmd_install(args)
+      src = args.first
+      return error("Usage: svc install <plist>") if src.nil? || src.empty?
+      return error("No such file: #{src}") unless @sys.exist?(src)
+
+      real = @sys.realpath(src)
+      basename = File.basename(real)
+      if (reason = Svc.install_name_error(basename, @prefix))
+        return error("Refusing to install #{basename}: #{reason}")
+      end
+
+      link = File.join(@agents_dir, basename)
+      return 1 unless ensure_symlink(link, real)
+
+      label = File.basename(basename, ".plist")
+      if Svc.exit_status(@launchctl.list, label)
+        @out.puts "svc: #{basename} is symlinked and already loaded"
+        return 0
+      end
+
+      out, ok = @launchctl.bootstrap(@domain, link)
+      return error("launchctl bootstrap failed for #{basename}: #{out}".strip) unless ok
+
+      @out.puts "svc: installed and loaded #{basename} -> #{real}"
+      0
+    end
+
+    # Ensure @agents_dir holds a symlink to +real+, returning whether it's safe to
+    # proceed. A matching link already in place is fine (idempotent); a link to a
+    # different target, or a real file in the way, is refused rather than clobbered.
+    def ensure_symlink(link, real)
+      if @sys.symlink?(link)
+        return true if @sys.readlink(link) == real
+
+        error("#{link} already exists, pointing to #{@sys.readlink(link)} — remove it first")
+        return false
+      end
+      if @sys.exist?(link)
+        error("#{link} already exists as a real file — remove it first")
+        return false
+      end
+
+      @sys.symlink(real, link)
+      true
     end
 
     def cmd_tail(args)
@@ -249,11 +326,12 @@ module Svc
 
     def usage(code = 1)
       @out.puts <<~USAGE
-        Usage: svc <ls|show|tail> [args]
+        Usage: svc <ls|show|tail|install> [args]
 
-          ls            List #{@prefix}.* agents with schedule, state, last exit, and log tail
-          show <job>    Show one agent's plist path, schedule, state, program, and log
-          tail <job>    Follow an agent's log (tail -f on its StandardOutPath)
+          ls               List #{@prefix}.* agents with schedule, state, last exit, and log tail
+          show <job>       Show one agent's plist path, schedule, state, program, and log
+          tail <job>       Follow an agent's log (tail -f on its StandardOutPath)
+          install <plist>  Symlink a #{@prefix}.* plist into ~/Library/LaunchAgents and load it
       USAGE
       code
     end

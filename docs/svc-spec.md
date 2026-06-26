@@ -78,7 +78,8 @@ svc install scripts/launchd/com.sebjacobs.foo.plist
 3. ✅ `svc tail` (resolve job → follow its `StandardOutPath`) and `svc show`
    (one agent's plist path, schedule, state, program, log). Added the shared
    fuzzy job-resolver (short name or full label) that `enable`/`restart` reuse.
-4. `svc install` (symlink + bootstrap + prefix validation).
+4. ✅ `svc install` (symlink the real file + bootstrap, prefix-validated,
+   idempotent, refuses to clobber a foreign link).
 5. `svc edit` (resolve link → `$EDITOR` → reload).
 6. `svc enable|disable|load|unload|restart`.
 7. Rewire `setup.sh` to loop `svc install` over

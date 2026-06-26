@@ -89,6 +89,20 @@ class SvcPureTest < Minitest::Test
     assert_equal "(none)", Svc.program_of({})
     assert_equal "(none)", Svc.program_of({ "ProgramArguments" => [] })
   end
+
+  def test_install_name_error_accepts_prefixed_plist
+    assert_nil Svc.install_name_error("com.sebjacobs.foo.plist", "com.sebjacobs")
+  end
+
+  def test_install_name_error_rejects_non_plist
+    assert_equal "not a .plist file",
+                 Svc.install_name_error("com.sebjacobs.foo", "com.sebjacobs")
+  end
+
+  def test_install_name_error_rejects_wrong_prefix
+    reason = Svc.install_name_error("com.other.foo.plist", "com.sebjacobs")
+    assert_includes reason, %(must be named "com.sebjacobs.<job>.plist")
+  end
 end
 
 class SvcAppTest < Minitest::Test
@@ -240,6 +254,68 @@ class SvcAppTest < Minitest::Test
     assert_includes @err.string, "Usage: svc show <job>"
   end
 
+  def test_install_symlinks_and_bootstraps_a_valid_plist
+    src = "/proj/launchd/com.sebjacobs.job.plist"
+    @sys.add_file(src)
+
+    assert_equal 0, build_app.run(["install", src])
+
+    assert_equal src, @sys.linked_to("/agents/com.sebjacobs.job.plist")
+    assert_equal [["gui/501", "/agents/com.sebjacobs.job.plist"]], @launchctl.bootstrapped
+    assert_includes @out.string, "installed and loaded com.sebjacobs.job.plist -> #{src}"
+  end
+
+  def test_install_refuses_plist_without_the_prefix
+    src = "/proj/com.other.job.plist"
+    @sys.add_file(src)
+
+    assert_equal 1, build_app.run(["install", src])
+    assert_nil @sys.linked_to("/agents/com.other.job.plist")
+    assert_empty @launchctl.bootstrapped
+    assert_includes @err.string, "Refusing to install com.other.job.plist"
+  end
+
+  def test_install_errors_when_source_missing
+    assert_equal 1, build_app.run(["install", "/nope/com.sebjacobs.job.plist"])
+    assert_empty @launchctl.bootstrapped
+    assert_includes @err.string, "No such file"
+  end
+
+  def test_install_is_idempotent_when_already_loaded
+    src = "/proj/com.sebjacobs.job.plist"
+    @sys.add_file(src)
+    @sys.add_symlink("/agents/com.sebjacobs.job.plist", src)
+    @launchctl.list = "42\t0\tcom.sebjacobs.job\n"
+
+    assert_equal 0, build_app.run(["install", src])
+    assert_empty @launchctl.bootstrapped
+    assert_includes @out.string, "already loaded"
+  end
+
+  def test_install_refuses_to_clobber_a_link_to_another_target
+    src = "/proj/com.sebjacobs.job.plist"
+    @sys.add_file(src)
+    @sys.add_symlink("/agents/com.sebjacobs.job.plist", "/elsewhere/com.sebjacobs.job.plist")
+
+    assert_equal 1, build_app.run(["install", src])
+    assert_empty @launchctl.bootstrapped
+    assert_includes @err.string, "already exists, pointing to /elsewhere/com.sebjacobs.job.plist"
+  end
+
+  def test_install_surfaces_a_bootstrap_failure
+    src = "/proj/com.sebjacobs.job.plist"
+    @sys.add_file(src)
+    @launchctl.bootstrap_result = ["Bootstrap failed: 5: Input/output error", false]
+
+    assert_equal 1, build_app.run(["install", src])
+    assert_includes @err.string, "launchctl bootstrap failed for com.sebjacobs.job.plist"
+  end
+
+  def test_install_without_argument_is_usage_error
+    assert_equal 1, build_app.run(["install"])
+    assert_includes @err.string, "Usage: svc install <plist>"
+  end
+
   private
 
   def build_app
@@ -251,25 +327,41 @@ class SvcAppTest < Minitest::Test
   end
 
   class FakeLaunchctl
-    attr_accessor :list, :disabled
+    attr_accessor :list, :disabled, :bootstrap_result
+    attr_reader :bootstrapped
 
     def initialize
       @list = ""
       @disabled = ""
+      @bootstrap_result = ["", true]
+      @bootstrapped = []
     end
 
     def print_disabled(_domain) = @disabled
+
+    def bootstrap(domain, path)
+      @bootstrapped << [domain, path]
+      @bootstrap_result
+    end
   end
 
   class FakeSystem
     def initialize
       @plists = {}
       @logs = {}
+      @files = {}
+      @symlinks = {}
     end
 
     def add_plist(path, hash) = @plists[path] = hash
 
     def add_log(path, mtime:, last_line:) = @logs[path] = { mtime: mtime, last_line: last_line }
+
+    def add_file(path) = @files[path] = true
+
+    def add_symlink(link, target) = @symlinks[link] = target
+
+    def linked_to(link) = @symlinks[link]
 
     def plists(dir, prefix)
       @plists.keys.select { |p| p.start_with?(File.join(dir, "#{prefix}.")) }.sort
@@ -277,10 +369,18 @@ class SvcAppTest < Minitest::Test
 
     def read_plist(path) = @plists.fetch(path, {})
 
-    def exist?(path) = @logs.key?(path)
+    def exist?(path) = @logs.key?(path) || @files.key?(path)
 
     def mtime(path) = @logs.fetch(path)[:mtime]
 
     def last_line(path) = @logs.fetch(path)[:last_line]
+
+    def realpath(path) = path
+
+    def symlink?(path) = @symlinks.key?(path)
+
+    def readlink(path) = @symlinks.fetch(path)
+
+    def symlink(target, link) = @symlinks[link] = target
   end
 end

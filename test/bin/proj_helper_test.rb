@@ -223,16 +223,64 @@ class ProjAppTest < Minitest::Test
     assert_empty out.string
   end
 
+  def test_second_arg_cds_to_project_then_delegates_to_worktree
+    app, cd, _out, _err, wt = build_app(pwd: @root)
+    assert_equal 0, app.run(["cadence", "feat"])
+    assert_equal [File.join(@personal, "cadence")], cd
+    assert_equal [[File.join(@personal, "cadence"), "feat"]], wt
+  end
+
+  def test_second_arg_returns_worktree_exit_code
+    failing = ->(_path, _name) { 1 }
+    app, cd, = build_app(pwd: @root, worktree: failing)
+    assert_equal 1, app.run(["cadence", "feat"])
+    assert_equal [File.join(@personal, "cadence")], cd
+  end
+
+  def test_second_arg_resolves_fuzzy_project_before_delegating
+    FileUtils.rm_rf(File.join(@personal, "cadence-extra"))
+    app, _cd, _out, _err, wt = build_app(pwd: @root)
+    assert_equal 0, app.run(["cad", "feat"])
+    assert_equal [[File.join(@personal, "cadence"), "feat"]], wt
+  end
+
+  def test_second_arg_skips_delegation_on_ambiguous_project
+    app, cd, _out, err, wt = build_app(pwd: @root)
+    assert_equal 1, app.run(["cad", "feat"])
+    assert_empty cd
+    assert_empty wt
+    assert_includes err.string, "Multiple projects match 'cad'"
+  end
+
+  def test_second_arg_skips_delegation_on_unknown_project
+    app, _cd, _out, err, wt = build_app(pwd: @root)
+    assert_equal 1, app.run(["zzz", "feat"])
+    assert_empty wt
+    assert_includes err.string, "No project matching: zzz"
+  end
+
+  def test_run_writes_name_to_path_mapping
+    captured = nil
+    app = Proj::App.new(
+      trees: @trees, pwd: @root, out: StringIO.new, err: StringIO.new,
+      cd: ->(_) {}, cache: ->(_) {}, paths: ->(map) { captured = map }
+    )
+    app.run(["cadence"])
+    assert_equal File.join(@personal, "cadence"), captured["cadence"]
+  end
+
   private
 
-  def build_app(pwd:)
+  def build_app(pwd:, worktree: nil)
     cd = []
     out = StringIO.new
     err = StringIO.new
+    wt_calls = []
+    resolver = worktree || ->(path, name) { wt_calls << [path, name]; 0 }
     app = Proj::App.new(
       trees: @trees, pwd: pwd, out: out, err: err,
-      cd: ->(path) { cd << path }, cache: ->(_) {}
+      cd: ->(path) { cd << path }, cache: ->(_) {}, paths: ->(_) {}, worktree: resolver
     )
-    [app, cd, out, err]
+    [app, cd, out, err, wt_calls]
   end
 end

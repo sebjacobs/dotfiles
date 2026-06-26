@@ -354,7 +354,7 @@ module Gwt
 
       name = args.first
       target =
-        if name && !name.empty?
+        if name && !name.empty? && name != "."
           resolved = nil
           status = resolve(name) { |path| resolved = path; 0 }
           return status unless resolved

@@ -452,6 +452,14 @@ class GwtAppTest < Minitest::Test
     assert_equal [["zed", "-n", "#{WT_BASE}/foo"]], @execs
   end
 
+  def test_zed_dot_opens_current_worktree
+    git = FakeGit.new(captures: { "rev-parse --show-toplevel" => ["#{WT_BASE}/foo\n", true] })
+    sys = FakeSys.new(which: true)
+    app, = build(git: git, sys: sys, worktrees: [["foo", "b"]])
+    assert_equal 0, app.run(["zed", "."])
+    assert_equal [["zed", "-n", "#{WT_BASE}/foo"]], @execs
+  end
+
   def test_zed_missing_cli_errors
     sys = FakeSys.new(which: false)
     app, = build(sys: sys)

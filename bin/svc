@@ -55,6 +55,18 @@ module Svc
     nil
   end
 
+  # Resolve a query against agent short-names: exact match wins, else prefix
+  # matches, else substring matches. Mirrors gwt/proj's cascade. Returns an array
+  # (0, 1, or many).
+  def fuzzy_match(names, query)
+    return [query] if names.include?(query)
+
+    prefix = names.select { |n| n.start_with?(query) }
+    return prefix unless prefix.empty?
+
+    names.select { |n| n.include?(query) }
+  end
+
   # Real launchctl calls, behind a seam so tests can fake them.
   class Launchctl
     def list = capture("launchctl", "list")
@@ -95,7 +107,7 @@ module Svc
   end
 
   class App
-    def initialize(launchctl:, sys:, out:, err:, prefix:, agents_dir:, domain:)
+    def initialize(launchctl:, sys:, out:, err:, prefix:, agents_dir:, domain:, exec:)
       @launchctl = launchctl
       @sys = sys
       @out = out
@@ -103,12 +115,14 @@ module Svc
       @prefix = prefix
       @agents_dir = agents_dir
       @domain = domain
+      @exec = exec
     end
 
     def run(argv)
-      cmd, *_rest = argv
+      cmd, *rest = argv
       case cmd
       when nil, "ls" then cmd_ls
+      when "tail" then cmd_tail(rest)
       when "help", "-h", "--help" then usage(0)
       else usage
       end
@@ -116,9 +130,18 @@ module Svc
 
     private
 
+    # Every agent under @agents_dir matching the prefix, read once: each entry is
+    # {path:, label:, plist:}. label falls back to the filename when the plist has
+    # no Label key.
+    def agents
+      @agents ||= @sys.plists(@agents_dir, @prefix).map do |path|
+        plist = @sys.read_plist(path)
+        { path: path, label: plist["Label"] || File.basename(path, ".plist"), plist: plist }
+      end
+    end
+
     def cmd_ls
-      plists = @sys.plists(@agents_dir, @prefix)
-      if plists.empty?
+      if agents.empty?
         @out.puts "No #{@prefix}.* agents in #{@agents_dir}"
         return 0
       end
@@ -126,11 +149,26 @@ module Svc
       disabled = @launchctl.print_disabled(@domain)
       list = @launchctl.list
 
-      plists.each do |path|
-        plist = @sys.read_plist(path)
-        label = plist["Label"] || File.basename(path, ".plist")
-        print_entry(label, Svc.schedule_of(plist), disabled, list, plist["StandardOutPath"])
+      agents.each do |agent|
+        plist = agent[:plist]
+        print_entry(agent[:label], Svc.schedule_of(plist), disabled, list, plist["StandardOutPath"])
       end
+      0
+    end
+
+    def cmd_tail(args)
+      name = args.first
+      return error("Usage: svc tail <job>") if name.nil? || name.empty?
+
+      agent = resolve(name)
+      return 1 unless agent
+
+      log = agent[:plist]["StandardOutPath"]
+      if log.nil? || log.empty?
+        return error("#{agent[:label]} has no StandardOutPath (it logs via a shell redirect) — nothing to tail")
+      end
+
+      @exec.call("tail", "-f", "-n", "50", log)
       0
     end
 
@@ -151,11 +189,37 @@ module Svc
       "#{@sys.mtime(log).strftime('%Y-%m-%d %H:%M')} — #{@sys.last_line(log)}"
     end
 
+    # Resolve a job query (short name or full label) to a unique agent, or nil.
+    # Emits the appropriate stderr message on no/ambiguous match.
+    def resolve(query)
+      short = query.delete_prefix("#{@prefix}.")
+      matches = Svc.fuzzy_match(agents.map { |a| short_name(a[:label]) }, short)
+      case matches.length
+      when 0
+        error("No #{@prefix}.* agent matching: #{query}")
+        nil
+      when 1
+        agents.find { |a| short_name(a[:label]) == matches.first }
+      else
+        @err.puts "Multiple agents match '#{query}':"
+        matches.each { |m| @err.puts "  #{@prefix}.#{m}" }
+        nil
+      end
+    end
+
+    def short_name(label) = label.delete_prefix("#{@prefix}.")
+
+    def error(message)
+      @err.puts message
+      1
+    end
+
     def usage(code = 1)
       @out.puts <<~USAGE
-        Usage: svc <ls> [args]
+        Usage: svc <ls|tail> [args]
 
-          ls    List #{@prefix}.* agents with schedule, state, last exit, and log tail
+          ls            List #{@prefix}.* agents with schedule, state, last exit, and log tail
+          tail <job>    Follow an agent's log (tail -f on its StandardOutPath)
       USAGE
       code
     end
@@ -173,7 +237,8 @@ if __FILE__ == $PROGRAM_NAME
     err: $stderr,
     prefix: prefix,
     agents_dir: File.join(Dir.home, "Library/LaunchAgents"),
-    domain: "gui/#{Process.uid}"
+    domain: "gui/#{Process.uid}",
+    exec: ->(*args) { exec(*args) }
   )
 
   exit app.run(ARGV)

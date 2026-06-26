@@ -75,7 +75,9 @@ svc install scripts/launchd/com.sebjacobs.foo.plist
 1. ✅ `LAUNCHD_PREFIX` env var in `zsh/env.zsh`.
 2. ✅ `bin/svc` (Ruby, `gwt-helper` shape) + `svc ls` with `svc_test.rb`; `jls`
    deleted (output is byte-identical), docs repointed at `svc`.
-3. `svc show`, `svc tail`.
+3. ✅ `svc tail` (resolve job → follow its `StandardOutPath`); `svc show` still
+   pending. Added the shared fuzzy job-resolver (short name or full label) that
+   `show`/`enable`/`restart` will reuse.
 4. `svc install` (symlink + bootstrap + prefix validation).
 5. `svc edit` (resolve link → `$EDITOR` → reload).
 6. `svc enable|disable|load|unload|restart`.

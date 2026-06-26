@@ -64,6 +64,17 @@ class SvcPureTest < Minitest::Test
   def test_exit_status_nil_when_label_absent
     assert_nil Svc.exit_status("12\t0\tcom.other.thing\n", "com.sebjacobs.brewup")
   end
+
+  def test_fuzzy_match_prefers_exact_then_prefix_then_substring
+    names = %w[brewup brew-extra ruby-lsp-reap]
+    assert_equal %w[brewup], Svc.fuzzy_match(names, "brewup")
+    assert_equal %w[brewup brew-extra], Svc.fuzzy_match(names, "brew")
+    assert_equal %w[ruby-lsp-reap], Svc.fuzzy_match(names, "reap")
+  end
+
+  def test_fuzzy_match_empty_when_nothing_matches
+    assert_empty Svc.fuzzy_match(%w[brewup reap], "zzz")
+  end
 end
 
 class SvcAppTest < Minitest::Test
@@ -72,6 +83,7 @@ class SvcAppTest < Minitest::Test
     @sys = FakeSystem.new
     @out = StringIO.new
     @err = StringIO.new
+    @exec_calls = []
   end
 
   def test_ls_reports_no_agents_when_none_match
@@ -130,12 +142,60 @@ class SvcAppTest < Minitest::Test
     assert_includes @out.string, "Usage: svc"
   end
 
+  def test_tail_follows_log_resolved_from_short_name
+    @sys.add_plist("/agents/com.sebjacobs.brewup.plist",
+                   "Label" => "com.sebjacobs.brewup", "StandardOutPath" => "/log/brewup.log")
+
+    assert_equal 0, build_app.run(["tail", "brewup"])
+    assert_equal ["tail", "-f", "-n", "50", "/log/brewup.log"], @exec_calls.last
+  end
+
+  def test_tail_accepts_full_label
+    @sys.add_plist("/agents/com.sebjacobs.brewup.plist",
+                   "Label" => "com.sebjacobs.brewup", "StandardOutPath" => "/log/brewup.log")
+
+    assert_equal 0, build_app.run(["tail", "com.sebjacobs.brewup"])
+    assert_equal ["tail", "-f", "-n", "50", "/log/brewup.log"], @exec_calls.last
+  end
+
+  def test_tail_errors_on_ambiguous_match_without_exec
+    @sys.add_plist("/agents/com.sebjacobs.brewup.plist", "Label" => "com.sebjacobs.brewup")
+    @sys.add_plist("/agents/com.sebjacobs.brew-extra.plist", "Label" => "com.sebjacobs.brew-extra")
+
+    assert_equal 1, build_app.run(["tail", "brew"])
+    assert_empty @exec_calls
+    assert_includes @err.string, "Multiple agents match 'brew'"
+  end
+
+  def test_tail_errors_on_no_match
+    @sys.add_plist("/agents/com.sebjacobs.brewup.plist", "Label" => "com.sebjacobs.brewup")
+
+    assert_equal 1, build_app.run(["tail", "zzz"])
+    assert_empty @exec_calls
+    assert_includes @err.string, "No com.sebjacobs.* agent matching: zzz"
+  end
+
+  def test_tail_errors_when_agent_has_no_standardoutpath
+    @sys.add_plist("/agents/com.sebjacobs.silent.plist", "Label" => "com.sebjacobs.silent")
+
+    assert_equal 1, build_app.run(["tail", "silent"])
+    assert_empty @exec_calls
+    assert_includes @err.string, "has no StandardOutPath"
+  end
+
+  def test_tail_without_argument_is_usage_error
+    assert_equal 1, build_app.run(["tail"])
+    assert_empty @exec_calls
+    assert_includes @err.string, "Usage: svc tail <job>"
+  end
+
   private
 
   def build_app
     Svc::App.new(
       launchctl: @launchctl, sys: @sys, out: @out, err: @err,
-      prefix: "com.sebjacobs", agents_dir: "/agents", domain: "gui/501"
+      prefix: "com.sebjacobs", agents_dir: "/agents", domain: "gui/501",
+      exec: ->(*args) { @exec_calls << args }
     )
   end
 

@@ -84,7 +84,7 @@ module Dot
       when nil, "ls" then cmd_ls
       when "show" then cmd_show(rest)
       when "where" then cmd_where(rest)
-      when "init" then cmd_init
+      when "reload" then cmd_reload
       when "help", "-h", "--help" then usage(0)
       else usage
       end
@@ -134,7 +134,7 @@ module Dot
       0
     end
 
-    def cmd_init
+    def cmd_reload
       @run.call("sh", File.join(@home, "setup.sh"))
       0
     end
@@ -177,12 +177,12 @@ module Dot
 
     def usage(code = 1)
       @out.puts <<~USAGE
-        Usage: dot <ls|show|where|init> [args]
+        Usage: dot <ls|show|where|reload> [args]
 
           ls             List every registered tool with its description
           show <tool>    Show one tool's description, location, repo, and resolved path
           where <tool>   Print a tool's resolved absolute path (for cd/scripts)
-          init           Run ~/dotfiles/setup.sh to (re)link the dotfiles
+          reload         Re-link the dotfiles and clear the zsh completion cache (setup.sh)
       USAGE
       code
     end

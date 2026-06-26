@@ -155,8 +155,8 @@ class DotAppTest < Minitest::Test
     assert_includes @err.string, "Usage: dot show <tool>"
   end
 
-  def test_init_runs_setup_script
-    assert_equal 0, build_app.run(["init"])
+  def test_reload_runs_setup_script
+    assert_equal 0, build_app.run(["reload"])
     assert_equal ["sh", "/home/dot/setup.sh"], @run_calls.last
   end
 

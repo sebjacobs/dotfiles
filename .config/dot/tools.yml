@@ -39,8 +39,3 @@ svc:
   desc: Manage personal launchd agents
   location: bin/svc
   repo: dotfiles
-
-zcompreset:
-  desc: Clear zsh's completion cache
-  location: bin/zcompreset
-  repo: dotfiles

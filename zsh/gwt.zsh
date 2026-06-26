@@ -65,9 +65,11 @@ _gwt() {
   local wt_base="$root/${GWT_WORKTREE_DIR:-.claude/worktrees}"
 
   if (( CURRENT == 2 )); then
-    compadd -- add cp cd zed ls rm root status path
+    zstyle ':completion:*:*:gwt:*' group-name ''
+    zstyle ':completion:*:*:gwt:*' group-order commands worktrees
+    compadd -J commands -X 'commands' -- add cp cd zed ls rm root status path
     if [[ -d "$wt_base" ]]; then
-      compadd -- "$wt_base"/*(/:t)
+      compadd -J worktrees -X 'worktrees' -- "$wt_base"/*(/:t)
     fi
   elif (( CURRENT == 3 )); then
     case "${words[2]}" in

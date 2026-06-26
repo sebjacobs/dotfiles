@@ -1,0 +1,203 @@
+#!/usr/bin/env ruby
+# frozen_string_literal: true
+
+# dot — the directory of CLIs I own.
+#
+# Reads a hand-edited registry (~/.config/dot/tools.yml) mapping each tool to a
+# location + one-line description, and lists/resolves them. The registry spans
+# repos: a relative location resolves against ~/dotfiles, a ~/absolute one is
+# used as-is, so out-of-repo tools (e.g. dox) link in too.
+#
+# Manifest reads and the setup.sh shell-out sit behind the System seam so the
+# parsing, resolution, and formatting logic stays pure and unit-testable (see
+# test/bin/dot_test.rb).
+
+require "yaml"
+
+module Dot
+  module_function
+
+  # Parse the registry YAML into a sorted array of {name:, desc:, location:,
+  # repo:} entries. Tolerates an empty/blank manifest and entries missing keys.
+  def parse(yaml_string)
+    data = YAML.safe_load(yaml_string.to_s) || {}
+    data.map do |name, attrs|
+      attrs ||= {}
+      { name: name,
+        desc: attrs["desc"].to_s,
+        location: attrs["location"].to_s,
+        repo: attrs["repo"].to_s }
+    end.sort_by { |entry| entry[:name] }
+  end
+
+  # Resolve a tool's location to an absolute path. A ~/absolute location is used
+  # as-is (expanded); a relative one resolves against +home+ (~/dotfiles), so the
+  # registry can hold both in-repo and out-of-repo tools.
+  def resolve_location(location, home)
+    return File.expand_path(location) if location.start_with?("~", "/")
+
+    File.join(home, location)
+  end
+
+  # Name-aligned "name  description" lines for `dot ls`, the name column padded
+  # to the widest name so the descriptions line up.
+  def ls_lines(entries)
+    width = entries.map { |e| e[:name].length }.max || 0
+    entries.map { |e| format("%-#{width}s  %s", e[:name], e[:desc]) }
+  end
+
+  # Resolve a query against tool names: exact match wins, else prefix matches,
+  # else substring matches. Mirrors svc/gwt/proj. Returns an array (0, 1, many).
+  def fuzzy_match(names, query)
+    return [query] if names.include?(query)
+
+    prefix = names.select { |n| n.start_with?(query) }
+    return prefix unless prefix.empty?
+
+    names.select { |n| n.include?(query) }
+  end
+
+  # Real filesystem + shell side-effects, behind a seam so tests can fake them.
+  class System
+    def read(path)
+      File.read(path)
+    rescue SystemCallError
+      ""
+    end
+
+    def exist?(path) = File.exist?(path)
+  end
+
+  class App
+    def initialize(sys:, out:, err:, manifest_path:, home:, run:)
+      @sys = sys
+      @out = out
+      @err = err
+      @manifest_path = manifest_path
+      @home = home
+      @run = run
+    end
+
+    def run(argv)
+      cmd, *rest = argv
+      case cmd
+      when nil, "ls" then cmd_ls
+      when "show" then cmd_show(rest)
+      when "where" then cmd_where(rest)
+      when "init" then cmd_init
+      when "help", "-h", "--help" then usage(0)
+      else usage
+      end
+    end
+
+    private
+
+    def entries
+      @entries ||= Dot.parse(@sys.read(@manifest_path))
+    end
+
+    def cmd_ls
+      return missing_manifest unless @sys.exist?(@manifest_path)
+
+      if entries.empty?
+        @out.puts "No tools registered in #{@manifest_path}"
+        return 0
+      end
+
+      Dot.ls_lines(entries).each { |line| @out.puts line }
+      0
+    end
+
+    def cmd_show(args)
+      name = args.first
+      return error("Usage: dot show <tool>") if name.nil? || name.empty?
+
+      entry = resolve(name)
+      return 1 unless entry
+
+      @out.printf("\033[1m%s\033[0m\n", entry[:name])
+      @out.printf("  desc     : %s\n", entry[:desc])
+      @out.printf("  location : %s\n", entry[:location])
+      @out.printf("  repo     : %s\n", entry[:repo])
+      @out.printf("  path     : %s\n", Dot.resolve_location(entry[:location], @home))
+      0
+    end
+
+    def cmd_where(args)
+      name = args.first
+      return error("Usage: dot where <tool>") if name.nil? || name.empty?
+
+      entry = resolve(name)
+      return 1 unless entry
+
+      @out.puts Dot.resolve_location(entry[:location], @home)
+      0
+    end
+
+    def cmd_init
+      @run.call("sh", File.join(@home, "setup.sh"))
+      0
+    end
+
+    # Resolve a tool query to a unique entry, or nil. Emits the appropriate
+    # stderr message on a missing manifest, no match, or an ambiguous one.
+    def resolve(query)
+      return nil if missing_manifest_for_resolve
+
+      matches = Dot.fuzzy_match(entries.map { |e| e[:name] }, query)
+      case matches.length
+      when 0
+        error("No tool matching: #{query}")
+        nil
+      when 1
+        entries.find { |e| e[:name] == matches.first }
+      else
+        @err.puts "Multiple tools match '#{query}':"
+        matches.each { |m| @err.puts "  #{m}" }
+        nil
+      end
+    end
+
+    def missing_manifest_for_resolve
+      return false if @sys.exist?(@manifest_path)
+
+      missing_manifest
+      true
+    end
+
+    def missing_manifest
+      @err.puts "dot: no registry at #{@manifest_path} — run `dot init` to set up your dotfiles"
+      1
+    end
+
+    def error(message)
+      @err.puts message
+      1
+    end
+
+    def usage(code = 1)
+      @out.puts <<~USAGE
+        Usage: dot <ls|show|where|init> [args]
+
+          ls             List every registered tool with its description
+          show <tool>    Show one tool's description, location, repo, and resolved path
+          where <tool>   Print a tool's resolved absolute path (for cd/scripts)
+          init           Run ~/dotfiles/setup.sh to (re)link the dotfiles
+      USAGE
+      code
+    end
+  end
+end
+
+if __FILE__ == $PROGRAM_NAME
+  app = Dot::App.new(
+    sys: Dot::System.new,
+    out: $stdout,
+    err: $stderr,
+    manifest_path: File.join(Dir.home, ".config/dot/tools.yml"),
+    home: File.expand_path("~/dotfiles"),
+    run: ->(*args) { system(*args) }
+  )
+
+  exit app.run(ARGV)
+end

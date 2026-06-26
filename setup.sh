@@ -33,6 +33,7 @@ fi
 dirs=(
   ".bundle"
   ".claude"
+  ".config/dot"
   ".config/opencode"
   ".config/helix"
   "Library/LaunchAgents"
@@ -62,6 +63,7 @@ files=(
   ".claude/agents"
   ".claude/docs"
   ".config/starship.toml"
+  ".config/dot/tools.yml"
   ".config/opencode/opencode.json"
   ".config/opencode/package.json"
   ".config/opencode/package-lock.json"

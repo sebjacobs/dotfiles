@@ -216,6 +216,11 @@ class GwtClaudeHistoryTest < Minitest::Test
                  Gwt::ClaudeHistory.encode("/Users/me/proj/.claude/worktrees/foo")
   end
 
+  def test_encode_replaces_plus_and_other_non_alphanumerics
+    assert_equal "-repo--claude-worktrees-feature-android-vocab-app",
+                 Gwt::ClaudeHistory.encode("/repo/.claude/worktrees/feature+android-vocab-app")
+  end
+
   def test_rehome_map_renames_the_exact_match
     names = ["-repo--claude-worktrees-foo", "-unrelated"]
     assert_equal(

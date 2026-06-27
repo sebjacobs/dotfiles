@@ -45,11 +45,12 @@ module Gwt
   module ClaudeHistory
     module_function
 
-    # Mirror Claude Code's own scheme: every "/" and "." in the absolute path
-    # becomes "-". Deterministic forward, but lossy — "a/b/c" and "a/b-c" both
+    # Mirror Claude Code's own scheme: every non-alphanumeric character in the
+    # absolute path becomes "-" (so "/", ".", "+" — e.g. a "feature+x" worktree —
+    # all collapse). Deterministic forward, but lossy — "a/b/c" and "a+b-c" both
     # encode to "a-b-c" — so a sweep can't tell a child path from a sibling whose
     # name is a superstring. Callers log what they move so that case is visible.
-    def encode(abs_path) = abs_path.gsub(%r{[/.]}, "-")
+    def encode(abs_path) = abs_path.gsub(/[^A-Za-z0-9]/, "-")
 
     # The ~/.claude/projects entries to re-home when old_base moves to new_base:
     # the exact match (the moved tree's own history) plus any deeper path under

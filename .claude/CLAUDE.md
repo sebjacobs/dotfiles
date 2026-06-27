@@ -148,7 +148,9 @@ The default `sed` on macOS is BSD `sed`, which does **not** support GNU extensio
 
 ## Git worktrees — use `gwt`, not raw `git worktree`
 
-When creating or managing git worktrees, reach for the **`gwt`** helper (defined in `zsh/gwt.zsh`) rather than raw `git worktree` commands. It places worktrees under `.claude/worktrees/`, supports fuzzy name matching, and — critically — honours a repo's `.worktreeinclude` to copy gitignored files (`.env`, `.claude/settings.local.json`, a symlinked `CLAUDE.local.md`) into the new worktree on `gwt add`. A bare `git worktree add` silently omits those, so the worktree loses per-checkout config and its mandated rules.
+**Never run `git worktree add` / `git worktree remove` (or any raw `git worktree` subcommand) directly. Always use the `gwt` helper.** This is a hard rule, not a preference — no exceptions for "it's just a quick one" or non-interactive `Bash` calls. If `gwt` isn't loaded in the current shell, source it (`zsh -ic 'gwt …'` or source `zsh/gwt.zsh`) rather than falling back to raw `git worktree`.
+
+Why the helper and not the plumbing: `gwt` (defined in `zsh/gwt.zsh`) places worktrees under `.claude/worktrees/`, supports fuzzy name matching, carries Claude history on rename (`gwt mv`), and — critically — honours a repo's `.worktreeinclude` to copy gitignored files (`.env`, `.claude/settings.local.json`, a symlinked `CLAUDE.local.md`) into the new worktree on `gwt add`. A bare `git worktree add` silently omits those, so the worktree loses per-checkout config and its mandated rules. A raw worktree also won't sit at the path/name `gwt`'s other subcommands expect, so later `gwt cd`/`gwt rm`/`gwt mv` can't find it.
 
 Common commands:
 

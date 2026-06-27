@@ -83,6 +83,14 @@ If neither exists, skip straight to step 3 — no prior context to restore.
 
 Surface the most recent finish entry's `**Next:**` field — that's the handover from last session. Present it verbatim (or a tight summary) before proposing a goal, so the user knows you've picked up exactly where things left off.
 
+Then check for recent **branch handovers** — `handover` entries on `main` distil branches that were completed and deleted, so they're the only bridge to work whose branch no longer exists:
+
+```bash
+jotter search --project "$PROJECT" --branch main --type handover --since <~2 weeks back> ""
+```
+
+If any turn up, surface them briefly — especially any whose follow-ups (`**Next:**`) are still live, since those are candidate work for this session. Skip silently if there are none.
+
 ---
 
 ### 3 — Read the roadmap

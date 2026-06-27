@@ -35,7 +35,7 @@ module Proj
 
   # Each tree is one searchable root. `depth` is how many path segments below
   # `dir` form a project: 1 keys projects by basename (`cadence`), 2 keys them
-  # namespaced (`nesta/asf_visit_a_heat_pump`). `exclude` drops any project
+  # namespaced (`acme/widget-tracker`). `exclude` drops any project
   # whose segments hit those names. `type` is the completion grouping label —
   # PRIVATE shares `personal` since it lives under the personal root. Order is
   # precedence — later trees overwrite earlier ones on a key collision, so
@@ -63,6 +63,84 @@ module Proj
     end
   end
 
+  # The order `ls` and tab-completion present project groups in; mirrors the
+  # group-order zstyle in zsh/projects.zsh so the two stay consistent.
+  TYPE_ORDER = %w[personal client opensource].freeze
+
+  # Group project keys by type for `ls`: TYPE_ORDER first, any unrecognised type
+  # after (sorted), keys sorted within each group. Returns [[type, [keys]], ...]
+  # with empty groups dropped, so the caller just prints what it is handed.
+  def group_by_type(keys, types, order = TYPE_ORDER)
+    grouped = keys.group_by { |k| types[k] }
+    ordered = order.select { |type| grouped.key?(type) }
+    extras = (grouped.keys - order).compact.sort
+    (ordered + extras).map { |type| [type, grouped[type].sort] }
+  end
+
+  # A project's optional, gitignored `.proj` file declares per-checkout metadata
+  # that doesn't belong in the repo. Tags (orthogonal to the structural type) are
+  # the first use; the format is forgiving `key: value` lines so it can grow
+  # (description, default branch, …) without breaking older parsers — blank lines
+  # and `#` comments are skipped and unknown keys ignored.
+  PROJ_FILE = ".proj"
+
+  def parse_proj_file(content)
+    content.to_s.each_line.each_with_object({}) do |line, config|
+      line = line.strip
+      next if line.empty? || line.start_with?("#") || !line.include?(":")
+
+      key, _, value = line.partition(":")
+      config[key.strip] = value.strip
+    end
+  end
+
+  # Tokenise a tag value on commas or whitespace, so `tags: a, b c` is [a, b, c].
+  def split_tags(value) = value.to_s.split(/[,\s]+/).reject(&:empty?)
+
+  # An indented `ls` row: bare name when untagged, name padded then "[tag …]"
+  # when tagged, so the tag columns line up down the listing.
+  def format_ls_row(key, tags)
+    return "  #{key}" if tags.nil? || tags.empty?
+
+    format("  %-28s [%s]", key, tags.join(" "))
+  end
+
+  def tags_for(content) = split_tags(parse_proj_file(content)["tags"])
+
+  def read_proj(dir)
+    path = File.join(dir, PROJ_FILE)
+    File.file?(path) ? File.read(path) : ""
+  end
+
+  # Build the display-name -> tags map by reading each project's .proj. Takes the
+  # already-resolved name->path map so a project's tags come from its winning
+  # directory, consistent with build_types.
+  def build_tags(map)
+    map.transform_values { |dir| tags_for(read_proj(dir)) }
+  end
+
+  # Parse `ls` arguments into a {type:, tags:} filter. The lone positional (if
+  # any) is the type; --tag (repeatable, also --tag=x and comma-joined) collects
+  # tags. Kept pure so the precedence and tokenising are unit-tested directly.
+  def parse_ls_args(args)
+    type = nil
+    tags = []
+    i = 0
+    while i < args.length
+      arg = args[i]
+      if arg == "--tag"
+        i += 1
+        tags.concat(split_tags(args[i]))
+      elsif arg.start_with?("--tag=")
+        tags.concat(split_tags(arg.split("=", 2)[1]))
+      elsif type.nil? && !arg.start_with?("-")
+        type = arg
+      end
+      i += 1
+    end
+    { type: type, tags: tags }
+  end
+
   # Resolve the project root containing +pwd+, or nil if it sits outside every
   # tree (or inside an excluded segment such as ARCHIVE). The first tree that
   # claims +pwd+ wins, so the precedence order above settles overlaps.
@@ -84,8 +162,8 @@ module Proj
 
   # Resolve a query against the map keys: prefix matches win, else substring
   # matches. When the query contains `/`, each segment is matched independently
-  # against namespaced keys, so `nest/heat` resolves
-  # `nesta/asf_visit_a_heat_pump`. Returns an array (0, 1, or many). Exact
+  # against namespaced keys, so `acm/wid` resolves
+  # `acme/widget-tracker`. Returns an array (0, 1, or many). Exact
   # matches are handled by the caller before this is reached.
   def fuzzy_match(keys, query)
     if query.include?("/")
@@ -131,7 +209,7 @@ module Proj
   # resolution logic above stays pure and testable: +cd+ receives the directory
   # to change into, +cache+ receives the key list to persist for completion.
   class App
-    def initialize(trees:, pwd:, out:, err:, cd:, cache:, paths: ->(_) {}, types: ->(_) {}, worktree: nil)
+    def initialize(trees:, pwd:, out:, err:, cd:, cache:, paths: ->(_) {}, types: ->(_) {}, tags: ->(_) {}, worktree: nil)
       @trees = trees
       @pwd = pwd
       @out = out
@@ -140,6 +218,7 @@ module Proj
       @cache = cache
       @paths = paths
       @types = types
+      @tags = tags
       @worktree = worktree
     end
 
@@ -151,12 +230,16 @@ module Proj
       return goto_current_root(root) if name == "."
 
       map = Proj.build_map(@trees)
+      types = Proj.build_types(@trees)
+      tags = Proj.build_tags(map)
       @cache.call(map.keys.sort)
       @paths.call(map)
-      @types.call(Proj.build_types(@trees))
+      @types.call(types)
+      @tags.call(tags)
 
       return 0 if name == "--list"
-      return print_current_or_list(root, map) if name.nil? || name.empty?
+      return cmd_ls(map, types, tags, argv.drop(1)) if name == "ls"
+      return print_current_or_list(root, map, types, tags) if name.nil? || name.empty?
 
       path = resolve_project(name, map)
       return 1 if path.nil?
@@ -203,16 +286,43 @@ module Proj
       error("proj: not inside a known project tree (#{@trees.map { |t| t[:dir] }.join(', ')})")
     end
 
-    def print_current_or_list(root, map)
+    # List projects grouped by type, optionally narrowed by a type positional
+    # and/or repeated --tag flags (a project must carry every requested tag).
+    # Each project's tags show inline. A bad type errors with the known set so a
+    # typo is obvious. `ls` shadows any project literally named "ls" — an
+    # accepted edge, since no real project dir carries that name.
+    def cmd_ls(map, types, tags, args)
+      filter = Proj.parse_ls_args(args)
+      keys = map.keys
+
+      if (type = filter[:type])
+        known = (Proj::TYPE_ORDER & types.values) | types.values.uniq.sort
+        return error("proj ls: no such type '#{type}' (known: #{known.join(', ')})") unless known.include?(type)
+
+        keys = keys.select { |key| types[key] == type }
+      end
+
+      unless filter[:tags].empty?
+        keys = keys.select { |key| (filter[:tags] - (tags[key] || [])).empty? }
+      end
+
+      Proj.group_by_type(keys, types).each_with_index do |(type, group_keys), i|
+        @out.puts "" unless i.zero?
+        @out.puts type
+        group_keys.each { |key| @out.puts Proj.format_ls_row(key, tags[key]) }
+      end
+      0
+    end
+
+    # Inside a project, echo its root (handy for `cd "$(proj)"`); outside any
+    # project, fall back to the full grouped listing.
+    def print_current_or_list(root, map, types, tags)
       if root
         @out.puts root
         return 0
       end
 
-      @out.puts "Usage: proj <name>"
-      @out.puts ""
-      map.keys.sort.each { |k| @out.puts k }
-      1
+      cmd_ls(map, types, tags, [])
     end
 
     def change_dir(path)
@@ -257,6 +367,17 @@ if __FILE__ == $PROGRAM_NAME
     File.write(file, map.map { |key, type| "#{key}\t#{type}" }.join("\n"))
   end
 
+  # The unique tag set, sorted, so completion can offer `proj ls --tag <TAB>`
+  # values without booting Ruby. Project->tags would be richer, but completion
+  # only needs the flat vocabulary.
+  tags_sink = lambda do |map|
+    file = ENV["PROJ_TAGS_FILE"]
+    next if file.nil? || file.empty?
+
+    FileUtils.mkdir_p(File.dirname(file))
+    File.write(file, map.values.flatten.uniq.sort.join("\n"))
+  end
+
   # Pull in the sibling gwt.rb for its Gwt module; its `__FILE__ == $PROGRAM_NAME`
   # guard keeps its CLI body dormant when required rather than run directly.
   require_relative "gwt"
@@ -291,6 +412,7 @@ if __FILE__ == $PROGRAM_NAME
     cache: cache_sink,
     paths: paths_sink,
     types: types_sink,
+    tags: tags_sink,
     worktree: worktree_sink
   )
 

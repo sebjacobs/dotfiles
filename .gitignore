@@ -11,6 +11,9 @@ CLAUDE.local.md
 
 .jotter
 
+# proj — per-project tags/metadata, never committed
+.proj
+
 # Secrets & env
 .secrets.zsh
 .secrets/*

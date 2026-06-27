@@ -4,9 +4,15 @@
 #   proj <name> <worktree>   cd into a worktree under the project, with
 #                            tab-completion on the worktree name (delegates to gwt)
 #   proj <client>/<name>     cd into a namespaced client project
-#                            (e.g. `proj nesta/asf_visit_a_heat_pump`)
+#                            (e.g. `proj acme/widget-tracker`)
+#   proj ls [<type>] [--tag T...]
+#                            list projects grouped by type (personal, client,
+#                            opensource), optionally narrowed to a type and/or
+#                            tags (repeatable --tag; a project must carry all).
+#                            Tags come from each project's gitignored .proj file
+#                            and show inline in the listing.
 #   proj .                   cd to the current project root
-#   proj                     print current project, or list all available
+#   proj                     inside a project print its root, else list all (`ls`)
 #
 # The searchable project trees are declared in lib/proj.rb's TREES list;
 # add a new kind of project (a new root dir) there in one line.
@@ -14,6 +20,7 @@
 PROJ_CACHE_FILE="${XDG_CACHE_HOME:-$HOME/.cache}/proj/keys"
 PROJ_PATHS_FILE="${XDG_CACHE_HOME:-$HOME/.cache}/proj/paths"
 PROJ_TYPES_FILE="${XDG_CACHE_HOME:-$HOME/.cache}/proj/types"
+PROJ_TAGS_FILE="${XDG_CACHE_HOME:-$HOME/.cache}/proj/tags"
 
 # The logic lives in lib/proj.rb (Ruby, unit-tested). A subprocess cannot
 # change this shell's directory, so the helper writes the cd target to the file
@@ -25,7 +32,7 @@ proj() {
   local cd_file rc
   cd_file=$(mktemp "${TMPDIR:-/tmp}/proj-cd.XXXXXX")
 
-  PROJ_CD_FILE="$cd_file" PROJ_CACHE_FILE="$PROJ_CACHE_FILE" PROJ_PATHS_FILE="$PROJ_PATHS_FILE" PROJ_TYPES_FILE="$PROJ_TYPES_FILE" "$helper" "$@"
+  PROJ_CD_FILE="$cd_file" PROJ_CACHE_FILE="$PROJ_CACHE_FILE" PROJ_PATHS_FILE="$PROJ_PATHS_FILE" PROJ_TYPES_FILE="$PROJ_TYPES_FILE" PROJ_TAGS_FILE="$PROJ_TAGS_FILE" "$helper" "$@"
   rc=$?
 
   if [[ -s "$cd_file" ]]; then cd "$(<"$cd_file")"; fi
@@ -45,8 +52,8 @@ _proj_path_for() {
 
 # Cached keys matching a query the way lib/proj.rb's fuzzy_match does: prefix
 # matches win over substring matches, and a `/` in the query matches each
-# segment of a namespaced key independently (so `nest/heat` resolves
-# `nesta/asf_visit_a_heat_pump`). Echoes the matching keys, one per line, so
+# segment of a namespaced key independently (so `acm/wid` resolves
+# `acme/widget-tracker`). Echoes the matching keys, one per line, so
 # completion mirrors what `proj` itself would resolve — without booting Ruby.
 _proj_match_keys() {
   local query="$1" k qc qp kc kp
@@ -78,17 +85,34 @@ _proj_match_keys() {
 
 # Tab completion reads the cached name list rather than spawning Ruby per
 # keypress. A cold cache is warmed once with a single `--list` call. The first
-# argument fuzzy-matches project names (so `asf` completes
-# `nesta/asf_visit_a_heat_pump`), grouped by type — personal, then client, then
+# argument fuzzy-matches project names (so `wid` completes
+# `acme/widget-tracker`), grouped by type — personal, then client, then
 # opensource — from the cached name->type map; the second completes worktree
 # names under the chosen project, resolving a partial project name the same way.
 _proj() {
-  if [[ ! -s "$PROJ_CACHE_FILE" || ! -s "$PROJ_PATHS_FILE" || ! -s "$PROJ_TYPES_FILE" ]]; then
-    PROJ_CACHE_FILE="$PROJ_CACHE_FILE" PROJ_PATHS_FILE="$PROJ_PATHS_FILE" PROJ_TYPES_FILE="$PROJ_TYPES_FILE" \
+  if [[ ! -s "$PROJ_CACHE_FILE" || ! -s "$PROJ_PATHS_FILE" || ! -s "$PROJ_TYPES_FILE" || ! -s "$PROJ_TAGS_FILE" ]]; then
+    PROJ_CACHE_FILE="$PROJ_CACHE_FILE" PROJ_PATHS_FILE="$PROJ_PATHS_FILE" PROJ_TYPES_FILE="$PROJ_TYPES_FILE" PROJ_TAGS_FILE="$PROJ_TAGS_FILE" \
       "$HOME/dotfiles/lib/proj.rb" --list >/dev/null 2>&1
   fi
 
+  # `proj ls ...`: after --tag complete the cached tag vocabulary; otherwise
+  # complete the type names (the positional) plus the --tag flag itself.
+  if (( CURRENT >= 3 )) && [[ "${words[2]}" == ls ]]; then
+    if [[ "${words[CURRENT-1]}" == --tag ]]; then
+      [[ -s "$PROJ_TAGS_FILE" ]] && compadd -- "${(@f)$(<$PROJ_TAGS_FILE)}"
+    else
+      local -a tnames
+      [[ -s "$PROJ_TYPES_FILE" ]] && tnames=("${(@f)$(cut -f2 "$PROJ_TYPES_FILE" | sort -u)}")
+      compadd -- $tnames --tag
+    fi
+    return
+  fi
+
   if (( CURRENT == 2 )); then
+    zstyle ':completion:*:*:proj:*' group-name ''
+    zstyle ':completion:*:*:proj:*' group-order commands personal client opensource
+    compadd -J commands -X 'commands' -- ls
+
     local -a matches
     matches=("${(@f)$(_proj_match_keys "${words[2]}")}")
     (( ${#matches} )) || return
@@ -98,9 +122,6 @@ _proj() {
       local k v
       while IFS=$'\t' read -r k v || [[ -n "$k" ]]; do typeof[$k]=$v; done < "$PROJ_TYPES_FILE"
     fi
-
-    zstyle ':completion:*:*:proj:*' group-name ''
-    zstyle ':completion:*:*:proj:*' group-order personal client opensource
 
     local -a personal client opensource untyped
     local m

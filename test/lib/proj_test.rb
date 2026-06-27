@@ -20,18 +20,18 @@ class ProjPureTest < Minitest::Test
   end
 
   def test_fuzzy_match_namespaced_matches_each_segment_by_prefix
-    keys = ["nesta/asf_visit_a_heat_pump", "nesta/other", "acme/heat"]
-    assert_equal ["nesta/asf_visit_a_heat_pump"], Proj.fuzzy_match(keys, "nest/asf")
+    keys = ["acme/widget-tracker", "acme/other", "globex/dashboard"]
+    assert_equal ["acme/widget-tracker"], Proj.fuzzy_match(keys, "acm/wid")
   end
 
   def test_fuzzy_match_namespaced_falls_back_to_substring_segments
-    keys = ["nesta/asf_visit_a_heat_pump", "acme/cooling"]
-    assert_equal ["nesta/asf_visit_a_heat_pump"], Proj.fuzzy_match(keys, "est/heat")
+    keys = ["acme/widget-tracker", "globex/dashboard"]
+    assert_equal ["acme/widget-tracker"], Proj.fuzzy_match(keys, "cme/track")
   end
 
   def test_fuzzy_match_namespaced_ignores_flat_keys
-    keys = ["heat-tool", "nesta/heat"]
-    assert_equal ["nesta/heat"], Proj.fuzzy_match(keys, "n/heat")
+    keys = ["widget-tool", "acme/widget"]
+    assert_equal ["acme/widget"], Proj.fuzzy_match(keys, "a/widget")
   end
 
   def test_descend_returns_remainder_for_strict_descendant
@@ -51,7 +51,76 @@ class ProjPureTest < Minitest::Test
   end
 
   def test_key_for_namespaces_at_depth_two
-    assert_equal "nesta/heat", Proj.key_for("/root/client/nesta/heat", 2)
+    assert_equal "acme/widget", Proj.key_for("/root/client/acme/widget", 2)
+  end
+
+  def test_group_by_type_orders_personal_then_client_then_opensource
+    keys = %w[ripgrep cadence acme/widget dotfiles]
+    types = { "ripgrep" => "opensource", "cadence" => "personal",
+              "acme/widget" => "client", "dotfiles" => "personal" }
+    assert_equal(
+      [["personal", %w[cadence dotfiles]], ["client", ["acme/widget"]], ["opensource", ["ripgrep"]]],
+      Proj.group_by_type(keys, types)
+    )
+  end
+
+  def test_group_by_type_drops_absent_groups
+    assert_equal [["personal", ["cadence"]]],
+                 Proj.group_by_type(%w[cadence], { "cadence" => "personal" })
+  end
+
+  def test_group_by_type_appends_unknown_types_sorted_last
+    keys = %w[a b c]
+    types = { "a" => "personal", "b" => "zeta", "c" => "alpha" }
+    assert_equal [["personal", ["a"]], ["alpha", ["c"]], ["zeta", ["b"]]],
+                 Proj.group_by_type(keys, types)
+  end
+
+  def test_parse_proj_file_reads_key_values_skipping_comments_and_blanks
+    content = "# a comment\n\ntags: archived, billable\ndescription: a tool\n"
+    assert_equal({ "tags" => "archived, billable", "description" => "a tool" },
+                 Proj.parse_proj_file(content))
+  end
+
+  def test_parse_proj_file_ignores_lines_without_a_colon
+    assert_equal({}, Proj.parse_proj_file("not a config line\n"))
+  end
+
+  def test_tags_for_splits_on_commas_and_whitespace
+    assert_equal %w[archived billable wip], Proj.tags_for("tags: archived, billable wip\n")
+  end
+
+  def test_tags_for_is_empty_without_a_tags_line
+    assert_empty Proj.tags_for("description: x\n")
+    assert_empty Proj.tags_for("")
+  end
+
+  def test_parse_ls_args_takes_lone_positional_as_type
+    assert_equal({ type: "personal", tags: [] }, Proj.parse_ls_args(["personal"]))
+  end
+
+  def test_parse_ls_args_collects_repeated_tag_flags
+    assert_equal({ type: nil, tags: %w[archived billable] },
+                 Proj.parse_ls_args(["--tag", "archived", "--tag", "billable"]))
+  end
+
+  def test_parse_ls_args_accepts_equals_and_comma_joined_tags
+    assert_equal({ type: nil, tags: %w[a b c] }, Proj.parse_ls_args(["--tag=a,b", "--tag", "c"]))
+  end
+
+  def test_parse_ls_args_combines_type_and_tags
+    assert_equal({ type: "client", tags: %w[archived] },
+                 Proj.parse_ls_args(["client", "--tag", "archived"]))
+  end
+
+  def test_format_ls_row_bare_when_untagged
+    assert_equal "  cadence", Proj.format_ls_row("cadence", [])
+    assert_equal "  cadence", Proj.format_ls_row("cadence", nil)
+  end
+
+  def test_format_ls_row_appends_tags_when_present
+    assert_equal "  cadence                      [archived billable]",
+                 Proj.format_ls_row("cadence", %w[archived billable])
   end
 end
 
@@ -68,7 +137,7 @@ class ProjTreeTest < Minitest::Test
       "personal/ARCHIVE/old",
       "personal/PRIVATE/session-logs",
       "personal/PRIVATE/secret",
-      "client/nesta/asf_visit_a_heat_pump",
+      "client/acme/widget-tracker",
       "client/ARCHIVE/x",
       "client/acme/ARCHIVE",
       "opensource/ripgrep"
@@ -90,7 +159,7 @@ class ProjTreeTest < Minitest::Test
     map = Proj.build_map(@trees)
 
     assert_equal File.join(@personal, "cadence"), map["cadence"]
-    assert_equal File.join(@client, "nesta/asf_visit_a_heat_pump"), map["nesta/asf_visit_a_heat_pump"]
+    assert_equal File.join(@client, "acme/widget-tracker"), map["acme/widget-tracker"]
     assert_equal File.join(@opensource, "ripgrep"), map["ripgrep"]
   end
 
@@ -104,13 +173,20 @@ class ProjTreeTest < Minitest::Test
 
     assert_equal "personal", types["cadence"]
     assert_equal "personal", types["secret"]
-    assert_equal "client", types["nesta/asf_visit_a_heat_pump"]
+    assert_equal "client", types["acme/widget-tracker"]
     assert_equal "opensource", types["ripgrep"]
   end
 
   def test_build_map_exposes_private_only_projects
     map = Proj.build_map(@trees)
     assert_equal File.join(@personal, "PRIVATE/secret"), map["secret"]
+  end
+
+  def test_build_tags_reads_each_projects_proj_file
+    File.write(File.join(@personal, "cadence", ".proj"), "tags: archived, billable\n")
+    tags = Proj.build_tags(Proj.build_map(@trees))
+    assert_equal %w[archived billable], tags["cadence"]
+    assert_empty tags["ripgrep"]
   end
 
   def test_build_map_skips_archive_everywhere
@@ -130,8 +206,8 @@ class ProjTreeTest < Minitest::Test
   end
 
   def test_root_from_pwd_client
-    pwd = File.join(@client, "nesta/asf_visit_a_heat_pump/app")
-    assert_equal File.join(@client, "nesta/asf_visit_a_heat_pump"), Proj.root_from_pwd(pwd, @trees)
+    pwd = File.join(@client, "acme/widget-tracker/app")
+    assert_equal File.join(@client, "acme/widget-tracker"), Proj.root_from_pwd(pwd, @trees)
   end
 
   def test_root_from_pwd_returns_nil_outside_trees
@@ -209,11 +285,89 @@ class ProjAppTest < Minitest::Test
     assert_equal "#{File.join(@personal, 'cadence')}\n", out.string
   end
 
-  def test_bare_outside_project_lists_keys
+  def test_bare_outside_project_lists_grouped
     app, _cd, out = build_app(pwd: @root)
-    assert_equal 1, app.run([])
-    assert_includes out.string, "cadence"
-    assert_includes out.string, "cadence-extra"
+    assert_equal 0, app.run([])
+    assert_equal "personal\n  cadence\n  cadence-extra\n", out.string
+  end
+
+  def test_ls_lists_projects_grouped_by_type
+    app, _cd, out = build_app(pwd: @root)
+    assert_equal 0, app.run(["ls"])
+    assert_equal "personal\n  cadence\n  cadence-extra\n", out.string
+  end
+
+  def test_ls_filters_to_a_single_type
+    app, _cd, out = build_app(pwd: @root)
+    assert_equal 0, app.run(["ls", "personal"])
+    assert_equal "personal\n  cadence\n  cadence-extra\n", out.string
+  end
+
+  def test_ls_rejects_an_unknown_type
+    app, _cd, _out, err = build_app(pwd: @root)
+    assert_equal 1, app.run(["ls", "client"])
+    assert_includes err.string, "no such type 'client'"
+    assert_includes err.string, "known: personal"
+  end
+
+  def test_ls_groups_multiple_types_in_order
+    with_typed_app do |app, out|
+      assert_equal 0, app.run(["ls"])
+      assert_equal "personal\n  cadence\n\nclient\n  acme/widget\n\nopensource\n  ripgrep\n", out.string
+    end
+  end
+
+  def test_ls_filter_narrows_to_one_group
+    with_typed_app do |app, out|
+      assert_equal 0, app.run(["ls", "client"])
+      assert_equal "client\n  acme/widget\n", out.string
+    end
+  end
+
+  def test_ls_shows_tags_inline
+    with_tagged_app do |app, out|
+      assert_equal 0, app.run(["ls"])
+      assert_includes out.string, Proj.format_ls_row("old-thing", ["archived"])
+      assert_includes out.string, Proj.format_ls_row("acme/widget", %w[archived billable])
+      assert_includes out.string, "  cadence\n"
+    end
+  end
+
+  def test_ls_filters_by_tag_across_types
+    with_tagged_app do |app, out|
+      assert_equal 0, app.run(["ls", "--tag", "archived"])
+      assert_includes out.string, "old-thing"
+      assert_includes out.string, "acme/widget"
+      refute_includes out.string, "cadence"
+      refute_includes out.string, "ripgrep"
+    end
+  end
+
+  def test_ls_multiple_tags_require_all
+    with_tagged_app do |app, out|
+      assert_equal 0, app.run(["ls", "--tag", "archived", "--tag", "billable"])
+      assert_includes out.string, "acme/widget"
+      refute_includes out.string, "old-thing"
+    end
+  end
+
+  def test_ls_combines_type_positional_with_tag_flag
+    with_tagged_app do |app, out|
+      assert_equal 0, app.run(["ls", "personal", "--tag", "archived"])
+      assert_includes out.string, "old-thing"
+      refute_includes out.string, "acme/widget"
+      refute_includes out.string, "cadence"
+    end
+  end
+
+  def test_run_invokes_tags_sink_with_the_tag_map
+    captured = nil
+    app = Proj::App.new(
+      trees: @trees, pwd: @root, out: StringIO.new, err: StringIO.new,
+      cd: ->(_) {}, cache: ->(_) {}, tags: ->(map) { captured = map }
+    )
+    app.run(["cadence"])
+    assert_equal({ "cadence" => [], "cadence-extra" => [] }, captured)
   end
 
   def test_run_refreshes_cache
@@ -302,6 +456,52 @@ class ProjAppTest < Minitest::Test
       cd: ->(path) { cd << path }, cache: ->(_) {}, paths: ->(_) {}, worktree: resolver
     )
     [app, cd, out, err, wt_calls]
+  end
+
+  # An app over one project of each type, so `ls` grouping and filtering can be
+  # exercised across all three. The tree lives in a tmpdir cleaned up after.
+  def with_typed_app
+    root = Dir.mktmpdir
+    %w[personal/cadence client/acme/widget opensource/ripgrep].each do |rel|
+      FileUtils.mkdir_p(File.join(root, rel))
+    end
+    trees = [
+      { dir: File.join(root, "personal"), depth: 1, exclude: [], type: "personal" },
+      { dir: File.join(root, "client"), depth: 2, exclude: [], type: "client" },
+      { dir: File.join(root, "opensource"), depth: 1, exclude: [], type: "opensource" }
+    ]
+    out = StringIO.new
+    app = Proj::App.new(
+      trees: trees, pwd: root, out: out, err: StringIO.new,
+      cd: ->(_) {}, cache: ->(_) {}, paths: ->(_) {}, types: ->(_) {}
+    )
+    yield app, out
+  ensure
+    FileUtils.remove_entry(root)
+  end
+
+  # Like with_typed_app, plus .proj tag files: old-thing is [archived], the
+  # client project is [archived billable], cadence/ripgrep are untagged.
+  def with_tagged_app
+    root = Dir.mktmpdir
+    %w[personal/cadence personal/old-thing client/acme/widget opensource/ripgrep].each do |rel|
+      FileUtils.mkdir_p(File.join(root, rel))
+    end
+    File.write(File.join(root, "personal/old-thing/.proj"), "tags: archived\n")
+    File.write(File.join(root, "client/acme/widget/.proj"), "tags: archived, billable\n")
+    trees = [
+      { dir: File.join(root, "personal"), depth: 1, exclude: [], type: "personal" },
+      { dir: File.join(root, "client"), depth: 2, exclude: [], type: "client" },
+      { dir: File.join(root, "opensource"), depth: 1, exclude: [], type: "opensource" }
+    ]
+    out = StringIO.new
+    app = Proj::App.new(
+      trees: trees, pwd: root, out: out, err: StringIO.new,
+      cd: ->(_) {}, cache: ->(_) {}, paths: ->(_) {}, types: ->(_) {}, tags: ->(_) {}
+    )
+    yield app, out
+  ensure
+    FileUtils.remove_entry(root)
   end
 end
 

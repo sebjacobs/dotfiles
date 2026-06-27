@@ -1,25 +1,25 @@
 ** Summary **
 =============
 
-Louis requested that we add a new manufacturer to our curated list. This
-list is used to populated the dropdown menu on the Host profile form.
+A request came in to add a new vendor to our curated list. This list is
+used to populate the dropdown menu on the catalog form.
 
 I have taken this opportunity to also:
 - make future requests easier to service.
-- clean up some dead code in the Host model.
+- clean up some dead code in the Catalog model.
 
 ** Key changes **
 =================
 
-- removed the unused `Host#installer_name_select` method.
-- `config/heat_pump_manufacturers.yml` — extracted from
-  `Host::HP_MANUFACTURERS`.
-- `config/heat_pump_installers.yml` — extracted from
-  `Host::HP_INSTALLERS` (for consistency).
-- added `Clivet` to the list of manufacturers.
+- removed the unused `Catalog#vendor_name_select` method.
+- `config/vendor_manufacturers.yml` — extracted from
+  `Catalog::MANUFACTURERS`.
+- `config/vendor_suppliers.yml` — extracted from `Catalog::SUPPLIERS`
+  (for consistency).
+- added `Globex` to the list of vendors.
 
 ** Out-of-scope / Follow-ups **
 ===============================
 
-I would like to audit the production hosts data to understand if there
-are any other key manufacturers missing from this list.
+I would like to audit the production catalog data to understand if there
+are any other key vendors missing from this list.

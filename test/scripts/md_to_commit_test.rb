@@ -42,7 +42,7 @@ class MdToCommitTest < Minitest::Test
   end
 
   def test_inline_code_backticks_are_preserved
-    assert_equal "the `Host#foo` method\n", convert("the `Host#foo` method")
+    assert_equal "the `Widget#foo` method\n", convert("the `Widget#foo` method")
   end
 
   # --- wrapping ------------------------------------------------------------

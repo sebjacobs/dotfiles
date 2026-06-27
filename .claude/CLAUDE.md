@@ -249,7 +249,7 @@ Always rebase the feature branch onto main before merging — ensures the histor
 **Feature branch PRs:**
 PR descriptions follow the same philosophy as commit messages — explain the *why*, not just the *what*, and **defer the per-change detail to the commit messages** rather than re-narrating the diff. The body orients the reviewer; the commits carry the specifics. Structure (use these exact `##` headings):
 
-1. **## Motivation** — lead with the *why*, kept high-level: a paragraph or two on the problem this solves or the capability it unlocks, the reasoning behind the approach, and the scope boundary (what this part deliberately does *not* do). Don't enumerate the changes here. Illustrate the problem with one concrete example rather than listing every instance of it — e.g. "a `setup_geolocation` whose branches ran back-to-front" lands better than a full inventory of the tangles. For a stacked PR, open by naming the part it follows and linking it. If the PR is behaviour-preserving except for a deliberate change, call that exception out here — and note that it surfaces as a test edit rather than silent drift.
+1. **## Motivation** — lead with the *why*, kept high-level: a paragraph or two on the problem this solves or the capability it unlocks, the reasoning behind the approach, and the scope boundary (what this part deliberately does *not* do). Don't enumerate the changes here. Illustrate the problem with one concrete example rather than listing every instance of it — e.g. "a `setup_pagination` whose branches ran back-to-front" lands better than a full inventory of the tangles. For a stacked PR, open by naming the part it follows and linking it. If the PR is behaviour-preserving except for a deliberate change, call that exception out here — and note that it surfaces as a test edit rather than silent drift.
 2. **## Summary** — a short bullet list of the significant changes at a high level (not exhaustive, not file-by-file). Weave any gotchas, trade-offs, and "things to note" into the relevant bullet or a short following sentence rather than giving them their own heading. End with **"See individual commit messages for the details."** Fold references inline where they belong (every reference carries a URL or commit SHA; footnote style `[1]`/`[2]` when there are several). For a stacked PR, close with a line naming the base branch and a compare link to the part's own diff, plus the merge/rebase order. **Don't link to predecessor/draft PRs as predecessors** — but the part-N cross-links between live stacked PRs are the point, keep those.
 3. **## Questions/Feedback** — include by default. Specific questions for reviewers: naming calls, design decisions, judgement calls, anything you'd want a second opinion on. Better than a vague "thoughts?" — it directs attention where input is actually useful. Only skip if there is genuinely nothing to ask; when in doubt, surface at least one real question (e.g. "is the scope right?", "I went with X over Y because Z — agree?").
 
@@ -261,31 +261,31 @@ Example (a stacked, behaviour-preserving refactor PR):
 ## Motivation
 
 With [part 3](…/pull/687)'s characterization net in place, this part untangles
-`HostsSearchController#index` — the slice's most tangled method. It read as one long
-procedure (e.g. a `setup_geolocation` whose branches ran back-to-front), and the proximity
+`WidgetsController#index` — the slice's most tangled method. It read as one long
+procedure (e.g. a `setup_pagination` whose branches ran back-to-front), and the filtering
 feature still to come needs it readable first.
 
 Every commit is behaviour-preserving and pinned by part 3's specs, **with one deliberate
-exception**: a repeat search now geocodes once, not twice. That surfaces as a test edit
+exception**: a repeat request now queries the cache once, not twice. That surfaces as a test edit
 (the part 3 spec flips from `.twice` to `.once`) rather than as silent drift.
 
 ## Summary
 
-- Extract the failed-geocode redirect into a `redirect_on_failed_geocode` guard.
-- Untangle `setup_geolocation` — nil-first ordering, named predicates, and rebuild cached
-  coordinates instead of re-geocoding them.
-- Extract `map_markers(query)` and `marker_popup_html(result)` from the inline builder.
+- Extract the empty-results redirect into a `redirect_on_empty_filter` guard.
+- Untangle `setup_pagination` — nil-first ordering, named predicates, and rebuild cached
+  bounds instead of recomputing them.
+- Extract `rows_for(query)` and `row_html(record)` from the inline builder.
 
 See individual commit messages for the details.
 
-This is stacked on [part 3](…/pull/687) — its base is `seb-hosts-search-p3`, so the diff
-here is only this part's commits ([compare](…/compare/seb-hosts-search-p3...seb-hosts-search-p4)).
+This is stacked on [part 3](…/pull/687) — its base is `feature/widget-list-p3`, so the diff
+here is only this part's commits ([compare](…/compare/feature/widget-list-p3...feature/widget-list-p4)).
 Merge after #687 lands (and rebase onto `main` at that point).
 
 ## Questions/Feedback
 
-- Do `sorted` / `within_search_distance` / `redirect_on_failed_geocode` read ok?
-- The geocode-once-not-twice flip is the only behaviour change — happy folding it in here?
+- Do `sorted` / `within_page_bounds` / `redirect_on_empty_filter` read ok?
+- The query-once-not-twice flip is the only behaviour change — happy folding it in here?
 ```
 
 **Editing PR descriptions, issues, comments — fetch live state first, edit in place, never regenerate from a remembered template.** The user is often editing the same artifact concurrently in the GitHub UI. Regenerating the whole body from your last-known version silently stomps their edits. The right pattern is always: `gh pr view <n> --json body --jq .body > /tmp/body.md` → `Edit` only the line that needs changing → `gh pr edit <n> --body-file /tmp/body.md`. Applies equally to issue bodies, PR comments, anywhere a human and you might both write. If a small targeted edit isn't possible (e.g. major restructure), confirm with the user before pushing a full rewrite.

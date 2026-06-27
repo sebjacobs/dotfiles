@@ -458,9 +458,23 @@ module Proj
       end
 
       migrate_claude_history(old_path, new_path)
+      repair_worktrees(new_path)
       migrate_jotter_logs(old_name, new, new_path)
       change_dir(new_path + @pwd[old_path.length..]) if @pwd == old_path || @pwd.start_with?("#{old_path}/")
       0
+    end
+
+    # Moving the whole project tree relocates each linked worktree too, so git's
+    # stored gitdir pointers (and the repo's back-references) still name the old
+    # path and the worktrees show up "prunable" until repaired. `git worktree
+    # repair`, run from the new root with each worktree's new path, rewrites both
+    # ends. No-op when the project has no worktrees or isn't a git repo. Returns
+    # nothing of interest — best-effort, like the history and jotter moves.
+    def repair_worktrees(new_path)
+      worktrees = Dir.glob(File.join(new_path, ".claude", "worktrees", "*")).select { |wt| File.directory?(wt) }
+      return if worktrees.empty? || !File.exist?(File.join(new_path, ".git"))
+
+      @git.run("-C", new_path, "worktree", "repair", *worktrees)
     end
 
     # The precise set of paths whose Claude history must follow the move: the

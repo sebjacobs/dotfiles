@@ -681,12 +681,19 @@ class ProjMvTest < Minitest::Test
     dir
   end
 
-  def app(confirm: true)
+  def app(confirm: true, git: nil)
     Proj::App.new(
       trees: @trees, pwd: @root, out: @out, err: @err,
       cd: ->(p) { @cd << p }, cache: ->(_) {}, paths: ->(_) {}, types: ->(_) {}, tags: ->(_) {},
-      home: @home, confirm: ->(_) { confirm }, jotter: ->(o, n, p) { @jotter_calls << [o, n, p] }
+      home: @home, confirm: ->(_) { confirm }, jotter: ->(o, n, p) { @jotter_calls << [o, n, p] }, git: git
     )
+  end
+
+  class RecordingGit
+    attr_reader :calls
+
+    def initialize = @calls = []
+    def run(*args) = (@calls << args) && true
   end
 
   def test_mv_renames_the_directory
@@ -716,6 +723,30 @@ class ProjMvTest < Minitest::Test
     app.run(["mv", "cadence", "notes"])
     moved = File.join(@projects, enc(File.join(@personal, "notes", ".claude", "worktrees", "foo")))
     assert path_exists?(moved)
+  end
+
+  def test_mv_repairs_worktree_registrations_for_a_git_repo
+    FileUtils.mkdir_p(File.join(@proj, ".git"))
+    FileUtils.mkdir_p(File.join(@proj, ".claude", "worktrees", "foo"))
+    git = RecordingGit.new
+    app(git: git).run(["mv", "cadence", "notes"])
+    new_root = File.join(@personal, "notes")
+    assert_equal [["-C", new_root, "worktree", "repair", File.join(new_root, ".claude", "worktrees", "foo")]],
+                 git.calls
+  end
+
+  def test_mv_skips_repair_when_the_project_has_no_worktrees
+    FileUtils.mkdir_p(File.join(@proj, ".git"))
+    git = RecordingGit.new
+    app(git: git).run(["mv", "cadence", "notes"])
+    assert_empty git.calls
+  end
+
+  def test_mv_skips_repair_for_a_non_git_directory
+    FileUtils.mkdir_p(File.join(@proj, ".claude", "worktrees", "foo"))
+    git = RecordingGit.new
+    app(git: git).run(["mv", "cadence", "notes"])
+    assert_empty git.calls
   end
 
   def test_mv_delegates_to_jotter_for_a_git_repo

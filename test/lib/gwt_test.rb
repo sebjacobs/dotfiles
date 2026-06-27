@@ -100,6 +100,20 @@ class GwtPureTest < Minitest::Test
     assert_equal "gitdir file points to non-existent location", entry[:prunable]
   end
 
+  def test_current_dir_picks_the_longest_containing_path
+    dirs = ["/repo", "/repo/.claude/worktrees/foo"]
+    assert_equal "/repo/.claude/worktrees/foo", Gwt.current_dir("/repo/.claude/worktrees/foo/lib", dirs)
+    assert_equal "/repo", Gwt.current_dir("/repo/lib", dirs)
+  end
+
+  def test_current_dir_ignores_a_name_prefix_sibling
+    assert_nil Gwt.current_dir("/repo-x/lib", ["/repo"])
+  end
+
+  def test_current_dir_returns_nil_when_pwd_is_outside_every_dir
+    assert_nil Gwt.current_dir("/elsewhere", ["/repo"])
+  end
+
   def test_slug_error_accepts_plain_and_slashed_names
     assert_nil Gwt.slug_error("feature/x")
     assert_nil Gwt.slug_error("spike-2_a.b")
@@ -658,16 +672,24 @@ class GwtAppTest < Minitest::Test
     assert_empty @execs
   end
 
-  def test_ls_empty
+  def test_ls_with_no_worktrees_still_lists_the_root
     app, = build
     assert_equal 0, app.run(["ls"])
-    assert_match(/No worktrees/, @out.string)
+    assert_match(/repo\s+main/, @out.string)
   end
 
-  def test_ls_lists_with_current_marker
+  def test_ls_lists_the_root_alongside_worktrees
+    app, = build(worktrees: [["foo", "feature/x"]], pwd: ROOT)
+    assert_equal 0, app.run(["ls"])
+    assert_match(/\* repo\s+main/, @out.string)
+    assert_match(/  foo\s+feature\/x/, @out.string)
+  end
+
+  def test_ls_marks_only_the_worktree_not_its_enclosing_root
     app, = build(worktrees: [["foo", "feature/x"]], pwd: "#{WT_BASE}/foo")
     assert_equal 0, app.run(["ls"])
     assert_match(/\* foo\s+feature\/x/, @out.string)
+    assert_match(/  repo\s+main/, @out.string)
   end
 
   def test_ls_excludes_orphaned_directories

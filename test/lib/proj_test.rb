@@ -123,6 +123,42 @@ class ProjPureTest < Minitest::Test
                  Proj.format_ls_row("cadence", %w[archived billable])
   end
 
+  def test_parse_for_each_ref_takes_branch_and_time_from_the_top_line
+    assert_equal ["main", 1782571757], Proj.parse_for_each_ref("main\t1782571757\n")
+  end
+
+  def test_parse_for_each_ref_reads_only_the_first_line
+    assert_equal ["feature", 1782571757],
+                 Proj.parse_for_each_ref("feature\t1782571757\nmain\t1782509451\n")
+  end
+
+  def test_parse_for_each_ref_returns_nil_for_no_branches
+    assert_nil Proj.parse_for_each_ref("")
+    assert_nil Proj.parse_for_each_ref("\n")
+  end
+
+  def test_sort_recent_orders_newest_first_then_by_name
+    entries = [
+      { key: "old", branch: "main", time: 100 },
+      { key: "new", branch: "main", time: 300 },
+      { key: "tie-b", branch: "main", time: 200 },
+      { key: "tie-a", branch: "main", time: 200 }
+    ]
+    assert_equal %w[new tie-a tie-b old], Proj.sort_recent(entries).map { |e| e[:key] }
+  end
+
+  def test_format_recent_row_aligns_name_branch_and_timestamp
+    assert_equal "cadence                      main                     (last: 2026-06-27 16:23)",
+                 Proj.format_recent_row("cadence", "main", "2026-06-27 16:23")
+  end
+
+  def test_format_time_renders_local_minute_precision
+    ENV["TZ"] = "UTC"
+    assert_equal "2026-06-28 04:09", Proj.format_time(1782619757)
+  ensure
+    ENV.delete("TZ")
+  end
+
   def test_parse_manifest_derives_type_and_depth_from_a_bare_line
     trees = Proj.parse_manifest("personal\n", "/root")
     assert_equal [{ dir: "/root/personal", depth: 1, type: "personal", exclude: ["ARCHIVE", "session-logs"] }], trees
@@ -523,7 +559,38 @@ class ProjAppTest < Minitest::Test
 
   private
 
-  def build_app(pwd:, worktree: nil)
+  def test_status_lists_git_projects_newest_first_with_branch_and_time
+    cadence = File.join(@personal, "cadence")
+    extra = File.join(@personal, "cadence-extra")
+    git = FakeGit.new(cadence => ["main\t1782509451\n", true],
+                      extra => ["feature\t1782571757\n", true])
+    app, _cd, out = build_app(pwd: @root, git: git)
+    assert_equal 0, app.run(["status"])
+    expected = [
+      Proj.format_recent_row("cadence-extra", "feature", Proj.format_time(1782571757)),
+      Proj.format_recent_row("cadence", "main", Proj.format_time(1782509451))
+    ].join("\n") + "\n"
+    assert_equal expected, out.string
+  end
+
+  def test_status_skips_non_git_and_commitless_projects
+    cadence = File.join(@personal, "cadence")
+    extra = File.join(@personal, "cadence-extra")
+    git = FakeGit.new(cadence => ["main\t1782509451\n", true],
+                      extra => ["", false])
+    app, _cd, out = build_app(pwd: @root, git: git)
+    assert_equal 0, app.run(["status"])
+    assert_includes out.string, "cadence "
+    refute_includes out.string, "cadence-extra"
+  end
+
+  class FakeGit
+    def initialize(by_dir) = @by_dir = by_dir
+
+    def capture(*args, **) = @by_dir.fetch(args[1], ["", false])
+  end
+
+  def build_app(pwd:, worktree: nil, git: nil)
     cd = []
     out = StringIO.new
     err = StringIO.new
@@ -531,7 +598,7 @@ class ProjAppTest < Minitest::Test
     resolver = worktree || ->(path, name) { wt_calls << [path, name]; 0 }
     app = Proj::App.new(
       trees: @trees, pwd: pwd, out: out, err: err,
-      cd: ->(path) { cd << path }, cache: ->(_) {}, paths: ->(_) {}, worktree: resolver
+      cd: ->(path) { cd << path }, cache: ->(_) {}, paths: ->(_) {}, worktree: resolver, git: git
     )
     [app, cd, out, err, wt_calls]
   end

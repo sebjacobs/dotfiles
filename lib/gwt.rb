@@ -158,6 +158,19 @@ module Gwt
     names.select { |n| n.include?(query) }
   end
 
+  # Render a unix commit time as `YYYY-MM-DD HH:MM` in the local zone, matching
+  # `proj status` and `jotter ls` so the listings read alike.
+  def format_time(unix) = Time.at(unix).strftime("%Y-%m-%d %H:%M")
+
+  # The single dir among +dirs+ that contains +pwd+ — pwd itself or its nearest
+  # ancestor (longest match wins) — so when the cwd is inside a worktree only
+  # that worktree, never its enclosing root, gets the current-marker. Matches are
+  # segment-aligned, so a sibling sharing a name prefix (`repo-x` vs `repo`)
+  # never counts.
+  def current_dir(pwd, dirs)
+    dirs.select { |dir| pwd == dir || pwd.start_with?("#{dir}/") }.max_by(&:length)
+  end
+
   # Format the ahead/behind suffix shown in `status` (" ↑2 ↓1", " ↑2", "").
   def format_position(ahead, behind)
     ahead = ahead.to_i
@@ -514,9 +527,7 @@ module Gwt
     end
 
     def cmd_ls
-      return no_worktrees if worktrees.empty?
-
-      worktrees.each do |wt|
+      listed_worktrees.each do |wt|
         dir = wt[:path]
         @out.puts format("%s%-40s %s", marker(dir), File.basename(dir), wt[:branch] || "???")
       end
@@ -532,22 +543,31 @@ module Gwt
       0
     end
 
+    # The root plus every worktree, ordered newest-commit-first, each row showing
+    # the dir name, its branch, a [dirty] flag, the ahead/behind of that branch vs
+    # the root's branch, and the last-commit timestamp. The recency order makes
+    # "what was I last on?" the top line; the root sorts in by its own commit time
+    # like any other checkout (its position column is empty — it can't be ahead of
+    # itself).
     def cmd_status
-      return no_worktrees if worktrees.empty?
-
       main_branch_out, ok = @git.capture("-C", @root, "rev-parse", "--abbrev-ref", "HEAD")
       main_branch = ok ? main_branch_out.strip : "main"
 
-      worktrees.each do |wt|
+      rows = listed_worktrees.map do |wt|
         dir = wt[:path]
-        name = File.basename(dir)
         branch = wt[:branch] || "???"
+        time_out, = @git.capture("-C", dir, "log", "-1", "--format=%ct")
         dirty_out, = @git.capture("-C", dir, "status", "--porcelain")
-        dirty = dirty_out.strip.empty? ? "" : " [dirty]"
         counts, = @git.capture("-C", dir, "rev-list", "--left-right", "--count", "#{main_branch}...#{branch}")
         ahead, behind = Gwt.parse_ahead_behind(counts)
-        position = Gwt.format_position(ahead, behind)
-        @out.puts format("%s%-30s %-30s%s%s", marker(dir), name, branch, dirty, position)
+        { dir: dir, name: File.basename(dir), branch: branch, time: time_out.to_s.strip.to_i,
+          dirty: dirty_out.strip.empty? ? "" : " [dirty]", position: Gwt.format_position(ahead, behind) }
+      end
+
+      rows.sort_by { |row| -row[:time] }.each do |row|
+        stamp = row[:time].positive? ? " (last: #{Gwt.format_time(row[:time])})" : ""
+        @out.puts format("%s%-30s %-30s%s%s%s", marker(row[:dir]), row[:name], row[:branch],
+                         row[:dirty], row[:position], stamp)
       end
       0
     end
@@ -620,11 +640,11 @@ module Gwt
           cd <name>           cd into an existing worktree
           mv [-f] <name> <new-name>  Rename a worktree's directory + Claude history (-f skips the prompt)
           zed [<name>]        Open a worktree in a new Zed window (current if no name)
-          ls                  List worktrees
+          ls                  List the root and its worktrees
           rm [-f] <name>      Remove a worktree or orphaned directory (-f forces a dirty one)
           prune [-f]          Clear phantom git registrations and orphaned dirs (-f skips prompts)
           root [-p]           cd back to the main worktree root (or echo it with -p)
-          status              Overview of all worktrees
+          status              Root + worktrees, newest-commit-first, with timestamps
           path [<name>]       Echo absolute path of a worktree (current if no name)
       USAGE
       code
@@ -688,6 +708,13 @@ module Gwt
 
     def worktree_dirs = worktrees.map { |wt| wt[:path] }
 
+    # The main worktree (git always reports it first), prepended to `ls`/`status`
+    # so the root checkout lists alongside its worktrees rather than being the one
+    # checkout the listing omits.
+    def root_entry = @all_worktrees.first
+
+    def listed_worktrees = [root_entry] + worktrees
+
     def registered?(dir) = @all_worktrees.any? { |wt| wt[:path] == dir && !wt[:prunable] }
 
     # Directories under @wt_base that git does not register as a live worktree.
@@ -707,7 +734,11 @@ module Gwt
         .map { |wt| wt[:path] }
     end
 
-    def marker(dir) = @pwd.start_with?(dir) ? "* " : "  "
+    # The current dir is the longest listed path containing @pwd, so inside a
+    # worktree only that worktree is starred — never the root it nests under.
+    def current = @current ||= Gwt.current_dir(@pwd, listed_worktrees.map { |wt| wt[:path] })
+
+    def marker(dir) = dir == current ? "* " : "  "
 
     def no_worktrees
       @out.puts "No worktrees in .claude/worktrees/"

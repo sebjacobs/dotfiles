@@ -155,6 +155,37 @@ module Proj
 
   def tags_for(content) = split_tags(parse_proj_file(content)["tags"])
 
+  # Pull the most-recent branch and its commit time from a single
+  # `git for-each-ref --sort=-committerdate --count=1` line (tab-separated
+  # `branch<TAB>unix`). Returns [branch, unix_int] or nil when the project has
+  # no branches (a repo with no commits), so `recent` skips it. Kept pure so the
+  # parsing is unit-tested without spawning git.
+  def parse_for_each_ref(output)
+    line = output.to_s.lines.first&.strip
+    return nil if line.nil? || line.empty?
+
+    branch, _, unix = line.partition("\t")
+    return nil if branch.empty? || unix.empty?
+
+    [branch, unix.to_i]
+  end
+
+  # Order `recent` entries newest-first, tie-broken by name so the listing is
+  # stable when two projects share a commit second. Entries are
+  # {key:, branch:, time:} hashes; +time+ is a unix int.
+  def sort_recent(entries) = entries.sort_by { |entry| [-entry[:time], entry[:key]] }
+
+  # Format a unix timestamp the way `jotter ls` does — `YYYY-MM-DD HH:MM` in the
+  # local zone — so the two listings read alike.
+  def format_time(unix) = Time.at(unix).strftime("%Y-%m-%d %H:%M")
+
+  # A `recent` row: project name, its most-recent branch, then the timestamp in
+  # the same `(last: …)` shape jotter uses. Columns are padded so names and
+  # branches line up down the listing.
+  def format_recent_row(key, branch, time_str)
+    format("%-28s %-24s (last: %s)", key, branch, time_str)
+  end
+
   def read_proj(dir)
     path = File.join(dir, PROJ_FILE)
     File.file?(path) ? File.read(path) : ""
@@ -258,7 +289,7 @@ module Proj
   # to change into, +cache+ receives the key list to persist for completion.
   class App
     def initialize(trees:, pwd:, out:, err:, cd:, cache:, paths: ->(_) {}, types: ->(_) {}, tags: ->(_) {}, worktree: nil,
-                   sys: nil, home: Dir.home, confirm: ->(_) { false }, jotter: ->(*) {})
+                   sys: nil, git: nil, home: Dir.home, confirm: ->(_) { false }, jotter: ->(*) {})
       @trees = trees
       @pwd = pwd
       @out = out
@@ -270,6 +301,7 @@ module Proj
       @tags = tags
       @worktree = worktree
       @sys = sys || Gwt::System.new
+      @git = git || Gwt::Git.new
       @home = home
       @confirm = confirm
       @jotter = jotter
@@ -292,6 +324,7 @@ module Proj
 
       return 0 if name == "--list"
       return cmd_ls(map, types, tags, argv.drop(1)) if name == "ls"
+      return cmd_status(map) if name == "status"
       return cmd_mv(map, argv.drop(1)) if name == "mv"
       return print_current_or_list(root, map, types, tags) if name.nil? || name.empty?
 
@@ -368,6 +401,32 @@ module Proj
         @out.puts "" unless i.zero?
         @out.puts type
         group_keys.each { |key| @out.puts Proj.format_ls_row(key, tags[key]) }
+      end
+      0
+    end
+
+    # List every git project newest-first by its most-recent commit, showing the
+    # project name, the branch carrying that commit, and the timestamp (the same
+    # `(last: …)` shape `jotter ls` uses). One `for-each-ref` per project sees all
+    # local branches at once — main and every worktree's branch share the repo's
+    # refs — so the top line is the latest branch and its time in a single call.
+    # Non-git directories (for-each-ref fails) and commit-less repos (no branch)
+    # drop out, so only dated projects appear. `status` shadows any project
+    # literally named "status" — an accepted edge, as with `ls`/`mv`.
+    def cmd_status(map)
+      entries = map.filter_map do |key, dir|
+        out, ok = @git.capture("-C", dir, "for-each-ref", "--sort=-committerdate", "--count=1",
+                               "refs/heads", "--format=%(refname:short)%09%(committerdate:unix)")
+        next unless ok
+
+        branch, time = Proj.parse_for_each_ref(out)
+        next if branch.nil?
+
+        { key: key, branch: branch, time: time }
+      end
+
+      Proj.sort_recent(entries).each do |entry|
+        @out.puts Proj.format_recent_row(entry[:key], entry[:branch], Proj.format_time(entry[:time]))
       end
       0
     end

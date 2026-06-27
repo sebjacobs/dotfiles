@@ -530,7 +530,7 @@ module Gwt
     def cmd_ls
       listed_worktrees.each do |wt|
         dir = wt[:path]
-        @out.puts format("%s%-40s %s", marker(dir), File.basename(dir), wt[:branch] || "???")
+        @out.puts format("%s%-40s %s", marker(dir), display_name(dir), wt[:branch] || "???")
       end
       0
     end
@@ -561,7 +561,7 @@ module Gwt
         dirty_out, = @git.capture("-C", dir, "status", "--porcelain")
         counts, = @git.capture("-C", dir, "rev-list", "--left-right", "--count", "#{main_branch}...#{branch}")
         ahead, behind = Gwt.parse_ahead_behind(counts)
-        { dir: dir, name: File.basename(dir), branch: branch, time: time_out.to_s.strip.to_i,
+        { dir: dir, name: display_name(dir), branch: branch, time: time_out.to_s.strip.to_i,
           dirty: dirty_out.strip.empty? ? "" : " [dirty]", position: Gwt.format_position(ahead, behind) }
       end
 
@@ -740,6 +740,11 @@ module Gwt
     def current = @current ||= Gwt.current_dir(@pwd, listed_worktrees.map { |wt| wt[:path] })
 
     def marker(dir) = dir == current ? "* " : "  "
+
+    # Tag the main worktree in ls/status so its row reads as the root rather than
+    # just another checkout sharing the listing — it's the one entry `gwt cd`
+    # can't resolve by name (only `gwt root` reaches it).
+    def display_name(dir) = dir == @root ? "#{File.basename(dir)} (root)" : File.basename(dir)
 
     def no_worktrees
       @out.puts "No worktrees in .claude/worktrees/"

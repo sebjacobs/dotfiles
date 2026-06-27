@@ -687,13 +687,13 @@ class GwtAppTest < Minitest::Test
   def test_ls_with_no_worktrees_still_lists_the_root
     app, = build
     assert_equal 0, app.run(["ls"])
-    assert_match(/repo\s+main/, @out.string)
+    assert_match(/repo \(root\)\s+main/, @out.string)
   end
 
   def test_ls_lists_the_root_alongside_worktrees
     app, = build(worktrees: [["foo", "feature/x"]], pwd: ROOT)
     assert_equal 0, app.run(["ls"])
-    assert_match(/\* repo\s+main/, @out.string)
+    assert_match(/\* repo \(root\)\s+main/, @out.string)
     assert_match(/  foo\s+feature\/x/, @out.string)
   end
 
@@ -701,7 +701,7 @@ class GwtAppTest < Minitest::Test
     app, = build(worktrees: [["foo", "feature/x"]], pwd: "#{WT_BASE}/foo")
     assert_equal 0, app.run(["ls"])
     assert_match(/\* foo\s+feature\/x/, @out.string)
-    assert_match(/  repo\s+main/, @out.string)
+    assert_match(/  repo \(root\)\s+main/, @out.string)
   end
 
   def test_ls_excludes_orphaned_directories
@@ -751,7 +751,7 @@ class GwtAppTest < Minitest::Test
     assert_equal 0, app.run(["status"])
     lines = @out.string.lines.map(&:chomp).reject(&:empty?)
     assert_match(/foo/, lines[0])
-    assert_match(/repo\s+main/, lines[1])
+    assert_match(/repo \(root\)\s+main/, lines[1])
   end
 
   def test_bare_name_cds_into_a_matching_worktree

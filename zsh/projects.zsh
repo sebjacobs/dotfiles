@@ -6,9 +6,10 @@
 #   proj <client>/<name>     cd into a namespaced client project
 #                            (e.g. `proj acme/widget-tracker`)
 #   proj ls [<type>] [--tag T...]
-#                            list projects grouped by type (personal, client,
-#                            opensource), optionally narrowed to a type and/or
-#                            tags (repeatable --tag; a project must carry all).
+#                            list projects grouped by type (the categories
+#                            declared in $PROJ_ROOT/.projroot, e.g. personal,
+#                            private, client, opensource), optionally narrowed to
+#                            a type and/or tags (repeatable --tag; carry all).
 #                            Tags come from each project's gitignored .proj file
 #                            and show inline in the listing.
 #   proj mv <project> <new-name>
@@ -19,8 +20,8 @@
 #   proj .                   cd to the current project root
 #   proj                     inside a project print its root, else list all (`ls`)
 #
-# The searchable project trees are declared in lib/proj.rb's TREES list;
-# add a new kind of project (a new root dir) there in one line.
+# The searchable project trees are declared in the $PROJ_ROOT/.projroot
+# manifest; add a new kind of project (a new root dir) there in one line.
 
 PROJ_CACHE_FILE="${XDG_CACHE_HOME:-$HOME/.cache}/proj/keys"
 PROJ_PATHS_FILE="${XDG_CACHE_HOME:-$HOME/.cache}/proj/paths"
@@ -91,9 +92,10 @@ _proj_match_keys() {
 # Tab completion reads the cached name list rather than spawning Ruby per
 # keypress. A cold cache is warmed once with a single `--list` call. The first
 # argument fuzzy-matches project names (so `wid` completes
-# `acme/widget-tracker`), grouped by type — personal, then client, then
-# opensource — from the cached name->type map; the second completes worktree
-# names under the chosen project, resolving a partial project name the same way.
+# `acme/widget-tracker`), grouped by type in the manifest's order (derived from
+# the cached name->type map, not hardcoded) so a new type needs no edit here;
+# the second completes worktree names under the chosen project, resolving a
+# partial project name the same way.
 _proj() {
   if [[ ! -s "$PROJ_CACHE_FILE" || ! -s "$PROJ_PATHS_FILE" || ! -s "$PROJ_TYPES_FILE" || ! -s "$PROJ_TAGS_FILE" ]]; then
     PROJ_CACHE_FILE="$PROJ_CACHE_FILE" PROJ_PATHS_FILE="$PROJ_PATHS_FILE" PROJ_TYPES_FILE="$PROJ_TYPES_FILE" PROJ_TAGS_FILE="$PROJ_TAGS_FILE" \
@@ -123,8 +125,13 @@ _proj() {
   fi
 
   if (( CURRENT == 2 )); then
+    # The cached types file lists keys in tree order, so its distinct types in
+    # first-seen order are the manifest's group order — no hardcoded type list.
+    local -a type_order
+    [[ -s "$PROJ_TYPES_FILE" ]] && type_order=("${(@f)$(awk -F'\t' '!seen[$2]++ { print $2 }' "$PROJ_TYPES_FILE")}")
+
     zstyle ':completion:*:*:proj:*' group-name ''
-    zstyle ':completion:*:*:proj:*' group-order commands personal client opensource
+    zstyle ':completion:*:*:proj:*' group-order commands $type_order
     compadd -J commands -X 'commands' -- ls mv
 
     local -a matches
@@ -137,20 +144,17 @@ _proj() {
       while IFS=$'\t' read -r k v || [[ -n "$k" ]]; do typeof[$k]=$v; done < "$PROJ_TYPES_FILE"
     fi
 
-    local -a personal client opensource untyped
-    local m
-    for m in $matches; do
-      case "${typeof[$m]}" in
-        personal)   personal+=$m ;;
-        client)     client+=$m ;;
-        opensource) opensource+=$m ;;
-        *)          untyped+=$m ;;
-      esac
+    local t m
+    for t in $type_order; do
+      local -a group
+      group=()
+      for m in $matches; do [[ "${typeof[$m]}" == "$t" ]] && group+=$m; done
+      (( ${#group} )) && compadd -U -J "$t" -X "$t" -- $group
     done
-    (( ${#personal} ))   && compadd -U -J personal   -X 'personal'   -- $personal
-    (( ${#client} ))     && compadd -U -J client     -X 'client'     -- $client
-    (( ${#opensource} )) && compadd -U -J opensource -X 'opensource' -- $opensource
-    (( ${#untyped} ))    && compadd -U -- $untyped
+
+    local -a untyped
+    for m in $matches; do [[ -z "${typeof[$m]}" ]] && untyped+=$m; done
+    (( ${#untyped} )) && compadd -U -- $untyped
   elif (( CURRENT == 3 )); then
     local -a matches
     matches=("${(@f)$(_proj_match_keys "${words[2]}")}")

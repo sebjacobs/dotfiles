@@ -131,6 +131,65 @@ class GwtPureTest < Minitest::Test
 end
 
 class GwtClaudeHistoryTest < Minitest::Test
+  PROJECTS = "/home/.claude/projects"
+
+  # Minimal System double for the migrate_paths move/merge loop: entries are
+  # keyed by directory path; a path "exists" iff it has an entries record.
+  class FakeHistSys
+    attr_reader :moves, :removes
+
+    def initialize(entries) = (@entries = entries; @moves = []; @removes = [])
+    def dir?(_path) = true
+    def entries(path) = @entries.fetch(path, [])
+    def exist?(path) = @entries.key?(path)
+    def move(src, dst) = @moves << [src, dst]
+    def remove(path) = @removes << path
+  end
+
+  def migrate_paths(entries, pairs)
+    sys = FakeHistSys.new(entries)
+    Gwt::ClaudeHistory.migrate_paths(
+      sys: sys, home: "/home", pairs: pairs, out: StringIO.new, err: StringIO.new
+    )
+    sys
+  end
+
+  def test_migrate_paths_renames_each_pair_by_exact_name
+    sys = migrate_paths(
+      { PROJECTS => ["-p-cadence", "-p-cadence--claude-worktrees-foo"] },
+      [["/p/cadence", "/p/notes"],
+       ["/p/cadence/.claude/worktrees/foo", "/p/notes/.claude/worktrees/foo"]]
+    )
+    assert_includes sys.moves, ["#{PROJECTS}/-p-cadence", "#{PROJECTS}/-p-notes"]
+    assert_includes sys.moves,
+                    ["#{PROJECTS}/-p-cadence--claude-worktrees-foo", "#{PROJECTS}/-p-notes--claude-worktrees-foo"]
+  end
+
+  # The reason proj mv can't reuse the prefix sweep: a sibling project sharing a
+  # name prefix must NOT be dragged along.
+  def test_migrate_paths_leaves_a_prefix_sibling_untouched
+    sys = migrate_paths(
+      { PROJECTS => ["-p-cadence", "-p-cadence-extra"] },
+      [["/p/cadence", "/p/notes"]]
+    )
+    assert_equal [["#{PROJECTS}/-p-cadence", "#{PROJECTS}/-p-notes"]], sys.moves
+    refute(sys.moves.any? { |_src, dst| dst.include?("extra") })
+  end
+
+  def test_migrate_paths_skips_pairs_with_no_existing_history
+    sys = migrate_paths({ PROJECTS => ["-p-cadence"] }, [["/p/never-logged", "/p/whatever"]])
+    assert_empty sys.moves
+  end
+
+  def test_migrate_paths_merges_into_an_existing_destination
+    sys = migrate_paths(
+      { PROJECTS => ["-p-cadence"], "#{PROJECTS}/-p-notes" => [], "#{PROJECTS}/-p-cadence" => ["s1.jsonl"] },
+      [["/p/cadence", "/p/notes"]]
+    )
+    assert_includes sys.moves, ["#{PROJECTS}/-p-cadence/s1.jsonl", "#{PROJECTS}/-p-notes/s1.jsonl"]
+    assert_includes sys.removes, "#{PROJECTS}/-p-cadence"
+  end
+
   def test_encode_replaces_every_slash_and_dot
     assert_equal "-Users-me-proj--claude-worktrees-foo",
                  Gwt::ClaudeHistory.encode("/Users/me/proj/.claude/worktrees/foo")

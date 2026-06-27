@@ -68,15 +68,47 @@ module Gwt
       end
     end
 
-    # Re-home the moved tree's session history. Best-effort by contract: never
-    # raises into the caller, because a worktree move that already succeeded must
-    # not be undone by a history hiccup. Side-effects go through the injected
-    # System seam so this stays testable without touching ~/.claude.
-    def migrate(sys:, home:, old_path:, new_path:, out:, err:)
-      base = File.join(home, ".claude", "projects")
+    def projects_dir(home) = File.join(home, ".claude", "projects")
+
+    # gwt mv: re-home a single moved tree by PREFIX sweep — the worktree's own
+    # history plus any session launched from a subdirectory of it. Best-effort by
+    # contract: never raises into the caller, because a move that already
+    # succeeded must not be undone by a history hiccup.
+    def migrate(sys:, home:, old_path:, new_path:, out:, err:, label: "gwt")
+      base = projects_dir(home)
       return unless sys.dir?(base)
 
-      rehome_map(sys.entries(base), old_path, new_path).each do |old_name, new_name|
+      apply_renames(sys, base, rehome_map(sys.entries(base), old_path, new_path), out, label: label)
+    rescue StandardError => e
+      warn_failed(err, label, e)
+    end
+
+    # proj mv: re-home an explicit list of [old_path, new_path] pairs, each by
+    # EXACT encoded name — no prefix sweep. A project move can't use the sweep:
+    # the encoding is lossy, so `cadence`'s prefix would wrongly pull in a sibling
+    # `cadence-extra`. The caller enumerates the precise set (project root + its
+    # actual worktrees) so only real descendants move. Same best-effort contract.
+    def migrate_paths(sys:, home:, pairs:, out:, err:, label: "proj")
+      base = projects_dir(home)
+      return unless sys.dir?(base)
+
+      names = sys.entries(base)
+      renames = pairs.filter_map do |old_path, new_path|
+        next if old_path == new_path
+
+        enc = encode(old_path)
+        [enc, encode(new_path)] if names.include?(enc)
+      end
+      apply_renames(sys, base, renames, out, label: label)
+    rescue StandardError => e
+      warn_failed(err, label, e)
+    end
+
+    # The shared move/merge loop: rename each ~/.claude/projects entry, merging
+    # the session files in when the destination already exists. Side-effects go
+    # through the injected System seam so this stays testable without ~/.claude.
+    def apply_renames(sys, base, renames, out, label:)
+      renames.each do |old_name, new_name|
         src = File.join(base, old_name)
         dst = File.join(base, new_name)
         next if src == dst
@@ -84,14 +116,16 @@ module Gwt
         if sys.exist?(dst)
           sys.entries(src).each { |child| sys.move(File.join(src, child), File.join(dst, child)) }
           sys.remove(src)
-          out.puts "gwt: merged Claude history into #{new_name}"
+          out.puts "#{label}: merged Claude history into #{new_name}"
         else
           sys.move(src, dst)
-          out.puts "gwt: moved Claude history #{old_name} -> #{new_name}"
+          out.puts "#{label}: moved Claude history #{old_name} -> #{new_name}"
         end
       end
-    rescue StandardError => e
-      err.puts "gwt: worktree moved, but migrating Claude history failed (#{e.message}). " \
+    end
+
+    def warn_failed(err, label, error)
+      err.puts "#{label}: tree moved, but migrating Claude history failed (#{error.message}). " \
                "Move the matching ~/.claude/projects entry by hand."
     end
   end

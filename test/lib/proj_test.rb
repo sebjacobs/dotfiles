@@ -505,6 +505,127 @@ class ProjAppTest < Minitest::Test
   end
 end
 
+class ProjMvTest < Minitest::Test
+  def setup
+    @root = Dir.mktmpdir
+    @home = Dir.mktmpdir
+    @personal = File.join(@root, "personal")
+    @proj = File.join(@personal, "cadence")
+    FileUtils.mkdir_p(@proj)
+    FileUtils.mkdir_p(File.join(@personal, "cadence-extra"))
+    @trees = [{ dir: @personal, depth: 1, exclude: [], type: "personal" }]
+    @projects = File.join(@home, ".claude", "projects")
+    FileUtils.mkdir_p(@projects)
+    @jotter_calls = []
+    @cd = []
+    @out = StringIO.new
+    @err = StringIO.new
+  end
+
+  def teardown
+    FileUtils.remove_entry(@root)
+    FileUtils.remove_entry(@home)
+  end
+
+  def enc(path) = path.gsub(%r{[/.]}, "-")
+
+  def seed_history(path, file = "s.jsonl")
+    dir = File.join(@projects, enc(path))
+    FileUtils.mkdir_p(dir)
+    File.write(File.join(dir, file), "entry")
+    dir
+  end
+
+  def app(confirm: true)
+    Proj::App.new(
+      trees: @trees, pwd: @root, out: @out, err: @err,
+      cd: ->(p) { @cd << p }, cache: ->(_) {}, paths: ->(_) {}, types: ->(_) {}, tags: ->(_) {},
+      home: @home, confirm: ->(_) { confirm }, jotter: ->(o, n, p) { @jotter_calls << [o, n, p] }
+    )
+  end
+
+  def test_mv_renames_the_directory
+    assert_equal 0, app.run(["mv", "cadence", "notes"])
+    assert path_exists?(File.join(@personal, "notes"))
+    refute path_exists?(@proj)
+  end
+
+  def test_mv_migrates_the_projects_claude_history
+    seed_history(@proj)
+    app.run(["mv", "cadence", "notes"])
+    assert path_exists?(File.join(@projects, enc(File.join(@personal, "notes")), "s.jsonl"))
+    refute path_exists?(File.join(@projects, enc(@proj)))
+  end
+
+  def test_mv_leaves_a_sibling_projects_history_untouched
+    seed_history(@proj)
+    sibling = seed_history(File.join(@personal, "cadence-extra"))
+    app.run(["mv", "cadence", "notes"])
+    assert path_exists?(sibling), "sibling cadence-extra history must not be swept along"
+  end
+
+  def test_mv_migrates_worktree_history_under_the_project
+    wt = File.join(@proj, ".claude", "worktrees", "foo")
+    FileUtils.mkdir_p(wt)
+    seed_history(wt)
+    app.run(["mv", "cadence", "notes"])
+    moved = File.join(@projects, enc(File.join(@personal, "notes", ".claude", "worktrees", "foo")))
+    assert path_exists?(moved)
+  end
+
+  def test_mv_delegates_to_jotter_for_a_git_repo
+    FileUtils.mkdir_p(File.join(@proj, ".git"))
+    app.run(["mv", "cadence", "notes"])
+    assert_equal [["cadence", "notes", File.join(@personal, "notes")]], @jotter_calls
+  end
+
+  def test_mv_skips_jotter_for_a_non_git_directory
+    app.run(["mv", "cadence", "notes"])
+    assert_empty @jotter_calls
+  end
+
+  def test_mv_declined_changes_nothing
+    seed_history(@proj)
+    assert_equal 1, app(confirm: false).run(["mv", "cadence", "notes"])
+    assert path_exists?(@proj)
+    refute path_exists?(File.join(@personal, "notes"))
+    assert_empty @jotter_calls
+  end
+
+  def test_mv_cds_into_the_renamed_project_when_inside_it
+    inside = app
+    inside.instance_variable_set(:@pwd, File.join(@proj, "lib"))
+    inside.run(["mv", "cadence", "notes"])
+    assert_equal [File.join(@personal, "notes", "/lib")], @cd
+  end
+
+  def test_mv_rejects_a_slash_in_the_new_name
+    assert_equal 1, app.run(["mv", "cadence", "a/b"])
+    assert_match(/single path segment/, @err.string)
+    assert path_exists?(@proj)
+  end
+
+  def test_mv_rejects_an_existing_target
+    FileUtils.mkdir_p(File.join(@personal, "notes"))
+    assert_equal 1, app.run(["mv", "cadence", "notes"])
+    assert_match(/already exists/, @err.string)
+  end
+
+  def test_mv_errors_on_an_unknown_project
+    assert_equal 1, app.run(["mv", "nope", "notes"])
+    assert_match(/No project matching: nope/, @err.string)
+  end
+
+  def test_mv_requires_two_arguments
+    assert_equal 1, app.run(["mv", "cadence"])
+    assert_match(/Usage: proj mv/, @err.string)
+  end
+
+  private
+
+  def path_exists?(path) = File.exist?(path)
+end
+
 class ProjDelegationLoadTest < Minitest::Test
   HELPER = File.expand_path("../../lib/proj.rb", __dir__)
 

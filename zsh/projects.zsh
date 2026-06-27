@@ -11,6 +11,11 @@
 #                            tags (repeatable --tag; a project must carry all).
 #                            Tags come from each project's gitignored .proj file
 #                            and show inline in the listing.
+#   proj mv <project> <new-name>
+#                            rename a project's directory and carry its
+#                            per-checkout history: Claude transcripts (project +
+#                            worktrees) and jotter logs (via `jotter mv`).
+#                            Confirms first. <new-name> is a single path segment.
 #   proj .                   cd to the current project root
 #   proj                     inside a project print its root, else list all (`ls`)
 #
@@ -108,10 +113,19 @@ _proj() {
     return
   fi
 
+  # `proj mv <project> <new-name>`: complete the project to rename in slot one;
+  # the new name is free text, so slot two offers nothing.
+  if (( CURRENT == 3 )) && [[ "${words[2]}" == mv ]]; then
+    local -a matches
+    matches=("${(@f)$(_proj_match_keys "${words[3]}")}")
+    (( ${#matches} )) && compadd -- $matches
+    return
+  fi
+
   if (( CURRENT == 2 )); then
     zstyle ':completion:*:*:proj:*' group-name ''
     zstyle ':completion:*:*:proj:*' group-order commands personal client opensource
-    compadd -J commands -X 'commands' -- ls
+    compadd -J commands -X 'commands' -- ls mv
 
     local -a matches
     matches=("${(@f)$(_proj_match_keys "${words[2]}")}")

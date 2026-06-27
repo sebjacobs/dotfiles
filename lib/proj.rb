@@ -25,6 +25,12 @@
 # out (`--list`) once, to warm a cold cache.
 
 require "fileutils"
+require "open3"
+
+# Pulls in the sibling gwt.rb for Gwt::ClaudeHistory (project-history migration)
+# and Gwt::System (the filesystem seam). Its `__FILE__ == $PROGRAM_NAME` guard
+# keeps gwt's CLI dormant when required rather than run directly.
+require_relative "gwt"
 
 module Proj
   module_function
@@ -209,7 +215,8 @@ module Proj
   # resolution logic above stays pure and testable: +cd+ receives the directory
   # to change into, +cache+ receives the key list to persist for completion.
   class App
-    def initialize(trees:, pwd:, out:, err:, cd:, cache:, paths: ->(_) {}, types: ->(_) {}, tags: ->(_) {}, worktree: nil)
+    def initialize(trees:, pwd:, out:, err:, cd:, cache:, paths: ->(_) {}, types: ->(_) {}, tags: ->(_) {}, worktree: nil,
+                   sys: nil, home: Dir.home, confirm: ->(_) { false }, jotter: ->(*) {})
       @trees = trees
       @pwd = pwd
       @out = out
@@ -220,6 +227,10 @@ module Proj
       @types = types
       @tags = tags
       @worktree = worktree
+      @sys = sys || Gwt::System.new
+      @home = home
+      @confirm = confirm
+      @jotter = jotter
     end
 
     def run(argv)
@@ -239,6 +250,7 @@ module Proj
 
       return 0 if name == "--list"
       return cmd_ls(map, types, tags, argv.drop(1)) if name == "ls"
+      return cmd_mv(map, argv.drop(1)) if name == "mv"
       return print_current_or_list(root, map, types, tags) if name.nil? || name.empty?
 
       path = resolve_project(name, map)
@@ -312,6 +324,62 @@ module Proj
         group_keys.each { |key| @out.puts Proj.format_ls_row(key, tags[key]) }
       end
       0
+    end
+
+    # Rename a project's directory to <new-name> within the same parent, then
+    # carry the per-checkout history that keys off its path: Claude transcripts
+    # (project root + every worktree, migrated precisely) and jotter logs (whose
+    # project name is the dir basename — delegated to `jotter mv`). Confirms
+    # first; the history moves run only after the directory move succeeds.
+    # `mv` shadows any project literally named "mv" — an accepted edge.
+    def cmd_mv(map, args)
+      old, new = args
+      return error("Usage: proj mv <project> <new-name>") if [old, new].any? { |a| a.nil? || a.empty? }
+      return error("proj mv: <new-name> must be a single path segment (no '/')") if new.include?("/")
+
+      old_path = resolve_project(old, map)
+      return 1 if old_path.nil?
+
+      new_path = File.join(File.dirname(old_path), new)
+      return error("proj mv: '#{new}' already exists at #{new_path}") if File.exist?(new_path)
+
+      old_name = File.basename(old_path)
+      return 1 unless @confirm.call("Move project '#{old_name}' -> '#{new}' (directory, Claude history, jotter logs)? [y/N] ")
+
+      begin
+        @sys.move(old_path, new_path)
+      rescue StandardError => e
+        return error("proj mv: failed to move #{old_path} -> #{new_path} (#{e.message})")
+      end
+
+      migrate_claude_history(old_path, new_path)
+      migrate_jotter_logs(old_name, new, new_path)
+      change_dir(new_path + @pwd[old_path.length..]) if @pwd == old_path || @pwd.start_with?("#{old_path}/")
+      0
+    end
+
+    # The precise set of paths whose Claude history must follow the move: the
+    # project root plus each actual worktree under it (enumerated post-move from
+    # the new location). Exact pairs, so a sibling project sharing a name prefix
+    # is never swept in.
+    def migrate_claude_history(old_path, new_path)
+      pairs = [[old_path, new_path]]
+      Dir.glob(File.join(new_path, ".claude", "worktrees", "*")).each do |wt|
+        next unless File.directory?(wt)
+
+        name = File.basename(wt)
+        pairs << [File.join(old_path, ".claude", "worktrees", name), File.join(new_path, ".claude", "worktrees", name)]
+      end
+      Gwt::ClaudeHistory.migrate_paths(sys: @sys, home: @home, pairs: pairs, out: @out, err: @err)
+    end
+
+    # Hand the jotter log rename to jotter itself (it owns its git-backed store),
+    # but only for a git repo — jotter keys logs by the toplevel basename and has
+    # nothing to migrate for a plain directory.
+    def migrate_jotter_logs(old_name, new_name, new_path)
+      return unless File.exist?(File.join(new_path, ".git"))
+
+      @jotter.call(old_name, new_name, new_path)
     end
 
     # Inside a project, echo its root (handy for `cd "$(proj)"`); outside any
@@ -403,6 +471,26 @@ if __FILE__ == $PROGRAM_NAME
     ).run(["cd", name])
   end
 
+  confirm = lambda do |prompt|
+    $stdout.print(prompt)
+    $stdout.flush
+    answer = $stdin.getc
+    $stdout.puts
+    answer&.downcase == "y"
+  end
+
+  # Hand a project-logs rename to jotter, which owns its git-backed store. Run
+  # from inside the moved project so jotter resolves the right data_dir from the
+  # .jotter config that travelled with the directory. Best-effort: a project
+  # with no logs makes jotter exit non-zero, which is condensed to one line
+  # rather than failing the whole move.
+  jotter_sink = lambda do |old_name, new_name, cwd|
+    out, status = Open3.capture2e("jotter", "mv", old_name, new_name, chdir: cwd)
+    $stderr.puts "proj: jotter logs not migrated (#{out.lines.first&.strip})" unless status.success?
+  rescue StandardError => e
+    $stderr.puts "proj: jotter not available, logs left under '#{old_name}' (#{e.message})"
+  end
+
   app = Proj::App.new(
     trees: Proj::TREES,
     pwd: ENV.fetch("PWD", Dir.pwd),
@@ -413,7 +501,9 @@ if __FILE__ == $PROGRAM_NAME
     paths: paths_sink,
     types: types_sink,
     tags: tags_sink,
-    worktree: worktree_sink
+    worktree: worktree_sink,
+    confirm: confirm,
+    jotter: jotter_sink
   )
 
   exit app.run(ARGV)

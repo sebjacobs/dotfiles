@@ -42,9 +42,10 @@ module Proj
   # categories; the tree list below is derived from it rather than hardcoded.
   MANIFEST_FILE = ".projroot"
 
-  # ARCHIVE is junk in every category, so it's excluded globally rather than per
+  # Directory names that are never a project in any category — ARCHIVE (archived
+  # work) and session-logs (a jotter store) — excluded globally rather than per
   # line in the manifest.
-  GLOBAL_EXCLUDE = ["ARCHIVE"].freeze
+  GLOBAL_EXCLUDE = ["ARCHIVE", "session-logs"].freeze
 
   # Parse a manifest into ordered tree hashes. Each non-comment line is
   # `<dir> [depth=N] [type=NAME]`, with <dir> relative to +root+: a bare line

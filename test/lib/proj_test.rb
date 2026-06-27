@@ -125,7 +125,7 @@ class ProjPureTest < Minitest::Test
 
   def test_parse_manifest_derives_type_and_depth_from_a_bare_line
     trees = Proj.parse_manifest("personal\n", "/root")
-    assert_equal [{ dir: "/root/personal", depth: 1, type: "personal", exclude: ["ARCHIVE"] }], trees
+    assert_equal [{ dir: "/root/personal", depth: 1, type: "personal", exclude: ["ARCHIVE", "session-logs"] }], trees
   end
 
   def test_parse_manifest_honors_depth_and_type_overrides
@@ -202,11 +202,14 @@ class ProjTreeTest < Minitest::Test
 
     mkdirs(
       "personal/cadence",
+      "personal/notes",
       "personal/session-logs",
       "personal/ARCHIVE/old",
+      "personal/PRIVATE/notes",
       "personal/PRIVATE/session-logs",
       "personal/PRIVATE/secret",
       "client/acme/widget-tracker",
+      "client/acme/session-logs",
       "client/ARCHIVE/x",
       "client/acme/ARCHIVE",
       "opensource/ripgrep"
@@ -234,7 +237,13 @@ class ProjTreeTest < Minitest::Test
 
   def test_build_map_private_wins_collision_over_personal
     map = Proj.build_map(@trees)
-    assert_equal File.join(@personal, "PRIVATE/session-logs"), map["session-logs"]
+    assert_equal File.join(@personal, "PRIVATE/notes"), map["notes"]
+  end
+
+  def test_build_map_skips_session_logs_everywhere
+    keys = Proj.build_map(@trees).keys
+    refute_includes keys, "session-logs"
+    refute_includes keys, "acme/session-logs"
   end
 
   def test_build_types_labels_each_tree

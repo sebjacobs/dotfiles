@@ -146,6 +146,22 @@ The default `sed` on macOS is BSD `sed`, which does **not** support GNU extensio
 - No `gsed`? Use `perl -pi -e 's/\b.../.../g'` (Perl regex is always available), or fall back to a plain literal replacement when the target string isn't a substring of anything else in the file.
 - Always verify the substitution actually fired (re-grep for the old pattern) rather than assuming.
 
+## Git worktrees — use `gwt`, not raw `git worktree`
+
+When creating or managing git worktrees, reach for the **`gwt`** helper (defined in `zsh/gwt.zsh`) rather than raw `git worktree` commands. It places worktrees under `.claude/worktrees/`, supports fuzzy name matching, and — critically — honours a repo's `.worktreeinclude` to copy gitignored files (`.env`, `.claude/settings.local.json`, a symlinked `CLAUDE.local.md`) into the new worktree on `gwt add`. A bare `git worktree add` silently omits those, so the worktree loses per-checkout config and its mandated rules.
+
+Common commands:
+
+- `gwt add [-b] <branch>` — create a worktree (and branch with `-b`) and cd into it
+- `gwt <name>` / `gwt cd <name>` — cd into an existing worktree (fuzzy name)
+- `gwt ls` / `gwt status` — list worktrees / full overview
+- `gwt rm [-f] <name>` — remove a worktree (fuzzy name; `-f` skips the prompt)
+- `gwt path [<name>]` — echo a worktree's absolute path (current if omitted)
+- `gwt root [-p]` — cd back to the main worktree root (`-p` echoes the path)
+- `gwt cp [-f] <path>` — copy `<path>` from root into every worktree
+
+The directory-changing subcommands (`add`, `cd`, `root`) rely on a shell wrapper, so from a non-interactive `Bash` call prefer the non-cd forms (`gwt path`, `gwt ls`, `gwt status`) and `cd "$(gwt path <name>)"` when you need to be inside one. Full reference and `.worktreeinclude` semantics live in the header of `zsh/gwt.zsh`.
+
 ## Python tooling
 
 Always use `uv` for Python projects — never `pip`, `pip3`, or bare `python3`.

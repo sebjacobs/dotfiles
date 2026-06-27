@@ -12,6 +12,11 @@
 #                            a type and/or tags (repeatable --tag; carry all).
 #                            Tags come from each project's gitignored .proj file
 #                            and show inline in the listing.
+#   proj status              list git projects newest-first by their most-recent
+#                            commit, each row showing the project name, the branch
+#                            (across main + worktrees) carrying that commit, and
+#                            the timestamp (the `(last: …)` shape jotter ls uses).
+#                            The per-project equivalent is `gwt status`.
 #   proj mv <project> <new-name>
 #                            rename a project's directory and carry its
 #                            per-checkout history: Claude transcripts (project +
@@ -132,7 +137,7 @@ _proj() {
 
     zstyle ':completion:*:*:proj:*' group-name ''
     zstyle ':completion:*:*:proj:*' group-order commands $type_order
-    compadd -J commands -X 'commands' -- ls mv
+    compadd -J commands -X 'commands' -- ls status mv
 
     local -a matches
     matches=("${(@f)$(_proj_match_keys "${words[2]}")}")

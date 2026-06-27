@@ -15,9 +15,10 @@
 # under <project>/.claude/worktrees/. The project-root cd happens first, so an
 # unresolved worktree name still leaves the shell in the project root.
 #
-# Project trees are declared as data in TREES — adding a new kind of project
-# (a new root dir) is a one-line entry, picked up by both the name->path map
-# and the current-root resolver with no other edits.
+# Project trees are derived from the $PROJ_ROOT/.projroot manifest (see
+# load_trees / parse_manifest) — adding a kind of project is a one-line entry
+# there, picked up by both the name->path map and the current-root resolver
+# with no other edits.
 #
 # The set of project display-names is written to $PROJ_CACHE_FILE on every run,
 # and the name->path map to $PROJ_PATHS_FILE, so tab-completion can list a
@@ -35,27 +36,71 @@ require_relative "gwt"
 module Proj
   module_function
 
-  PROJ_DIR = ENV.fetch("PROJ_DIR", File.join(Dir.home, "Tech/Projects/personal"))
-  CLIENT_DIR = ENV.fetch("CLIENT_DIR", File.join(Dir.home, "Tech/Projects/client"))
-  OPENSOURCE_DIR = ENV.fetch("OPENSOURCE_DIR", File.join(Dir.home, "Tech/Projects/opensource"))
+  PROJ_ROOT = ENV.fetch("PROJ_ROOT", File.join(Dir.home, "Tech/Projects"))
 
-  # Each tree is one searchable root. `depth` is how many path segments below
-  # `dir` form a project: 1 keys projects by basename (`cadence`), 2 keys them
-  # namespaced (`acme/widget-tracker`). `exclude` drops any project
-  # whose segments hit those names. `type` is the completion grouping label —
-  # PRIVATE shares `personal` since it lives under the personal root. Order is
-  # precedence — later trees overwrite earlier ones on a key collision, so
-  # PRIVATE is listed before personal/* and personal wins `session-logs`. Add a
-  # kind of project by adding a line here.
-  TREES = [
-    { dir: File.join(PROJ_DIR, "PRIVATE"), depth: 1, exclude: ["ARCHIVE"], type: "personal" },
-    { dir: PROJ_DIR, depth: 1, exclude: ["ARCHIVE", "PRIVATE"], type: "personal" },
-    { dir: CLIENT_DIR, depth: 2, exclude: ["ARCHIVE"], type: "client" },
-    { dir: OPENSOURCE_DIR, depth: 1, exclude: ["ARCHIVE"], type: "opensource" }
-  ].freeze
+  # The manifest at $PROJ_ROOT/.projroot declares which directories are project
+  # categories; the tree list below is derived from it rather than hardcoded.
+  MANIFEST_FILE = ".projroot"
+
+  # Directory names that are never a project in any category — ARCHIVE (archived
+  # work) and session-logs (a jotter store) — excluded globally rather than per
+  # line in the manifest.
+  GLOBAL_EXCLUDE = ["ARCHIVE", "session-logs"].freeze
+
+  # Parse a manifest into ordered tree hashes. Each non-comment line is
+  # `<dir> [depth=N] [type=NAME]`, with <dir> relative to +root+: a bare line
+  # derives `type` from the dir's last segment and `depth` 1. Line order is
+  # precedence (later trees overwrite earlier ones on a key collision) and the
+  # group display order. A category nested inside another (e.g. personal/PRIVATE
+  # under personal) is auto-excluded from its parent's walk, replacing a manual
+  # exclude. Kept pure (string + root in, trees out) so it's unit-tested
+  # directly and a future manifest writer stays symmetric.
+  def parse_manifest(content, root)
+    trees = content.to_s.each_line.filter_map do |line|
+      line = line.strip
+      next if line.empty? || line.start_with?("#")
+
+      rel, *opts = line.split(/\s+/)
+      options = opts.each_with_object({}) do |opt, acc|
+        key, _, value = opt.partition("=")
+        acc[key] = value
+      end
+      { dir: File.join(root, rel), depth: (options["depth"] || "1").to_i,
+        type: options["type"].to_s.empty? ? rel.split("/").last : options["type"],
+        exclude: GLOBAL_EXCLUDE.dup }
+    end
+    apply_nested_excludes(trees)
+  end
+
+  # Skip any subdir that is itself a declared category root: each tree excludes
+  # the first segment of every other tree nested directly beneath it, so a parent
+  # category never lists a nested one as one of its projects.
+  def apply_nested_excludes(trees)
+    trees.map do |tree|
+      nested = trees.filter_map do |other|
+        next if other.equal?(tree)
+
+        descend(other[:dir], tree[:dir])&.split("/")&.first
+      end
+      tree.merge(exclude: (tree[:exclude] + nested).uniq)
+    end
+  end
+
+  # Build the tree list from $root/.projroot when present; otherwise fall back to
+  # scanning every top-level dir as a depth-1 category typed by its basename, so
+  # `proj` still works on a checkout with no manifest yet.
+  def load_trees(root = PROJ_ROOT)
+    manifest = File.join(root, MANIFEST_FILE)
+    return parse_manifest(File.read(manifest), root) if File.file?(manifest)
+
+    Dir.glob(File.join(root, "*"))
+      .select { |dir| File.directory?(dir) }
+      .sort
+      .map { |dir| { dir: dir, depth: 1, type: File.basename(dir), exclude: GLOBAL_EXCLUDE.dup } }
+  end
 
   # Build the display-name -> path map by walking every tree in precedence order.
-  def build_map(trees = TREES)
+  def build_map(trees = load_trees)
     trees.each_with_object({}) do |tree, map|
       project_dirs(tree).each { |dir| map[key_for(dir, tree[:depth])] = dir }
     end
@@ -63,20 +108,17 @@ module Proj
 
   # Build the display-name -> type map, walking trees in the same precedence
   # order as build_map so a collision's type matches its winning path.
-  def build_types(trees = TREES)
+  def build_types(trees = load_trees)
     trees.each_with_object({}) do |tree, types|
       project_dirs(tree).each { |dir| types[key_for(dir, tree[:depth])] = tree[:type] }
     end
   end
 
-  # The order `ls` and tab-completion present project groups in; mirrors the
-  # group-order zstyle in zsh/projects.zsh so the two stay consistent.
-  TYPE_ORDER = %w[personal client opensource].freeze
-
-  # Group project keys by type for `ls`: TYPE_ORDER first, any unrecognised type
-  # after (sorted), keys sorted within each group. Returns [[type, [keys]], ...]
-  # with empty groups dropped, so the caller just prints what it is handed.
-  def group_by_type(keys, types, order = TYPE_ORDER)
+  # Group project keys by type for `ls`: +order+ (the manifest's type order)
+  # first, any unrecognised type after (sorted), keys sorted within each group.
+  # Returns [[type, [keys]], ...] with empty groups dropped, so the caller just
+  # prints what it is handed.
+  def group_by_type(keys, types, order)
     grouped = keys.group_by { |k| types[k] }
     ordered = order.select { |type| grouped.key?(type) }
     extras = (grouped.keys - order).compact.sort
@@ -150,7 +192,7 @@ module Proj
   # Resolve the project root containing +pwd+, or nil if it sits outside every
   # tree (or inside an excluded segment such as ARCHIVE). The first tree that
   # claims +pwd+ wins, so the precedence order above settles overlaps.
-  def root_from_pwd(pwd, trees = TREES)
+  def root_from_pwd(pwd, trees = load_trees)
     trees.each do |tree|
       rel = descend(pwd, tree[:dir])
       next if rel.nil?
@@ -303,12 +345,16 @@ module Proj
     # Each project's tags show inline. A bad type errors with the known set so a
     # typo is obvious. `ls` shadows any project literally named "ls" — an
     # accepted edge, since no real project dir carries that name.
+    # The manifest's type order, derived from the tree list, driving both the
+    # group display order and the "known types" set for the bad-type error.
+    def type_order = @trees.map { |tree| tree[:type] }.uniq
+
     def cmd_ls(map, types, tags, args)
       filter = Proj.parse_ls_args(args)
       keys = map.keys
 
       if (type = filter[:type])
-        known = (Proj::TYPE_ORDER & types.values) | types.values.uniq.sort
+        known = type_order.select { |t| types.value?(t) }
         return error("proj ls: no such type '#{type}' (known: #{known.join(', ')})") unless known.include?(type)
 
         keys = keys.select { |key| types[key] == type }
@@ -318,7 +364,7 @@ module Proj
         keys = keys.select { |key| (filter[:tags] - (tags[key] || [])).empty? }
       end
 
-      Proj.group_by_type(keys, types).each_with_index do |(type, group_keys), i|
+      Proj.group_by_type(keys, types, type_order).each_with_index do |(type, group_keys), i|
         @out.puts "" unless i.zero?
         @out.puts type
         group_keys.each { |key| @out.puts Proj.format_ls_row(key, tags[key]) }
@@ -492,7 +538,7 @@ if __FILE__ == $PROGRAM_NAME
   end
 
   app = Proj::App.new(
-    trees: Proj::TREES,
+    trees: Proj.load_trees,
     pwd: ENV.fetch("PWD", Dir.pwd),
     out: $stdout,
     err: $stderr,

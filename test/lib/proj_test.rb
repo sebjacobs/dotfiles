@@ -60,20 +60,20 @@ class ProjPureTest < Minitest::Test
               "acme/widget" => "client", "dotfiles" => "personal" }
     assert_equal(
       [["personal", %w[cadence dotfiles]], ["client", ["acme/widget"]], ["opensource", ["ripgrep"]]],
-      Proj.group_by_type(keys, types)
+      Proj.group_by_type(keys, types, %w[personal client opensource])
     )
   end
 
   def test_group_by_type_drops_absent_groups
     assert_equal [["personal", ["cadence"]]],
-                 Proj.group_by_type(%w[cadence], { "cadence" => "personal" })
+                 Proj.group_by_type(%w[cadence], { "cadence" => "personal" }, %w[personal client])
   end
 
   def test_group_by_type_appends_unknown_types_sorted_last
     keys = %w[a b c]
     types = { "a" => "personal", "b" => "zeta", "c" => "alpha" }
     assert_equal [["personal", ["a"]], ["alpha", ["c"]], ["zeta", ["b"]]],
-                 Proj.group_by_type(keys, types)
+                 Proj.group_by_type(keys, types, %w[personal])
   end
 
   def test_parse_proj_file_reads_key_values_skipping_comments_and_blanks
@@ -122,6 +122,75 @@ class ProjPureTest < Minitest::Test
     assert_equal "  cadence                      [archived billable]",
                  Proj.format_ls_row("cadence", %w[archived billable])
   end
+
+  def test_parse_manifest_derives_type_and_depth_from_a_bare_line
+    trees = Proj.parse_manifest("personal\n", "/root")
+    assert_equal [{ dir: "/root/personal", depth: 1, type: "personal", exclude: ["ARCHIVE", "session-logs"] }], trees
+  end
+
+  def test_parse_manifest_honors_depth_and_type_overrides
+    trees = Proj.parse_manifest("client depth=2\nfoo type=bar\n", "/root")
+    assert_equal "/root/client", trees[0][:dir]
+    assert_equal 2, trees[0][:depth]
+    assert_equal "client", trees[0][:type]
+    assert_equal "bar", trees[1][:type]
+  end
+
+  def test_parse_manifest_types_a_nested_dir_by_its_last_segment
+    trees = Proj.parse_manifest("personal/PRIVATE\n", "/root")
+    assert_equal "/root/personal/PRIVATE", trees[0][:dir]
+    assert_equal "PRIVATE", trees[0][:type]
+  end
+
+  def test_parse_manifest_skips_comments_and_blank_lines
+    trees = Proj.parse_manifest("# a comment\n\npersonal\n", "/root")
+    assert_equal 1, trees.length
+    assert_equal "personal", trees[0][:type]
+  end
+
+  def test_parse_manifest_preserves_line_order
+    trees = Proj.parse_manifest("personal\nclient\nopensource\n", "/root")
+    assert_equal %w[personal client opensource], trees.map { |t| t[:type] }
+  end
+
+  def test_parse_manifest_excludes_a_nested_category_from_its_parent
+    trees = Proj.parse_manifest("personal\npersonal/PRIVATE type=private\n", "/root")
+    personal = trees.find { |t| t[:type] == "personal" }
+    assert_includes personal[:exclude], "PRIVATE"
+    refute_includes trees.find { |t| t[:type] == "private" }[:exclude], "PRIVATE"
+  end
+end
+
+class ProjLoadTreesTest < Minitest::Test
+  def setup
+    @root = Dir.mktmpdir
+    FileUtils.mkdir_p(File.join(@root, "personal"))
+    FileUtils.mkdir_p(File.join(@root, "client"))
+    FileUtils.mkdir_p(File.join(@root, "temp-backups"))
+  end
+
+  def teardown
+    FileUtils.remove_entry(@root)
+  end
+
+  def test_load_trees_reads_the_manifest_when_present
+    File.write(File.join(@root, ".projroot"), "personal\nclient depth=2\n")
+    trees = Proj.load_trees(@root)
+    assert_equal %w[personal client], trees.map { |t| t[:type] }
+    assert_equal 2, trees.find { |t| t[:type] == "client" }[:depth]
+  end
+
+  def test_load_trees_ignores_undeclared_dirs_under_an_allowlist_manifest
+    File.write(File.join(@root, ".projroot"), "personal\n")
+    trees = Proj.load_trees(@root)
+    refute_includes trees.map { |t| t[:type] }, "temp-backups"
+  end
+
+  def test_load_trees_falls_back_to_scanning_top_level_dirs_without_a_manifest
+    trees = Proj.load_trees(@root)
+    assert_equal %w[client personal temp-backups], trees.map { |t| t[:type] }.sort
+    assert(trees.all? { |t| t[:depth] == 1 })
+  end
 end
 
 class ProjTreeTest < Minitest::Test
@@ -133,22 +202,25 @@ class ProjTreeTest < Minitest::Test
 
     mkdirs(
       "personal/cadence",
+      "personal/notes",
       "personal/session-logs",
       "personal/ARCHIVE/old",
+      "personal/PRIVATE/notes",
       "personal/PRIVATE/session-logs",
       "personal/PRIVATE/secret",
       "client/acme/widget-tracker",
+      "client/acme/session-logs",
       "client/ARCHIVE/x",
       "client/acme/ARCHIVE",
       "opensource/ripgrep"
     )
 
-    @trees = [
-      { dir: File.join(@personal, "PRIVATE"), depth: 1, exclude: ["ARCHIVE"], type: "personal" },
-      { dir: @personal, depth: 1, exclude: ["ARCHIVE", "PRIVATE"], type: "personal" },
-      { dir: @client, depth: 2, exclude: ["ARCHIVE"], type: "client" },
-      { dir: @opensource, depth: 1, exclude: ["ARCHIVE"], type: "opensource" }
-    ]
+    @trees = Proj.parse_manifest(<<~MANIFEST, @root)
+      personal
+      personal/PRIVATE type=private
+      client depth=2
+      opensource
+    MANIFEST
   end
 
   def teardown
@@ -163,16 +235,22 @@ class ProjTreeTest < Minitest::Test
     assert_equal File.join(@opensource, "ripgrep"), map["ripgrep"]
   end
 
-  def test_build_map_personal_wins_collision_over_private
+  def test_build_map_private_wins_collision_over_personal
     map = Proj.build_map(@trees)
-    assert_equal File.join(@personal, "session-logs"), map["session-logs"]
+    assert_equal File.join(@personal, "PRIVATE/notes"), map["notes"]
+  end
+
+  def test_build_map_skips_session_logs_everywhere
+    keys = Proj.build_map(@trees).keys
+    refute_includes keys, "session-logs"
+    refute_includes keys, "acme/session-logs"
   end
 
   def test_build_types_labels_each_tree
     types = Proj.build_types(@trees)
 
     assert_equal "personal", types["cadence"]
-    assert_equal "personal", types["secret"]
+    assert_equal "private", types["secret"]
     assert_equal "client", types["acme/widget-tracker"]
     assert_equal "opensource", types["ripgrep"]
   end
@@ -631,7 +709,7 @@ class ProjDelegationLoadTest < Minitest::Test
 
   def test_cli_loads_sibling_gwt_helper_without_a_load_error
     Dir.mktmpdir do |empty|
-      env = { "PROJ_DIR" => empty, "CLIENT_DIR" => empty, "OPENSOURCE_DIR" => empty,
+      env = { "PROJ_ROOT" => empty,
               "PROJ_CD_FILE" => "", "PROJ_CACHE_FILE" => "", "PROJ_PATHS_FILE" => "" }
       _out, err, _status = Open3.capture3(env, RbConfig.ruby, HELPER, "no-such-project")
       refute_match(/cannot load such file/, err)

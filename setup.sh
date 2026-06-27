@@ -92,6 +92,13 @@ do
   ln -snf $source $target
 done
 
+# proj manifest: declares which dirs under $PROJ_ROOT are project categories
+# (see lib/proj.rb). Symlinked into $PROJ_ROOT (default ~/Tech/Projects) so a
+# fresh checkout knows the taxonomy before any project dir is cloned.
+proj_root="${PROJ_ROOT:-$HOME/Tech/Projects}"
+mkdir -p "$proj_root"
+ln -snf "$DOTFILES_HOME/proj/projroot" "$proj_root/.projroot"
+
 # launchd agents: symlink every repo-managed $LAUNCHD_PREFIX.* plist into
 # ~/Library/LaunchAgents and (re)load it, so a fresh checkout brings the agents
 # up without a re-login. Globbing the prefix rather than naming files means a new

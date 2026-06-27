@@ -1,0 +1,17 @@
+# proj categories — symlinked to $PROJ_ROOT/.projroot by setup.sh.
+#
+# One category per line: <dir> [depth=N] [type=NAME]
+#   <dir>  relative to $PROJ_ROOT; may be nested (personal/PRIVATE)
+#   depth  path segments below <dir> that form a project (default 1;
+#          2 keys projects namespaced, e.g. acme/widget-tracker)
+#   type   the `proj ls` / completion group label (default: the dir's
+#          last segment)
+#
+# Line order sets both the group display order and collision precedence —
+# a later line wins a name clash, so PRIVATE shadows a same-named public
+# project. Undeclared top-level dirs (temp-backups, …) are ignored. ARCHIVE
+# is skipped inside every category.
+personal
+personal/PRIVATE  type=private
+client            depth=2
+opensource

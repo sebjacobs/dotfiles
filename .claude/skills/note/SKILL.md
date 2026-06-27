@@ -5,7 +5,7 @@ description: Jot a single ad-hoc note to the jotter log — no commit, no handov
 
 # Note
 
-A casual jot. One observation, captured durably to the jotter log. **No commit, no handover, no timer change** — this does not checkpoint the session. For a walk-away checkpoint use `/save`; for end-of-session use `/finish`.
+A casual jot. One observation, captured durably to the jotter log. **No commit, no handover, no timer change** — this does not checkpoint the session. For a walk-away checkpoint use `/save`; for end-of-session use `/stop`.
 
 ---
 

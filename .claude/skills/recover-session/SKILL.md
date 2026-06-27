@@ -1,11 +1,11 @@
 ---
 name: recover-session
-description: Recover context from a crashed or unfinished session — check jotter logs first, fall back to Claude Code's raw JSONL transcript only if the jotter entries don't cover what happened. Use when the user says "/recover", "recover session", "what was I doing", or when /start detects the last entry isn't a finish.
+description: Recover context from a crashed or unfinished session — check jotter logs first, fall back to Claude Code's raw JSONL transcript only if the jotter entries don't cover what happened. Use when the user says "/recover", "recover session", "what was I doing", or when /start detects the last entry isn't a stop.
 ---
 
 # Recover Session
 
-Retrospective summary from Claude Code's JSONL session transcript. Use after a crash, unexpected exit, or any session that ended without running `/finish` — reconstructs what happened and writes a recovery entry to the session log so the next session can pick up cleanly.
+Retrospective summary from Claude Code's JSONL session transcript. Use after a crash, unexpected exit, or any session that ended without running `/stop` — reconstructs what happened and writes a recovery entry to the session log so the next session can pick up cleanly.
 
 ---
 
@@ -26,13 +26,13 @@ Check the last session log entry:
 jotter tail --project "$PROJECT" --branch "$BRANCH" --limit 1
 ```
 
-If the last entry is a `finish`, the session ended cleanly — nothing to recover. Tell the user and stop.
+If the last entry is a `stop` (or the legacy `finish`), the session ended cleanly — nothing to recover. Tell the user and stop.
 
 If the last entry is a `checkpoint` (or a legacy `break` from before the skills merged), the session was intentionally paused via `/save` — either to trim context before `/clear` or while stepping away briefly. Not a crash. Show the entry to the user and stop; they can continue the session normally. Only proceed to step 1 if the user explicitly says the session crashed or if the entry is clearly stale (e.g. >24h old with no further activity).
 
 If the last entry is a `start` with no follow-up, the previous session likely crashed before any checkpoint was written — proceed to step 1.
 
-**If there are no jotter entries at all for this project/branch, skip step 1 and go straight to step 2.** There is nothing for jotter to cover, so the transcript is the only source. Do not interpret "no entries" as "nothing to recover" — the whole point of `/recover` is that `/finish` didn't run.
+**If there are no jotter entries at all for this project/branch, skip step 1 and go straight to step 2.** There is nothing for jotter to cover, so the transcript is the only source. Do not interpret "no entries" as "nothing to recover" — the whole point of `/recover` is that `/stop` didn't run.
 
 ---
 
@@ -92,12 +92,12 @@ From the extracted conversation, synthesise a recovery entry:
 jotter write \
   --project "$PROJECT" \
   --branch "$BRANCH" \
-  --type finish \
+  --type stop \
   --content "<what was built/fixed, key decisions, where things stopped>" \
   --next "<priorities inferred from the session trajectory>"
 ```
 
-Use `--type finish` so the log correctly marks the session as closed.
+Use `--type stop` so the log correctly marks the session as closed.
 
 ---
 

@@ -1,13 +1,13 @@
 ---
 name: save-session
-description: Mid-session checkpoint or step-away — WIP-commit any dirty work, snapshot progress and what's next to the jotter log. Walk-away guarantee. Use when the user says "/save", "checkpoint", "save progress", "taking a break", "stepping away", "back in a bit", "pausing", or before risky operations like schema migrations, large refactors, or long-running tasks. For a casual note without committing use `/note`; for end of session use `/finish`.
+description: Mid-session checkpoint or step-away — WIP-commit any dirty work, snapshot progress and what's next to the jotter log. Walk-away guarantee. Use when the user says "/save", "checkpoint", "save progress", "taking a break", "stepping away", "back in a bit", "pausing", or before risky operations like schema migrations, large refactors, or long-running tasks. For a casual note without committing use `/note`; for end of session use `/stop`.
 ---
 
 # Save Session
 
 Mid-session checkpoint, also used for stepping away. **Walk-away guarantee:** when the skill completes, dirty work is committed and the log entry is written — safe to `/clear`, walk away, or continue.
 
-Use before risky operations (migrations, large refactors), before `/clear`, or when stepping away briefly. For a casual note with no commit, use `/note`. For end of session, use `/finish`.
+Use before risky operations (migrations, large refactors), before `/clear`, or when stepping away briefly. For a casual note with no commit, use `/note`. For end of session, use `/stop`.
 
 ---
 

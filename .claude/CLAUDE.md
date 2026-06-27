@@ -23,7 +23,7 @@ See `~/.claude/docs/eval_config_changes.md` for the full rubric, agent prompt te
 
 ## Session logging
 
-Session notes live in a private data repo via `jotter`, not in project repos. Skills handle it: `/start`, `/save`, `/finish`, `/note` call `jotter` — no manual session note management needed.
+Session notes live in a private data repo via `jotter`, not in project repos. Skills handle it: `/start`, `/save`, `/stop`, `/note` call `jotter` — no manual session note management needed.
 
 For retrospective queries ("what did we do yesterday?"), reach for `jotter ls` / `jotter search` (both support `--since`/`--until`) before diving into Claude Code's raw transcripts (`~/.claude/projects/*.jsonl`).
 
@@ -44,7 +44,7 @@ Principles:
 
 ## Session end routine
 
-Run `/finish` at the end of every session — the `finish-session` skill has the full steps. For mid-session checkpoints or stepping away briefly, use `/save`; for a quick note without committing, use `/note`.
+Run `/stop` at the end of every session — the `stop-session` skill has the full steps. For mid-session checkpoints or stepping away briefly, use `/save`; for a quick note without committing, use `/note`.
 
 Principles:
 - Check the project's CLAUDE.md for any additional session-end requirements

@@ -12,7 +12,7 @@ It's a symlinked folder: the real home is `~/dotfiles/.claude/`, which Claude Co
 
 - **[`CLAUDE.md`](CLAUDE.md)** — global instructions loaded at the start of every Claude Code session. Conventions for sessions, git, commits, reviews, and how I like Claude to behave.
 - **[`skills/`](skills/)** — custom slash commands. Each one is a self-contained folder with a `SKILL.md` describing when to invoke it and what it does. Highlights:
-  - `start-session` / `save-session` / `finish-session` / `note` — the session lifecycle, backed by [jotter](docs/jotter.md) for notes
+  - `start-session` / `save-session` / `stop-session` / `note` / `handover` — the session lifecycle, backed by [jotter](docs/jotter.md) for notes
   - `pingpong` — TDD ping-pong pairing mode
   - `branch-audit` — triage stale branches in a repo
   - `dennis` — say hi to the dachshund

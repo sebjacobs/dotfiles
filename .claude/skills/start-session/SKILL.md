@@ -31,9 +31,9 @@ Then check whether the previous session ended cleanly:
 jotter tail --project "$PROJECT" --branch "$BRANCH" --limit 1
 ```
 
-If the last entry is **not** a `finish` type (i.e. it's a `start`, `checkpoint`, or `break`), the previous session likely crashed or the user forgot `/finish`. Tell the user:
+If the last entry is **not** a `stop` type (or the legacy `finish`) — i.e. it's a `start`, `checkpoint`, or `break` — the previous session likely crashed or the user forgot `/stop`. Tell the user:
 
-> "The last session entry is a [type], not a finish — the previous session may not have run `/finish`. Want me to run `/recover` to reconstruct what happened, or skip and continue?"
+> "The last session entry is a [type], not a stop — the previous session may not have run `/stop`. Want me to run `/recover` to reconstruct what happened, or skip and continue?"
 
 Wait for their answer. If they say recover, invoke `/recover` before continuing with step 1.
 
@@ -52,7 +52,7 @@ If the user already has a goal in mind, skip the time-budget calibration and cro
 **If the user mentions a hard stop at a specific time** (e.g. "lunch at 1pm", "run at 2:30"), schedule a one-shot warning 15 minutes before using CronCreate:
 
 - `cron`: derived from the stop time minus 15 minutes (e.g. stop at 13:00 → `45 12 * * *`)
-- `prompt`: `Hard stop in ~15 mins — time to reach a clean stopping point and run /finish.`
+- `prompt`: `Hard stop in ~15 mins — time to reach a clean stopping point and run /stop.`
 - `recurring`: `false`
 
 Report the job ID so it can be cancelled if plans change.
@@ -81,7 +81,7 @@ jotter tail --project "$PROJECT" --branch main --limit 3
 
 If neither exists, skip straight to step 3 — no prior context to restore.
 
-Surface the most recent finish entry's `**Next:**` field — that's the handover from last session. Present it verbatim (or a tight summary) before proposing a goal, so the user knows you've picked up exactly where things left off.
+Surface the most recent `stop` (or legacy `finish`) entry's `**Next:**` field — that's the handover from last session. Present it verbatim (or a tight summary) before proposing a goal, so the user knows you've picked up exactly where things left off.
 
 Then check for recent **branch handovers** — `handover` entries on `main` distil branches that were completed and deleted, so they're the only bridge to work whose branch no longer exists:
 
@@ -138,7 +138,7 @@ Rules:
 **If the session is 30 minutes or shorter:** schedule a one-shot end warning instead of a recurring check-in — fire ~5 minutes before the end of the stated session duration:
 
 - `cron`: current time + (duration - 5 minutes), pinned to today's date
-- `prompt`: `Session almost up — time to reach a clean stopping point and run /finish.`
+- `prompt`: `Session almost up — time to reach a clean stopping point and run /stop.`
 - `recurring`: `false`
 
 **If the session is longer than 30 minutes:** schedule a recurring 30-minute check-in:
@@ -171,4 +171,4 @@ jotter write \
 
 When the user signals they're done or approaching a hard stop, prompt:
 
-> "Ready to wrap up? Run `/finish` and I'll take you through the end-of-session checklist."
+> "Ready to wrap up? Run `/stop` and I'll take you through the end-of-session checklist."

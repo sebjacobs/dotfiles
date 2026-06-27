@@ -30,10 +30,10 @@ jotter write \
   --next "What to pick up next"   # optional, used by /start for handover
 ```
 
-**`--type` values:** `start`, `checkpoint`, `note`, `break`, `finish`
+**`--type` values:** `start`, `checkpoint`, `note`, `break`, `stop`, `handover` (`finish` is a legacy alias for `stop`)
 
-- All writes (finish included) commit locally only. Pushing is asynchronous — a launchd timer (`jotter daemon`) runs `jotter sync --all` on an interval; force it now with `jotter sync`.
-- `--next` is optional but recommended on `finish` and `break` — `/start` reads it to restore context.
+- All writes (stop included) commit locally only. Pushing is asynchronous — a launchd timer (`jotter daemon`) runs `jotter sync --all` on an interval; force it now with `jotter sync`.
+- `--next` is optional but recommended on `stop` and `break` — `/start` reads it to restore context.
 - `jotter project` and `jotter branch` resolve the current git repo's project name and branch automatically; prefer them over hardcoding.
 
 **Minimal one-liner for an ad-hoc note:**
@@ -63,7 +63,7 @@ jotter ls --project "$(jotter project)" --since 2026-04-19       # filtered by d
 ```bash
 jotter search --project "$(jotter project)" "keyword"            # search this project
 jotter search --project "$(jotter project)"                      # dump all entries (no term needed)
-jotter search --project "$(jotter project)" --type finish        # filter by entry type
+jotter search --project "$(jotter project)" --type stop          # filter by entry type
 jotter search --project "$(jotter project)" --since 2026-04-19  --until 2026-04-20 ""
 ```
 
@@ -80,10 +80,10 @@ jotter write \
   --next "What to pick up next"   # optional, used by /start for handover
 ```
 
-**`--type` values:** `start`, `checkpoint`, `note`, `break`, `finish`
+**`--type` values:** `start`, `checkpoint`, `note`, `break`, `stop`, `handover` (`finish` is a legacy alias for `stop`)
 
-- All writes (finish included) commit locally only. Pushing is asynchronous — a launchd timer (`jotter daemon`) runs `jotter sync --all` on an interval; force it now with `jotter sync`.
-- `--next` is optional but recommended on `finish` and `break` — `/start` reads it to restore context.
+- All writes (stop included) commit locally only. Pushing is asynchronous — a launchd timer (`jotter daemon`) runs `jotter sync --all` on an interval; force it now with `jotter sync`.
+- `--next` is optional but recommended on `stop` and `break` — `/start` reads it to restore context.
 - `jotter project` and `jotter branch` resolve the current git repo's project name and branch automatically; prefer them over hardcoding.
 
 **Minimal one-liner for an ad-hoc note:**
@@ -97,9 +97,9 @@ Every `write` auto-commits in the data repo locally. Pushing to the remote is as
 
 ## Skills that call jotter
 
-`/start`, `/save`, `/finish`, `/note` — no manual session note management needed.
+`/start`, `/save`, `/stop`, `/note`, `/handover` — no manual session note management needed.
 
-**Context restoration:** `/start` runs `tail --limit 5` to restore context from the last few entries. The most recent finish entry's `**Next:**` field is the handover prompt.
+**Context restoration:** `/start` runs `tail --limit 5` to restore context from the last few entries. The most recent `stop` (or legacy `finish`) entry's `**Next:**` field is the handover prompt.
 
 ## Retrospective queries — reach for `jotter ls` / `jotter search` first
 
@@ -116,4 +116,4 @@ Both `ls` and `search` accept `--since` and `--until` filters (`YYYY-MM-DD` or `
 
 - **Find every mention of X in this project:** `jotter search --project "$(jotter project)" "X"` — also accepts `--branch`, `--type`, and the date filters.
 
-Rule of thumb: if the answer is likely in a checkpoint/finish entry, jotter is enough. Only fall back to the Claude Code transcript for moment-to-moment reconstruction (crashed mid-session with no checkpoint, or need the literal conversation).
+Rule of thumb: if the answer is likely in a checkpoint/stop entry, jotter is enough. Only fall back to the Claude Code transcript for moment-to-moment reconstruction (crashed mid-session with no checkpoint, or need the literal conversation).

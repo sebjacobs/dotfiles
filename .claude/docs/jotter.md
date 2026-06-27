@@ -32,7 +32,7 @@ jotter write \
 
 **`--type` values:** `start`, `checkpoint`, `note`, `break`, `finish`
 
-- `finish` also pushes the data repo to remote; all others just commit locally.
+- All writes (finish included) commit locally only. Pushing is asynchronous — a launchd timer (`jotter daemon`) runs `jotter sync --all` on an interval; force it now with `jotter sync`.
 - `--next` is optional but recommended on `finish` and `break` — `/start` reads it to restore context.
 - `jotter project` and `jotter branch` resolve the current git repo's project name and branch automatically; prefer them over hardcoding.
 
@@ -82,7 +82,7 @@ jotter write \
 
 **`--type` values:** `start`, `checkpoint`, `note`, `break`, `finish`
 
-- `finish` also pushes the data repo to remote; all others just commit locally.
+- All writes (finish included) commit locally only. Pushing is asynchronous — a launchd timer (`jotter daemon`) runs `jotter sync --all` on an interval; force it now with `jotter sync`.
 - `--next` is optional but recommended on `finish` and `break` — `/start` reads it to restore context.
 - `jotter project` and `jotter branch` resolve the current git repo's project name and branch automatically; prefer them over hardcoding.
 
@@ -93,7 +93,7 @@ jotter write --project "$(jotter project)" --branch "$(jotter branch)" --type no
 
 ## Git integration
 
-Every `write` auto-commits in the data repo; `--type finish` also pushes to remote.
+Every `write` auto-commits in the data repo locally. Pushing to the remote is asynchronous: a macOS launchd timer (`jotter daemon install` / `status` / `uninstall`) runs `jotter sync --all` on an interval, pushing every data repo that has a remote. To push immediately rather than waiting for the next tick, run `jotter sync` (current repo) or `jotter sync --all` (all registered repos). The timer's agent label honours `$LAUNCHD_PREFIX` so it joins the `svc`-managed set.
 
 ## Skills that call jotter
 

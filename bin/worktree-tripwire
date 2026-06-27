@@ -1,0 +1,154 @@
+#!/usr/bin/env ruby
+# frozen_string_literal: true
+
+# worktree-tripwire — catch whatever recreates the stray directories that keep
+# reappearing under <repo>/.claude/worktrees/.
+#
+# A com.sebjacobs.worktree-tripwire launchd agent runs this every minute. Each
+# run scans every repo's .claude/worktrees for child directories git does NOT
+# register as a live worktree — the "phantom" dirs that come back after a clean
+# rm -rf. The first time a stray path is seen (or seen again after it was
+# cleared) it logs a context snapshot — directory contents, the last minute of
+# docker events, a filtered process list, and lsof on the path — so the recreator
+# is caught in the act instead of inferred. Silent when nothing new appears, so
+# the log holds only real events.
+#
+# State (the strays present on the previous run) lives in STATE_FILE. A path that
+# vanishes and returns counts as new — exactly the recurrence we want to catch.
+# Public-safe: repos are auto-discovered under WT_TRIPWIRE_BASE (default
+# ~/Tech/Projects), so no specific repo path is baked into the script or plist.
+
+require "json"
+require "fileutils"
+require "open3"
+require "timeout"
+
+# launchd agents inherit a minimal PATH; docker/git live in homebrew, lsof in
+# /usr/sbin. Prepend the locations the snapshot tools actually sit in.
+ENV["PATH"] = ["/opt/homebrew/bin", "/usr/local/bin", "/usr/bin", "/bin", "/usr/sbin", "/sbin", ENV["PATH"]]
+  .compact.reject(&:empty?).join(":")
+
+BASE = ENV.fetch("WT_TRIPWIRE_BASE", File.join(Dir.home, "Tech/Projects"))
+STATE_FILE = ENV.fetch("WT_TRIPWIRE_STATE", File.join(Dir.home, ".local/state/worktree-tripwire/seen.json"))
+LOOKBACK = (ENV["WT_TRIPWIRE_LOOKBACK"] || "90").to_i
+
+# Repo depth under BASE varies (a personal repo sits one level down, a client
+# repo three), so glob a handful of fixed depths rather than a slow recursive **.
+def worktree_roots
+  depths = ["*", "*/*", "*/*/*", "*/*/*/*"]
+  Dir.glob(depths.map { |d| File.join(BASE, d, ".claude", "worktrees") }).select { |p| File.directory?(p) }
+end
+
+# Run a command with a hard timeout so a hung docker/lsof never wedges the agent;
+# returns [stdout, ok]. Never raises.
+def capture(*argv, timeout: 12)
+  Timeout.timeout(timeout) do
+    out, _err, status = Open3.capture3(*argv)
+    [out, status.success?]
+  end
+rescue Timeout::Error, SystemCallError
+  ["", false]
+end
+
+# Canonical key for comparing two paths: realpath collapses /Users vs /private
+# symlinks, and downcase absorbs the case-insensitive macOS filesystem (git may
+# report .../private/... for an on-disk .../PRIVATE/...). Used only for matching,
+# never for what we store or log.
+def key(path)
+  File.realpath(path).downcase
+rescue SystemCallError
+  File.expand_path(path).downcase
+end
+
+# The keys git registers as live worktrees for the repo whose .claude/worktrees
+# is +wt_dir+ (its root is two levels up), plus whether git could be read at all.
+def registered(wt_dir)
+  root = File.expand_path(File.join(wt_dir, "..", ".."))
+  out, ok = capture("git", "-C", root, "worktree", "list", "--porcelain")
+  return [[], false] unless ok
+
+  [out.scan(/^worktree (.+)$/).flatten.map { |p| key(p) }, true]
+end
+
+# Every directory under a repo's .claude/worktrees that git does not register —
+# the strays. When git can't be read for a repo we SKIP it rather than flag all
+# its children: a transient git failure must not cry wolf with false strays.
+def current_strays
+  worktree_roots.flat_map do |wt|
+    reg, ok = registered(wt)
+    next [] unless ok
+
+    Dir.children(wt)
+      .map { |c| File.join(wt, c) }
+      .select { |p| File.directory?(p) }
+      .reject { |p| reg.include?(key(p)) }
+  end.sort.uniq
+end
+
+def load_seen
+  JSON.parse(File.read(STATE_FILE))
+rescue StandardError
+  []
+end
+
+def save_seen(list)
+  FileUtils.mkdir_p(File.dirname(STATE_FILE))
+  File.write(STATE_FILE, JSON.generate(list))
+end
+
+def indent(text)
+  text.to_s.split("\n").map { |l| "    #{l}" }
+end
+
+# The whole point: when a stray appears, record everything that could name the
+# culprit. docker events over the poll window catches a container start (the
+# bind-mount empty-dir footgun); the process list and lsof catch a script or a
+# claude/gwt run holding the path.
+def snapshot(path)
+  lines = []
+
+  contents, = capture("ls", "-laR", path, timeout: 8)
+  lines << "  contents:"
+  lines.concat(indent(contents.empty? ? "(empty)" : contents))
+
+  events, ok = capture("docker", "events", "--since", "#{LOOKBACK}s", "--until", "1s",
+    "--format", "{{.Time}} {{.Type}}/{{.Action}} {{.Actor.Attributes.name}}")
+  lines << "  docker events (last #{LOOKBACK}s):"
+  lines.concat(indent(ok ? (events.strip.empty? ? "(none)" : events.strip) : "(docker unreachable)"))
+
+  ps, = capture("ps", "-Axo", "pid,ppid,lstart,command", timeout: 8)
+  # Keep plausible recreators; drop the Claude.app Electron helper swarm (renderer
+  # / GPU / utility subprocesses) that matches "claude" but never touches a path.
+  noise = /Claude Helper|Electron Framework|chrome_crashpad|chrome-native-host|--type=|seatbelt-client/
+  watched = ps.each_line.select { |l| l =~ /docker|colima|limactl|qemu|\bclaude\b|\bgwt\b|\bgit\b|\bnode\b|\bruby\b/i }
+    .reject { |l| l =~ noise }
+  lines << "  processes (docker/colima/claude/gwt/git/node/ruby):"
+  lines.concat(indent(watched.empty? ? "(none)" : watched.join))
+
+  open, ok = capture("lsof", "+D", path, timeout: 8)
+  lines << "  lsof +D (open files under path):"
+  lines.concat(indent(ok && !open.strip.empty? ? open.strip : "(none)"))
+
+  lines.join("\n")
+end
+
+def stamp
+  Time.now.strftime("%Y-%m-%dT%H:%M:%S%z")
+end
+
+begin
+  current = current_strays
+  seen = load_seen
+  fresh = current - seen
+
+  fresh.each do |path|
+    puts "==== #{stamp}  STRAY APPEARED  #{path} ===="
+    puts snapshot(path)
+    puts
+    $stdout.flush
+  end
+
+  save_seen(current)
+rescue StandardError => e
+  warn "[worktree-tripwire #{stamp}] #{e.class}: #{e.message}"
+end

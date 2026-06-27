@@ -100,6 +100,13 @@ class GwtPureTest < Minitest::Test
     assert_equal "gitdir file points to non-existent location", entry[:prunable]
   end
 
+  def test_format_time_renders_local_minute_precision
+    ENV["TZ"] = "UTC"
+    assert_equal "2026-06-28 04:09", Gwt.format_time(1782619757)
+  ensure
+    ENV.delete("TZ")
+  end
+
   def test_current_dir_picks_the_longest_containing_path
     dirs = ["/repo", "/repo/.claude/worktrees/foo"]
     assert_equal "/repo/.claude/worktrees/foo", Gwt.current_dir("/repo/.claude/worktrees/foo/lib", dirs)
@@ -714,9 +721,10 @@ class GwtAppTest < Minitest::Test
     assert_match(/No worktree matching: phantom/, @err.string)
   end
 
-  def test_status_shows_dirty_and_position
+  def test_status_shows_dirty_position_and_timestamp
     captures = {
       "-C #{ROOT} rev-parse --abbrev-ref HEAD" => ["main\n", true],
+      "-C #{WT_BASE}/foo log -1 --format=%ct" => ["1782571757\n", true],
       "-C #{WT_BASE}/foo status --porcelain" => [" M a.rb\n", true],
       "-C #{WT_BASE}/foo rev-list --left-right --count main...feature/x" => ["1\t2\n", true]
     }
@@ -725,6 +733,20 @@ class GwtAppTest < Minitest::Test
     assert_match(/foo/, @out.string)
     assert_match(/\[dirty\]/, @out.string)
     assert_match(/↑2 ↓1/, @out.string)
+    assert_match(/\(last: #{Regexp.escape(Gwt.format_time(1782571757))}\)/, @out.string)
+  end
+
+  def test_status_orders_newest_first_and_includes_the_root
+    captures = {
+      "-C #{ROOT} rev-parse --abbrev-ref HEAD" => ["main\n", true],
+      "-C #{ROOT} log -1 --format=%ct" => ["1782509451\n", true],
+      "-C #{WT_BASE}/foo log -1 --format=%ct" => ["1782571757\n", true]
+    }
+    app, = build(git: FakeGit.new(captures: captures), worktrees: [["foo", "feature/x"]])
+    assert_equal 0, app.run(["status"])
+    lines = @out.string.lines.map(&:chomp).reject(&:empty?)
+    assert_match(/foo/, lines[0])
+    assert_match(/repo\s+main/, lines[1])
   end
 
   def test_bare_name_cds_into_a_matching_worktree

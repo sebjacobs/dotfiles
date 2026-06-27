@@ -3,6 +3,7 @@
 #        gwt add -b <branch>    Create branch + worktree and cd into it
 #        gwt cp [-f] <path>     Copy <path> from root into every worktree (-f skips the prompt)
 #        gwt cd <name>          cd into an existing worktree
+#        gwt mv [-f] <name> <new-name>  Rename a worktree's dir + its Claude history (branch unchanged; -f skips the prompt)
 #        gwt <name>             Shorthand for `gwt cd <name>` (any non-subcommand name)
 #        gwt zed [<name>]       Open a worktree in a new Zed window (current if no name)
 #        gwt ls                 List worktrees

@@ -28,11 +28,73 @@ module Gwt
   # The verbs gwt dispatches on. They double as a reserved-name list: `gwt add`
   # refuses to create a worktree whose directory name would collide with one, so
   # the bare `gwt <name>` cd shortcut can never be shadowed by a worktree.
-  SUBCOMMANDS = %w[add cp cd path zed ls rm prune root status].freeze
+  SUBCOMMANDS = %w[add cp cd mv path zed ls rm prune root status].freeze
 
   # Encode slashes so a branch maps to a single worktree folder
   # (spike/twitter-classifier -> spike+twitter-classifier).
   def encode_branch(branch) = branch.gsub("/", "+")
+
+  # Migrating Claude Code's per-directory session history when a working tree
+  # moves on disk. Claude stores transcripts under ~/.claude/projects/<encoded>,
+  # keyed by the launch cwd, so a `git worktree move` (or a `proj` project move)
+  # orphans them under the old path unless they are re-homed too. Lives here, in
+  # the lib proj already requires, so `proj mv` can reuse it: a project move is
+  # the same operation as a worktree move, one path level up — every worktree's
+  # history dir shares the project's encoded path as a prefix, so a single
+  # prefix-rehoming sweep carries the project and all its worktrees at once.
+  module ClaudeHistory
+    module_function
+
+    # Mirror Claude Code's own scheme: every "/" and "." in the absolute path
+    # becomes "-". Deterministic forward, but lossy — "a/b/c" and "a/b-c" both
+    # encode to "a-b-c" — so a sweep can't tell a child path from a sibling whose
+    # name is a superstring. Callers log what they move so that case is visible.
+    def encode(abs_path) = abs_path.gsub(%r{[/.]}, "-")
+
+    # The ~/.claude/projects entries to re-home when old_base moves to new_base:
+    # the exact match (the moved tree's own history) plus any deeper path under
+    # it (a session launched from a subdirectory; for a project move, every
+    # worktree beneath it). Returns [[old_name, new_name], ...] of bare entry
+    # names, each re-homed by swapping the encoded prefix.
+    def rehome_map(names, old_base, new_base)
+      old_enc = encode(old_base)
+      new_enc = encode(new_base)
+      names.filter_map do |name|
+        if name == old_enc
+          [name, new_enc]
+        elsif name.start_with?("#{old_enc}-")
+          [name, "#{new_enc}#{name[old_enc.length..]}"]
+        end
+      end
+    end
+
+    # Re-home the moved tree's session history. Best-effort by contract: never
+    # raises into the caller, because a worktree move that already succeeded must
+    # not be undone by a history hiccup. Side-effects go through the injected
+    # System seam so this stays testable without touching ~/.claude.
+    def migrate(sys:, home:, old_path:, new_path:, out:, err:)
+      base = File.join(home, ".claude", "projects")
+      return unless sys.dir?(base)
+
+      rehome_map(sys.entries(base), old_path, new_path).each do |old_name, new_name|
+        src = File.join(base, old_name)
+        dst = File.join(base, new_name)
+        next if src == dst
+
+        if sys.exist?(dst)
+          sys.entries(src).each { |child| sys.move(File.join(src, child), File.join(dst, child)) }
+          sys.remove(src)
+          out.puts "gwt: merged Claude history into #{new_name}"
+        else
+          sys.move(src, dst)
+          out.puts "gwt: moved Claude history #{old_name} -> #{new_name}"
+        end
+      end
+    rescue StandardError => e
+      err.puts "gwt: worktree moved, but migrating Claude history failed (#{e.message}). " \
+               "Move the matching ~/.claude/projects entry by hand."
+    end
+  end
 
   # Reject branch names that don't make a safe worktree slug, mirroring the
   # Claude Code CLI's validateWorktreeSlug: cap the length, and for each
@@ -168,6 +230,15 @@ module Gwt
       Dir.children(path).select { |e| File.directory?(File.join(path, e)) }.sort
     end
 
+    # Every entry (files and dirs), unlike `children` which keeps only dirs —
+    # the history merge moves individual session files out of a source dir.
+    def entries(path) = Dir.exist?(path) ? Dir.children(path).sort : []
+
+    def move(src, dst)
+      FileUtils.mkdir_p(File.dirname(dst))
+      FileUtils.mv(src, dst)
+    end
+
     def remove(path) = FileUtils.rm_rf(path)
 
     def copy_into(src, dst)
@@ -192,7 +263,7 @@ module Gwt
   end
 
   class App
-    def initialize(git:, sys:, out:, err:, cd:, confirm:, pwd:, exec:, worktree_subdir: ".claude/worktrees", root_override: nil, timing: false)
+    def initialize(git:, sys:, out:, err:, cd:, confirm:, pwd:, exec:, worktree_subdir: ".claude/worktrees", root_override: nil, timing: false, home: Dir.home)
       @git = git
       @sys = sys
       @out = out
@@ -204,6 +275,7 @@ module Gwt
       @worktree_subdir = worktree_subdir
       @root_override = root_override
       @timing = timing
+      @home = home
     end
 
     def run(argv)
@@ -223,6 +295,7 @@ module Gwt
       when "add"    then cmd_add(rest)
       when "cp"     then cmd_cp(rest)
       when "cd"     then cmd_cd(rest)
+      when "mv"     then cmd_mv(rest)
       when "path"   then cmd_path(rest)
       when "zed"    then cmd_zed(rest)
       when "ls"     then cmd_ls
@@ -332,6 +405,41 @@ module Gwt
       return error("Usage: gwt cd <name>") if name.nil? || name.empty?
 
       resolve(name) { |path| change_dir(path); 0 }
+    end
+
+    # Rename a worktree's directory (and carry its Claude history), leaving the
+    # branch untouched — gwt resolves by directory basename, not branch, so the
+    # rename stays navigable while the branch shows separately in ls/status. The
+    # history migration runs only after `git worktree move` succeeds, so a
+    # refused move (locked/dirty) leaves history where it belongs.
+    def cmd_mv(args)
+      force = args.any? { |a| ["-f", "--force"].include?(a) }
+      args = args.reject { |a| ["-f", "--force"].include?(a) }
+      old, new = args
+      return error("Usage: gwt mv [-f] <name> <new-name>") if [old, new].any? { |a| a.nil? || a.empty? }
+
+      if (reason = Gwt.slug_error(new))
+        return error(%(Invalid worktree name "#{new}": #{reason}))
+      end
+
+      new_enc = Gwt.encode_branch(new)
+      if Gwt::SUBCOMMANDS.include?(new_enc)
+        return error(%("#{new}" is a reserved gwt subcommand — pick another name))
+      end
+
+      new_path = "#{@wt_base}/#{new_enc}"
+      return error("A worktree already exists at #{new_enc}") if registered?(new_path) || @sys.dir?(new_path)
+
+      resolve(old) do |old_path|
+        name = File.basename(old_path)
+        next 1 unless force || @confirm.call("Move worktree '#{name}' -> '#{new_enc}' (and its Claude history)? [y/N] ")
+
+        next 1 unless timed("worktree move") { @git.run("worktree", "move", old_path, new_path) }
+
+        Gwt::ClaudeHistory.migrate(sys: @sys, home: @home, old_path: old_path, new_path: new_path, out: @out, err: @err)
+        change_dir(new_path) if @pwd.start_with?(old_path)
+        0
+      end
     end
 
     def cmd_path(args)
@@ -470,12 +578,13 @@ module Gwt
 
     def usage(code = 1)
       @out.puts <<~USAGE
-        Usage: gwt <add|cp|cd|zed|ls|rm|prune|root|status|path> [args]
+        Usage: gwt <add|cp|cd|mv|zed|ls|rm|prune|root|status|path> [args]
                gwt <name>           Shorthand for `gwt cd <name>`
 
           add [-b] <branch>    Create worktree and cd into it
           cp [-f] <path>       Copy <path> from root into every worktree (-f skips the prompt)
           cd <name>           cd into an existing worktree
+          mv [-f] <name> <new-name>  Rename a worktree's directory + Claude history (-f skips the prompt)
           zed [<name>]        Open a worktree in a new Zed window (current if no name)
           ls                  List worktrees
           rm [-f] <name>      Remove a worktree or orphaned directory (-f forces a dirty one)

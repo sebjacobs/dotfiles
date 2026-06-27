@@ -154,6 +154,7 @@ Common commands:
 
 - `gwt add [-b] <branch>` — create a worktree (and branch with `-b`) and cd into it
 - `gwt <name>` / `gwt cd <name>` — cd into an existing worktree (fuzzy name)
+- `gwt mv [-f] <name> <new-name>` — rename a worktree's directory and carry its Claude history (`~/.claude/projects/`); branch is left untouched, `-f` skips the prompt
 - `gwt ls` / `gwt status` — list worktrees / full overview
 - `gwt rm [-f] <name>` — remove a worktree (fuzzy name; `-f` skips the prompt)
 - `gwt path [<name>]` — echo a worktree's absolute path (current if omitted)

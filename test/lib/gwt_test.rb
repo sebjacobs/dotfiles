@@ -130,6 +130,42 @@ class GwtPureTest < Minitest::Test
   end
 end
 
+class GwtClaudeHistoryTest < Minitest::Test
+  def test_encode_replaces_every_slash_and_dot
+    assert_equal "-Users-me-proj--claude-worktrees-foo",
+                 Gwt::ClaudeHistory.encode("/Users/me/proj/.claude/worktrees/foo")
+  end
+
+  def test_rehome_map_renames_the_exact_match
+    names = ["-repo--claude-worktrees-foo", "-unrelated"]
+    assert_equal(
+      [["-repo--claude-worktrees-foo", "-repo--claude-worktrees-bar"]],
+      Gwt::ClaudeHistory.rehome_map(names, "/repo/.claude/worktrees/foo", "/repo/.claude/worktrees/bar")
+    )
+  end
+
+  def test_rehome_map_also_carries_nested_subdir_sessions
+    names = ["-repo--claude-worktrees-foo", "-repo--claude-worktrees-foo-lib"]
+    result = Gwt::ClaudeHistory.rehome_map(names, "/repo/.claude/worktrees/foo", "/repo/.claude/worktrees/bar")
+    assert_includes result, ["-repo--claude-worktrees-foo", "-repo--claude-worktrees-bar"]
+    assert_includes result, ["-repo--claude-worktrees-foo-lib", "-repo--claude-worktrees-bar-lib"]
+  end
+
+  def test_rehome_map_ignores_unrelated_entries
+    names = ["-repo--claude-worktrees-other", "-elsewhere"]
+    assert_empty Gwt::ClaudeHistory.rehome_map(names, "/repo/.claude/worktrees/foo", "/repo/.claude/worktrees/bar")
+  end
+
+  # The property proj mv leans on: a project move and every worktree under it
+  # share the project's encoded path as a prefix, so one sweep carries them all.
+  def test_rehome_map_sweeps_a_project_and_its_worktrees
+    names = ["-Users-me-Tech-foo", "-Users-me-Tech-foo--claude-worktrees-wt1"]
+    result = Gwt::ClaudeHistory.rehome_map(names, "/Users/me/Tech/foo", "/Users/me/Tech/bar")
+    assert_includes result, ["-Users-me-Tech-foo", "-Users-me-Tech-bar"]
+    assert_includes result, ["-Users-me-Tech-foo--claude-worktrees-wt1", "-Users-me-Tech-bar--claude-worktrees-wt1"]
+  end
+end
+
 class GwtAppTest < Minitest::Test
   ROOT = "/repo"
   WT_BASE = "/repo/.claude/worktrees"
@@ -155,27 +191,33 @@ class GwtAppTest < Minitest::Test
   end
 
   class FakeSys
-    attr_reader :copies, :removes
+    attr_reader :copies, :removes, :moves
 
-    def initialize(dirs: [], children: {}, which: true, exists: [])
+    def initialize(dirs: [], children: {}, which: true, exists: [], entries: {})
       @dirs = dirs
       @children = children
       @which = which
       @exists = exists
+      @entries = entries
       @copies = []
       @removes = []
+      @moves = []
     end
 
     def dir?(path) = @dirs.include?(path)
     def exist?(path) = @exists.include?(path) || @dirs.include?(path)
     def children(path) = @children.fetch(path, [])
+    def entries(path) = @entries.fetch(path, [])
     def which?(_cmd) = @which
     def copy_into(src, dst) = @copies << [src, dst]
+    def move(src, dst) = @moves << [src, dst]
     def remove(path) = @removes << path
   end
 
+  HOME = "/home"
+
   def build(git: FakeGit.new, sys: FakeSys.new, pwd: ROOT, confirm: ->(_) { true },
-            worktree_subdir: ".claude/worktrees", worktrees: [])
+            worktree_subdir: ".claude/worktrees", worktrees: [], home: HOME)
     @out = StringIO.new
     @err = StringIO.new
     @cd = []
@@ -190,7 +232,8 @@ class GwtAppTest < Minitest::Test
       confirm: confirm,
       pwd: pwd,
       exec: ->(*a) { @execs << a },
-      worktree_subdir: worktree_subdir
+      worktree_subdir: worktree_subdir,
+      home: home
     )
     [app, git_with_root, sys]
   end
@@ -321,6 +364,94 @@ class GwtAppTest < Minitest::Test
     assert_equal 1, app.run(["cd", "orphan"])
     assert_empty @cd
     assert_match(/No worktree matching: orphan/, @err.string)
+  end
+
+  PROJECTS = "#{HOME}/.claude/projects"
+  FOO_HISTORY = "-repo--claude-worktrees-foo"
+  BAR_HISTORY = "-repo--claude-worktrees-bar"
+
+  def test_mv_moves_worktree_and_migrates_history_and_cds_when_inside
+    sys = FakeSys.new(dirs: [PROJECTS], entries: { PROJECTS => [FOO_HISTORY] })
+    app, git, sys = build(sys: sys, worktrees: [["foo", "b"]], pwd: "#{WT_BASE}/foo/lib")
+    assert_equal 0, app.run(["mv", "foo", "bar"])
+    assert_includes git.runs, ["worktree", "move", "#{WT_BASE}/foo", "#{WT_BASE}/bar"]
+    assert_includes sys.moves, ["#{PROJECTS}/#{FOO_HISTORY}", "#{PROJECTS}/#{BAR_HISTORY}"]
+    assert_equal ["#{WT_BASE}/bar"], @cd
+  end
+
+  def test_mv_does_not_cd_when_outside_the_worktree
+    sys = FakeSys.new(dirs: [PROJECTS], entries: { PROJECTS => [] })
+    app, = build(sys: sys, worktrees: [["foo", "b"]], pwd: "/repo/src")
+    assert_equal 0, app.run(["mv", "foo", "bar"])
+    assert_empty @cd
+  end
+
+  def test_mv_requires_confirmation
+    app, git, = build(worktrees: [["foo", "b"]], confirm: ->(_) { false })
+    assert_equal 1, app.run(["mv", "foo", "bar"])
+    assert_empty git.runs
+    assert_empty @cd
+  end
+
+  def test_mv_force_skips_confirmation
+    sys = FakeSys.new(dirs: [PROJECTS], entries: { PROJECTS => [] })
+    app, git, = build(sys: sys, worktrees: [["foo", "b"]], confirm: ->(_) { flunk "should not prompt with -f" })
+    assert_equal 0, app.run(["mv", "-f", "foo", "bar"])
+    assert_includes git.runs, ["worktree", "move", "#{WT_BASE}/foo", "#{WT_BASE}/bar"]
+  end
+
+  def test_mv_skips_history_migration_when_git_move_fails
+    sys = FakeSys.new(dirs: [PROJECTS], entries: { PROJECTS => [FOO_HISTORY] })
+    app, _, sys = build(git: FakeGit.new(run_ok: false), sys: sys, worktrees: [["foo", "b"]])
+    assert_equal 1, app.run(["mv", "foo", "bar"])
+    assert_empty sys.moves
+    assert_empty @cd
+  end
+
+  def test_mv_merges_into_an_existing_history_dir
+    sys = FakeSys.new(
+      dirs: [PROJECTS], exists: ["#{PROJECTS}/#{BAR_HISTORY}"],
+      entries: { PROJECTS => [FOO_HISTORY], "#{PROJECTS}/#{FOO_HISTORY}" => ["s1.jsonl"] }
+    )
+    app, _, sys = build(sys: sys, worktrees: [["foo", "b"]])
+    assert_equal 0, app.run(["mv", "foo", "bar"])
+    assert_includes sys.moves, ["#{PROJECTS}/#{FOO_HISTORY}/s1.jsonl", "#{PROJECTS}/#{BAR_HISTORY}/s1.jsonl"]
+    assert_includes sys.removes, "#{PROJECTS}/#{FOO_HISTORY}"
+  end
+
+  def test_mv_requires_two_names
+    app, git, = build(worktrees: [["foo", "b"]])
+    assert_equal 1, app.run(["mv", "foo"])
+    assert_match(/Usage: gwt mv/, @err.string)
+    assert_empty git.runs
+  end
+
+  def test_mv_rejects_an_invalid_new_slug
+    app, git, = build(worktrees: [["foo", "b"]])
+    assert_equal 1, app.run(["mv", "foo", "bad/../x"])
+    assert_match(/Invalid worktree name/, @err.string)
+    assert_empty git.runs
+  end
+
+  def test_mv_rejects_a_new_name_colliding_with_a_subcommand
+    app, git, = build(worktrees: [["foo", "b"]])
+    assert_equal 1, app.run(["mv", "foo", "status"])
+    assert_match(/reserved gwt subcommand/, @err.string)
+    assert_empty git.runs
+  end
+
+  def test_mv_rejects_an_occupied_target
+    app, git, = build(worktrees: [["foo", "b"], ["bar", "b"]])
+    assert_equal 1, app.run(["mv", "foo", "bar"])
+    assert_match(/already exists/, @err.string)
+    assert_empty git.runs
+  end
+
+  def test_mv_errors_on_an_unknown_source
+    app, git, = build(worktrees: [["foo", "b"]])
+    assert_equal 1, app.run(["mv", "nope", "bar"])
+    assert_match(/No worktree matching: nope/, @err.string)
+    assert_empty git.runs
   end
 
   def test_path_echoes_resolved_path

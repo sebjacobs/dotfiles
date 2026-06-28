@@ -142,6 +142,66 @@ class GwtPureTest < Minitest::Test
   end
 end
 
+class GwtConfigTest < Minitest::Test
+  DOTGWT = <<~YAML
+    seed:
+      include: .worktreeinclude
+      scrub:
+        .env: [COMPOSE_PROJECT_NAME]
+    hooks:
+      post-add:
+        run: [dox, setup, --force]
+      pre-rm:
+        run: dox down
+  YAML
+
+  def test_parse_returns_the_raw_yaml_tree
+    config = Gwt::Config.parse(DOTGWT)
+    assert_equal ".worktreeinclude", config.dig("seed", "include")
+    assert_equal({ "run" => ["dox", "setup", "--force"] }, config.dig("hooks", "post-add"))
+  end
+
+  def test_parse_returns_empty_for_blank_or_non_mapping_documents
+    assert_empty Gwt::Config.parse("")
+    assert_empty Gwt::Config.parse("- just\n- a\n- list\n")
+  end
+
+  def test_parse_returns_empty_rather_than_raising_on_malformed_yaml
+    assert_empty Gwt::Config.parse("hooks: [unterminated\n")
+  end
+
+  def test_hook_normalises_an_argv_list
+    assert_equal ["dox", "setup", "--force"], Gwt::Config.hook(Gwt::Config.parse(DOTGWT), "post-add")
+  end
+
+  def test_hook_splits_a_string_command
+    assert_equal ["dox", "down"], Gwt::Config.hook(Gwt::Config.parse(DOTGWT), "pre-rm")
+  end
+
+  def test_hook_returns_nil_when_event_absent
+    assert_nil Gwt::Config.hook(Gwt::Config.parse(DOTGWT), "pre-add")
+    assert_nil Gwt::Config.hook({}, "post-add")
+  end
+
+  def test_seed_reads_the_section_and_defaults_to_empty
+    assert_equal ["COMPOSE_PROJECT_NAME"], Gwt::Config.seed(Gwt::Config.parse(DOTGWT)).dig("scrub", ".env")
+    assert_empty Gwt::Config.seed({})
+  end
+
+  def test_load_returns_empty_when_file_absent
+    reader = Class.new { def file?(_) = false }.new
+    assert_empty Gwt::Config.load("/repo", reader: reader)
+  end
+
+  def test_load_reads_and_parses_the_dotgwt_file
+    reader = Class.new do
+      def file?(path) = path == "/repo/.gwt"
+      def read(path) = path == "/repo/.gwt" ? "hooks:\n  post-add:\n    run: echo hi\n" : ""
+    end.new
+    assert_equal ["echo", "hi"], Gwt::Config.hook(Gwt::Config.load("/repo", reader: reader), "post-add")
+  end
+end
+
 class GwtClaudeHistoryTest < Minitest::Test
   PROJECTS = "/home/.claude/projects"
 
@@ -324,27 +384,38 @@ class GwtAppTest < Minitest::Test
   end
 
   class FakeSys
-    attr_reader :copies, :removes, :moves
+    attr_reader :copies, :removes, :moves, :hook_runs
 
-    def initialize(dirs: [], children: {}, which: true, exists: [], entries: {})
+    def initialize(dirs: [], children: {}, which: true, exists: [], entries: {},
+                   files: {}, hook_ok: true)
       @dirs = dirs
       @children = children
       @which = which
       @exists = exists
       @entries = entries
+      @files = files
+      @hook_ok = hook_ok
       @copies = []
       @removes = []
       @moves = []
+      @hook_runs = []
     end
 
     def dir?(path) = @dirs.include?(path)
     def exist?(path) = @exists.include?(path) || @dirs.include?(path)
+    def file?(path) = @files.key?(path)
+    def read(path) = @files.fetch(path)
     def children(path) = @children.fetch(path, [])
     def entries(path) = @entries.fetch(path, [])
     def which?(_cmd) = @which
     def copy_into(src, dst) = @copies << [src, dst]
     def move(src, dst) = @moves << [src, dst]
     def remove(path) = @removes << path
+
+    def run_in(dir, argv)
+      @hook_runs << [dir, argv]
+      @hook_ok
+    end
   end
 
   HOME = "/home"
@@ -404,6 +475,49 @@ class GwtAppTest < Minitest::Test
     app, git, = build
     app.run(["add", "-b", "feature/x"])
     assert_includes git.runs, ["worktree", "add", "-b", "feature/x", "/repo/.claude/worktrees/feature+x"]
+  end
+
+  def test_add_fires_post_add_hook_in_the_new_worktree
+    sys = FakeSys.new(files: { "#{ROOT}/.gwt" => "hooks:\n  post-add:\n    run: [dox, setup, --force]\n" })
+    app, = build(sys: sys)
+    assert_equal 0, app.run(["add", "feature/x"])
+    assert_equal [["#{WT_BASE}/feature+x", %w[dox setup --force]]], sys.hook_runs
+  end
+
+  def test_add_without_a_dotgwt_fires_no_hook
+    app, _git, sys = build
+    app.run(["add", "feature/x"])
+    assert_empty sys.hook_runs
+  end
+
+  def test_add_with_a_dotgwt_lacking_post_add_fires_no_hook
+    sys = FakeSys.new(files: { "#{ROOT}/.gwt" => "hooks:\n  pre-rm:\n    run: dox down\n" })
+    app, = build(sys: sys)
+    app.run(["add", "feature/x"])
+    assert_empty sys.hook_runs
+  end
+
+  def test_add_with_a_failing_post_add_warns_but_still_cds_in
+    sys = FakeSys.new(files: { "#{ROOT}/.gwt" => "hooks:\n  post-add:\n    run: dox setup\n" }, hook_ok: false)
+    app, = build(sys: sys)
+    assert_equal 0, app.run(["add", "feature/x"])
+    assert_equal ["#{WT_BASE}/feature+x"], @cd
+    assert_match(/post-add hook failed/, @err.string)
+  end
+
+  def test_rm_fires_pre_rm_hook_before_removing_the_worktree
+    sys = FakeSys.new(files: { "#{ROOT}/.gwt" => "hooks:\n  pre-rm:\n    run: dox down\n" })
+    app, git, = build(worktrees: [["foo", "b"]], sys: sys, confirm: ->(_) { true })
+    assert_equal 0, app.run(["rm", "foo"])
+    assert_equal [["#{WT_BASE}/foo", %w[dox down]]], sys.hook_runs
+    assert_includes git.runs, ["worktree", "remove", "#{WT_BASE}/foo"]
+  end
+
+  def test_rm_declined_fires_no_pre_rm_hook
+    sys = FakeSys.new(files: { "#{ROOT}/.gwt" => "hooks:\n  pre-rm:\n    run: dox down\n" })
+    app, = build(worktrees: [["foo", "b"]], sys: sys, confirm: ->(_) { false })
+    app.run(["rm", "foo"])
+    assert_empty sys.hook_runs
   end
 
   def test_add_on_registered_worktree_cds_without_recreating

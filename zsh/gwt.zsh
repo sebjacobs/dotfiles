@@ -33,6 +33,19 @@
 #     - directory matches are copied recursively via `cp -R`; Claude Code copies
 #       individual files only and skips whole directories.
 #
+# .gwt (worktree-lifecycle hooks):
+#   If $repo_root/.gwt exists, it declares commands to run at lifecycle events —
+#   the imperative complement to .worktreeinclude's declarative file copying. YAML:
+#     hooks:
+#       post-add: { run: [dox, setup, --force] }   # after `gwt add` (+ include copy)
+#       pre-rm:   { run: dox down }                 # before `gwt rm` tears it down
+#   `run` may be a string (split on whitespace) or an explicit argv list. post-add
+#   runs in the freshly created worktree; pre-rm runs in the worktree about to be
+#   removed (so a stack/stateful resource can be torn down first). Hooks are
+#   best-effort: a non-zero exit warns but never aborts the add/rm — a worktree
+#   that already exists (or is about to be removed) is not left half-done by a
+#   provisioning hiccup. A malformed .gwt is ignored rather than blocking gwt.
+#
 # Tab completion for the subcommands and worktree names lives in the autoloaded
 # zsh/completions/_gwt, alongside the other CLIs' completions.
 

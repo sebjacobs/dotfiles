@@ -25,6 +25,7 @@
 autoload :FileUtils, "fileutils"
 autoload :Fiddle, "fiddle"
 require "timeout"
+require "yaml"
 
 module Gwt
   module_function
@@ -132,6 +133,52 @@ module Gwt
     def warn_failed(err, label, error)
       err.puts "#{label}: tree moved, but migrating Claude history failed (#{error.message}). " \
                "Move the matching ~/.claude/projects entry by hand."
+    end
+  end
+
+  # Declarative worktree-lifecycle config read from a `.gwt` file at the repo
+  # root — the config sibling to `.worktreeinclude`. YAML (parsed by stdlib psych,
+  # no gem), shaped as `seed:` (files to provision into a new worktree) and
+  # `hooks:` (commands keyed by lifecycle event — `post-add`, `pre-rm`). A worktree
+  # is data, not just a checkout: `.gwt` is how a repo declares how to bring one to
+  # life and tear it down. The parser keeps the raw tree and exposes thin accessors
+  # so the schema can grow (option forwarding, scrub) without reshaping callers.
+  module Config
+    module_function
+
+    # Read and parse `$root/.gwt`, returning the empty config when the file is
+    # absent so callers treat "no config" and "empty config" identically.
+    def load(root, reader: File)
+      path = File.join(root, ".gwt")
+      return {} unless reader.file?(path)
+
+      parse(reader.read(path))
+    end
+
+    # Parse `.gwt` YAML into its raw hash. A malformed or non-mapping document
+    # yields {} rather than raising — a broken `.gwt` must never block a `gwt cd`.
+    def parse(text)
+      data = YAML.safe_load(text.to_s, aliases: false)
+      data.is_a?(Hash) ? data : {}
+    rescue Psych::SyntaxError
+      {}
+    end
+
+    # The command (argv array) registered for a lifecycle event, or nil when none
+    # is declared. `run:` may be given as a single string (split on whitespace) or
+    # an explicit argv list; both normalise to an array ready for exec.
+    def hook(config, event)
+      run = config.dig("hooks", event.to_s, "run")
+      case run
+      when String then run.split
+      when Array  then run.map(&:to_s)
+      end
+    end
+
+    # The `seed:` section (include source, scrub rules), or {} when unset.
+    def seed(config)
+      seed = config["seed"]
+      seed.is_a?(Hash) ? seed : {}
     end
   end
 
@@ -276,6 +323,15 @@ module Gwt
     def dir?(path) = File.directory?(path)
 
     def exist?(path) = File.exist?(path)
+
+    def file?(path) = File.file?(path)
+
+    def read(path) = File.read(path)
+
+    # Run a `.gwt` lifecycle hook: spawn argv with the worktree as cwd and stream
+    # its output to the terminal (the user should see what provisioning does),
+    # returning success. Not exec — gwt continues afterwards (cd in, finish the rm).
+    def run_in(dir, argv) = system(*argv, chdir: dir)
 
     def children(path)
       Dir.children(path).select { |e| File.directory?(File.join(path, e)) }.sort
@@ -438,6 +494,7 @@ module Gwt
       return 1 unless ok
 
       timed("worktreeinclude") { apply_include(@root, wt_dir) }
+      run_hook("post-add", wt_dir)
       change_dir(wt_dir)
       0
     end
@@ -654,6 +711,7 @@ module Gwt
         wt_dir = "#{@wt_base}/#{dir_name}"
         return 1 unless force || @confirm.call("Remove worktree '#{dir_name}'? [y/N] ")
 
+        run_hook("pre-rm", wt_dir)
         change_dir(@root) if @pwd.start_with?(wt_dir)
         git_args = ["worktree", "remove", wt_dir]
         git_args << "--force" if force
@@ -755,6 +813,25 @@ module Gwt
         matches.each { |m| @err.puts "  #{m}" }
         1
       end
+    end
+
+    # The repo's `.gwt` config, loaded once per run through the @sys seam so tests
+    # can stub the file without touching disk.
+    def config = @config ||= Gwt::Config.load(@root, reader: @sys)
+
+    # Fire a lifecycle hook if `.gwt` declares one for +event+, running it with
+    # +dir+ as cwd. Best-effort: a failing hook warns but doesn't abort the verb —
+    # a worktree that's already created (or about to be removed) shouldn't be left
+    # half-done because provisioning hit a snag. Returns the hook's success, or nil
+    # when no hook is declared.
+    def run_hook(event, dir)
+      argv = Gwt::Config.hook(config, event)
+      return if argv.nil? || argv.empty?
+
+      @out.puts "gwt: #{event}: #{argv.join(' ')}"
+      ok = timed("hook #{event}") { @sys.run_in(dir, argv) }
+      @err.puts "gwt: #{event} hook failed (exit non-zero): #{argv.join(' ')}" unless ok
+      ok
     end
 
     def apply_include(src_root, dst_root)

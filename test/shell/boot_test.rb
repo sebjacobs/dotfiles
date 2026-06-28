@@ -102,4 +102,15 @@ class InteractiveBootTest < Minitest::Test
     assert_includes loaded, "gwt"
     assert_includes loaded, "proj"
   end
+
+  def test_registers_cli_completions
+    result = ShellBoot.interactive(
+      'print -r -- ${_comps[gwt]} ${_comps[proj]} ${_comps[svc]} ${_comps[dot]} ${_comps[jotter]}'
+    )
+    registered = result.stdout.strip.split
+
+    %w[_gwt _proj _svc _dot _jotter].each do |fn|
+      assert_includes registered, fn, "expected #{fn} bound via compinit"
+    end
+  end
 end

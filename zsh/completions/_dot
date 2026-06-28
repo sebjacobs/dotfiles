@@ -17,7 +17,8 @@ _dot_tools() {
 
 _dot() {
   if (( CURRENT == 2 )); then
-    compadd -- ls show where reload help
+    local -a _subcommands=(ls show where reload help)  # @subcommands
+    compadd -- $_subcommands
   elif (( CURRENT == 3 )); then
     case "${words[2]}" in
       show|where) _dot_tools ;;

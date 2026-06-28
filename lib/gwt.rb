@@ -386,8 +386,19 @@ module Gwt
     def cmd_add(args)
       create_branch = args.first == "-b"
       args = args.drop(1) if create_branch
-      branch = args.first
-      return error("Usage: gwt add [-b] <branch>") if branch.nil? || branch.empty?
+      spec = args.first
+      return error("Usage: gwt add [-b] <branch>[:<start-point>]") if spec.nil? || spec.empty?
+
+      # `-b dogs:main` bases the new branch on another branch's tip. main is only a
+      # start-point, not checked out, so this works even when main already has a
+      # worktree — git's "same branch in two trees" rule never trips. Only the new
+      # branch is slug/reserved-checked; the start-point is git's to resolve.
+      branch, start_point = spec.split(":", 2)
+      if start_point && !create_branch
+        return error(%(A start-point (<branch>:<start-point>) only applies with -b — try `gwt add -b #{spec}`))
+      end
+      return error("Usage: gwt add -b <branch>:<start-point>") if create_branch && start_point == ""
+      return error("Usage: gwt add [-b] <branch>[:<start-point>]") if branch.empty?
 
       if (reason = Gwt.slug_error(branch))
         return error(%(Invalid worktree name "#{branch}": #{reason}))
@@ -413,7 +424,9 @@ module Gwt
 
       ok = timed("worktree add") do
         if create_branch
-          @git.run("worktree", "add", "-b", branch, wt_dir)
+          add_args = ["worktree", "add", "-b", branch, wt_dir]
+          add_args << start_point if start_point
+          @git.run(*add_args)
         else
           @git.run("worktree", "add", wt_dir, branch)
         end
@@ -636,7 +649,7 @@ module Gwt
         Usage: gwt <add|cp|cd|mv|zed|ls|rm|prune|root|status|path> [args]
                gwt <name>           Shorthand for `gwt cd <name>`
 
-          add [-b] <branch>    Create worktree and cd into it
+          add [-b] <branch>[:<start>]  Create worktree and cd in (-b <new>:<from> branches off another branch)
           cp [-f] <path>       Copy <path> from root into every worktree (-f skips the prompt)
           cd <name>           cd into an existing worktree
           mv [-f] <name> <new-name>  Rename a worktree's directory + Claude history (-f skips the prompt)

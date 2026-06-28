@@ -412,6 +412,41 @@ class GwtAppTest < Minitest::Test
     assert_includes git.runs, ["worktree", "add", "#{WT_BASE}/feature+cd", "feature/cd"]
   end
 
+  def test_add_with_dash_b_and_start_point_branches_off_it
+    app, git, = build
+    assert_equal 0, app.run(["add", "-b", "dogs:main"])
+    assert_includes git.runs, ["worktree", "add", "-b", "dogs", "#{WT_BASE}/dogs", "main"]
+    assert_equal ["#{WT_BASE}/dogs"], @cd
+  end
+
+  def test_add_start_point_names_the_worktree_after_the_new_branch_only
+    app, git, = build
+    app.run(["add", "-b", "spike/dogs:feature/cats"])
+    assert_includes git.runs, ["worktree", "add", "-b", "spike/dogs", "#{WT_BASE}/spike+dogs", "feature/cats"]
+  end
+
+  def test_add_validates_only_the_new_branch_half_of_the_spec
+    app, git, = build
+    assert_equal 1, app.run(["add", "-b", "cd:main"])
+    assert_match(/"cd" is a reserved gwt subcommand/, @err.string)
+    assert_empty git.runs
+  end
+
+  def test_add_start_point_without_dash_b_errors_suggesting_dash_b
+    app, git, = build
+    assert_equal 1, app.run(["add", "dogs:main"])
+    assert_match(/only applies with -b/, @err.string)
+    assert_match(/gwt add -b dogs:main/, @err.string)
+    assert_empty git.runs
+  end
+
+  def test_add_with_empty_start_point_errors
+    app, git, = build
+    assert_equal 1, app.run(["add", "-b", "dogs:"])
+    assert_match(/Usage: gwt add/, @err.string)
+    assert_empty git.runs
+  end
+
   def test_cd_exact_match
     app, = build(worktrees: [["foo", "b"]])
     assert_equal 0, app.run(["cd", "foo"])

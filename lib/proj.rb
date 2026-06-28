@@ -36,6 +36,14 @@ require_relative "gwt"
 module Proj
   module_function
 
+  # The completable subcommands, in display order — the single source of truth
+  # the dispatch in App#run and the zsh completion (zsh/projects.zsh) both mirror.
+  # The completion-drift smoke test (test/shell/completion_drift_test.rb) flags
+  # any divergence between this list and the completion's. The bare `.` and
+  # `--list` forms are internal (current-root jump / cache warm), not offered as
+  # completions, so they are deliberately absent.
+  SUBCOMMANDS = %w[ls status mv].freeze
+
   PROJ_ROOT = ENV.fetch("PROJ_ROOT", File.join(Dir.home, "Tech/Projects"))
 
   # The manifest at $PROJ_ROOT/.projroot declares which directories are project

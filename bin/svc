@@ -18,6 +18,12 @@ require "fileutils"
 module Svc
   module_function
 
+  # The completable subcommands, in display order — the single source of truth
+  # the dispatch in App#run and the zsh completion (zsh/completions/_svc) both
+  # mirror. The completion-drift smoke test (test/shell/completion_drift_test.rb)
+  # flags any divergence between this list and the completion's.
+  SUBCOMMANDS = %w[ls show tail install edit enable disable load unload restart help].freeze
+
   DAYS = %w[Sun Mon Tue Wed Thu Fri Sat].freeze
 
   # Human-readable schedule for a parsed plist: a calendar time (optionally with

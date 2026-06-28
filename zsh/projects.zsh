@@ -137,7 +137,8 @@ _proj() {
 
     zstyle ':completion:*:*:proj:*' group-name ''
     zstyle ':completion:*:*:proj:*' group-order commands $type_order
-    compadd -J commands -X 'commands' -- ls status mv
+    local -a _subcommands=(ls status mv)  # @subcommands
+    compadd -J commands -X 'commands' -- $_subcommands
 
     local -a matches
     matches=("${(@f)$(_proj_match_keys "${words[2]}")}")

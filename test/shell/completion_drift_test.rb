@@ -24,8 +24,8 @@ module CompletionDrift
   REPO_ROOT = File.expand_path("../..", __dir__)
 
   TOOLS = [
-    { name: "gwt",  source: "lib/gwt.rb",  completion: "zsh/gwt.zsh" },
-    { name: "proj", source: "lib/proj.rb", completion: "zsh/projects.zsh" },
+    { name: "gwt",  source: "lib/gwt.rb",  completion: "zsh/completions/_gwt" },
+    { name: "proj", source: "lib/proj.rb", completion: "zsh/completions/_proj" },
     { name: "svc",  source: "bin/svc",     completion: "zsh/completions/_svc" },
     { name: "dot",  source: "bin/dot",     completion: "zsh/completions/_dot" }
   ].freeze

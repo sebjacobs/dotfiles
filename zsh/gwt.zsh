@@ -29,8 +29,9 @@
 #       is a standalone snapshot and can drift from the canonical target.
 #     - directory matches are copied recursively via `cp -R`; Claude Code copies
 #       individual files only and skips whole directories.
-
-__gwt_root() { git worktree list --porcelain 2>/dev/null | head -1 | sed 's/^worktree //'; }
+#
+# Tab completion for the subcommands and worktree names lives in the autoloaded
+# zsh/completions/_gwt, alongside the other CLIs' completions.
 
 # The logic lives in lib/gwt.rb (Ruby, unit-tested). A subprocess cannot
 # change this shell's directory, so the helper writes the cd target to the file
@@ -58,39 +59,3 @@ gwt() {
   rm -f "$cd_file"
   return $rc
 }
-
-# Tab completion
-_gwt() {
-  local root=$(__gwt_root)
-  if [[ -z "$root" ]]; then return; fi
-  local wt_base="$root/${GWT_WORKTREE_DIR:-.claude/worktrees}"
-
-  if (( CURRENT == 2 )); then
-    zstyle ':completion:*:*:gwt:*' group-name ''
-    zstyle ':completion:*:*:gwt:*' group-order commands worktrees
-    local -a _subcommands=(add cp cd mv path zed ls rm prune root status)  # @subcommands
-    compadd -J commands -X 'commands' -- $_subcommands
-    if [[ -d "$wt_base" ]]; then
-      compadd -J worktrees -X 'worktrees' -- "$wt_base"/*(/:t)
-    fi
-  elif (( CURRENT == 3 )); then
-    case "${words[2]}" in
-      cd|rm|path|zed|mv)
-        if [[ -d "$wt_base" ]]; then
-          compadd -- "$wt_base"/*(/:t)
-        fi
-        ;;
-      cp)
-        _files -W "$root"
-        ;;
-      add)
-        # Complete branch names
-        compadd -- $(git branch --format='%(refname:short)' 2>/dev/null)
-        ;;
-      root)
-        compadd -- -p --path
-        ;;
-    esac
-  fi
-}
-compdef _gwt gwt

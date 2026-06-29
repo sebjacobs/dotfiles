@@ -586,11 +586,44 @@ module Gwt
       0
     end
 
+    RM_USAGE = "Usage: gwt rm [-f] [-d|-D] <name>"
+
+    # Parse rm's flags, accepting bundled short forms (-df, -Df) and long forms.
+    # Returns [{force:, delete_branch:}, positionals] or nil on an unknown flag.
+    # delete_branch is nil, :safe (-d), or :force (-D) — mirroring git branch.
+    def parse_rm_flags(args)
+      force = false
+      delete_branch = nil
+      positionals = []
+      args.each do |arg|
+        case arg
+        when "--force" then force = true
+        when "--delete-branch" then delete_branch = :safe
+        when "--delete-branch-force" then delete_branch = :force
+        when /\A-[a-zA-Z]+\z/
+          arg.delete_prefix("-").each_char do |ch|
+            case ch
+            when "f" then force = true
+            when "d" then delete_branch = :safe
+            when "D" then delete_branch = :force
+            else return nil
+            end
+          end
+        else positionals << arg
+        end
+      end
+      [{force: force, delete_branch: delete_branch}, positionals]
+    end
+
     def cmd_rm(args)
-      force = args.any? { |a| ["-f", "--force"].include?(a) }
-      args = args.reject { |a| ["-f", "--force"].include?(a) }
-      name = args.first
-      return error("Usage: gwt rm [-f] <name>") if name.nil? || name.empty?
+      parsed = parse_rm_flags(args)
+      return error(RM_USAGE) if parsed.nil?
+
+      flags, positionals = parsed
+      force = flags[:force]
+      delete_branch = flags[:delete_branch]
+      name = positionals.first
+      return error(RM_USAGE) if name.nil? || name.empty?
 
       matches = Gwt.fuzzy_match(worktree_dirs.map { |dir| File.basename(dir) }, Gwt.encode_branch(name))
       if matches.length > 1
@@ -600,13 +633,16 @@ module Gwt
       end
 
       if matches.length == 1
-        wt_dir = "#{@wt_base}/#{matches.first}"
-        return 1 unless force || @confirm.call("Remove worktree '#{matches.first}'? [y/N] ")
+        dir_name = matches.first
+        wt_dir = "#{@wt_base}/#{dir_name}"
+        return 1 unless force || @confirm.call("Remove worktree '#{dir_name}'? [y/N] ")
 
         change_dir(@root) if @pwd.start_with?(wt_dir)
         git_args = ["worktree", "remove", wt_dir]
         git_args << "--force" if force
-        return @git.run(*git_args) ? 0 : 1
+        return 1 unless @git.run(*git_args)
+
+        return delete_branch ? remove_branch(dir_name, delete_branch) : 0
       end
 
       wt_dir = "#{@wt_base}/#{Gwt.encode_branch(name)}"
@@ -616,7 +652,27 @@ module Gwt
 
       change_dir(@root) if @pwd.start_with?(wt_dir)
       @sys.remove(wt_dir)
+      if delete_branch
+        @err.puts "gwt: '#{name}' is untracked by git — its branch (if any) is unknown, so none was deleted"
+        return 1
+      end
       0
+    end
+
+    # Delete the local branch a just-removed worktree was on. Reads the branch from
+    # the worktree list captured at startup (still cached after the dir is gone), so
+    # we delete the branch git actually had checked out — not an assumed basename,
+    # which `gwt mv` can leave diverged from the branch. git refuses to delete a
+    # branch checked out elsewhere, which is why this runs only after the remove.
+    def remove_branch(dir_name, mode)
+      wt = worktrees.find { |w| File.basename(w[:path]) == dir_name }
+      branch = wt && wt[:branch]
+      if branch.nil? || branch == "(detached)"
+        @err.puts "gwt: worktree '#{dir_name}' has no branch to delete"
+        return 1
+      end
+
+      @git.run("branch", mode == :force ? "-D" : "-d", branch) ? 0 : 1
     end
 
     def cmd_prune(args)
@@ -655,7 +711,7 @@ module Gwt
           mv [-f] <name> <new-name>  Rename a worktree's directory + Claude history (-f skips the prompt)
           zed [<name>]        Open a worktree in a new Zed window (current if no name)
           ls                  List the root and its worktrees
-          rm [-f] <name>      Remove a worktree or orphaned directory (-f forces a dirty one)
+          rm [-f] [-d|-D] <name>  Remove a worktree (-f forces a dirty one; -d/-D also deletes its branch)
           prune [-f]          Clear phantom git registrations and orphaned dirs (-f skips prompts)
           root [-p]           cd back to the main worktree root (or echo it with -p)
           status              Root + worktrees, newest-commit-first, with timestamps

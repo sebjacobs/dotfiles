@@ -259,9 +259,10 @@ class GwtAppTest < Minitest::Test
   class FakeGit
     attr_reader :runs
 
-    def initialize(captures: {}, run_ok: true)
+    def initialize(captures: {}, run_ok: true, fail_runs: [])
       @captures = captures
       @run_ok = run_ok
+      @fail_runs = fail_runs
       @runs = []
     end
 
@@ -271,6 +272,8 @@ class GwtAppTest < Minitest::Test
 
     def run(*args)
       @runs << args
+      return false if @fail_runs.any? { |prefix| args.first(prefix.length) == prefix }
+
       @run_ok
     end
   end
@@ -694,6 +697,88 @@ class GwtAppTest < Minitest::Test
     app, = build
     assert_equal 1, app.run(["rm", "nope"])
     assert_match(/No worktree: nope/, @err.string)
+  end
+
+  def test_rm_delete_branch_removes_worktree_then_branch
+    app, git, = build(worktrees: [["foo", "feature/foo"]], confirm: ->(_) { true })
+    assert_equal 0, app.run(["rm", "-d", "foo"])
+    assert_includes git.runs, ["worktree", "remove", "#{WT_BASE}/foo"]
+    assert_includes git.runs, ["branch", "-d", "feature/foo"]
+  end
+
+  def test_rm_delete_branch_uses_actual_branch_not_dir_name
+    app, git, = build(worktrees: [["renamed", "feature/original"]], confirm: ->(_) { true })
+    assert_equal 0, app.run(["rm", "-d", "renamed"])
+    assert_includes git.runs, ["branch", "-d", "feature/original"]
+  end
+
+  def test_rm_delete_branch_force_uses_capital_d
+    app, git, = build(worktrees: [["foo", "feature/foo"]], confirm: ->(_) { true })
+    assert_equal 0, app.run(["rm", "-D", "foo"])
+    assert_includes git.runs, ["branch", "-D", "feature/foo"]
+  end
+
+  def test_rm_long_delete_branch_flags
+    app, git, = build(worktrees: [["foo", "feature/foo"]], confirm: ->(_) { true })
+    assert_equal 0, app.run(["rm", "--delete-branch", "foo"])
+    assert_includes git.runs, ["branch", "-d", "feature/foo"]
+  end
+
+  def test_rm_bundled_force_and_delete_branch
+    app, git, = build(worktrees: [["foo", "feature/foo"]], confirm: ->(_) { flunk "should not prompt with -f" })
+    assert_equal 0, app.run(["rm", "-df", "foo"])
+    assert_includes git.runs, ["worktree", "remove", "#{WT_BASE}/foo", "--force"]
+    assert_includes git.runs, ["branch", "-d", "feature/foo"]
+  end
+
+  def test_rm_force_does_not_escalate_safe_branch_delete
+    app, git, = build(worktrees: [["foo", "feature/foo"]], confirm: ->(_) { true })
+    app.run(["rm", "-df", "foo"])
+    assert_includes git.runs, ["branch", "-d", "feature/foo"]
+    refute_includes git.runs, ["branch", "-D", "feature/foo"]
+  end
+
+  def test_rm_without_delete_flag_leaves_branch
+    app, git, = build(worktrees: [["foo", "feature/foo"]], confirm: ->(_) { true })
+    app.run(["rm", "foo"])
+    assert_empty git.runs.select { |r| r.first == "branch" }
+  end
+
+  def test_rm_skips_branch_delete_when_worktree_removal_fails
+    git = FakeGit.new(fail_runs: [["worktree", "remove"]])
+    app, git, = build(git: git, worktrees: [["foo", "feature/foo"]], confirm: ->(_) { true })
+    assert_equal 1, app.run(["rm", "-d", "foo"])
+    assert_empty git.runs.select { |r| r.first == "branch" }
+  end
+
+  def test_rm_returns_nonzero_when_branch_delete_fails
+    git = FakeGit.new(fail_runs: [["branch"]])
+    app, git, = build(git: git, worktrees: [["foo", "feature/foo"]], confirm: ->(_) { true })
+    assert_equal 1, app.run(["rm", "-d", "foo"])
+    assert_includes git.runs, ["worktree", "remove", "#{WT_BASE}/foo"]
+  end
+
+  def test_rm_delete_branch_on_detached_worktree_warns
+    app, git, = build(worktrees: [["foo", nil]], confirm: ->(_) { true })
+    assert_equal 1, app.run(["rm", "-d", "foo"])
+    assert_includes git.runs, ["worktree", "remove", "#{WT_BASE}/foo"]
+    assert_empty git.runs.select { |r| r.first == "branch" }
+    assert_match(/no branch to delete/, @err.string)
+  end
+
+  def test_rm_delete_branch_on_orphan_warns_and_returns_nonzero
+    sys = FakeSys.new(dirs: ["#{WT_BASE}/orphan"])
+    app, git, sys = build(sys: sys, worktrees: [], confirm: ->(_) { true })
+    assert_equal 1, app.run(["rm", "-d", "orphan"])
+    assert_includes sys.removes, "#{WT_BASE}/orphan"
+    assert_empty git.runs.select { |r| r.first == "branch" }
+    assert_match(/untracked by git/, @err.string)
+  end
+
+  def test_rm_unknown_flag_errors
+    app, = build(worktrees: [["foo", "feature/foo"]])
+    assert_equal 1, app.run(["rm", "-x", "foo"])
+    assert_match(/Usage: gwt rm/, @err.string)
   end
 
   def test_zed_named_execs_in_new_window

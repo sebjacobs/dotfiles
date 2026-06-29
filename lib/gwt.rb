@@ -194,6 +194,22 @@ module Gwt
     [ahead.to_i, behind.to_i]
   end
 
+  # Parse one `git for-each-ref` per-branch metadata dump into
+  # { branch => {time:, ahead:, behind:} }. The format is
+  # "<branch>|<committerdate:unix>|<ahead-behind>", where the ahead-behind atom
+  # prints "<ahead> <behind>" (or nothing when the base is unrelated to the ref,
+  # which collapses to zeros). One command yields every branch's commit time and
+  # divergence, replacing a per-worktree `log` + `rev-list` pair each.
+  def parse_for_each_ref(output)
+    output.to_s.each_line.with_object({}) do |line, map|
+      branch, time, position = line.chomp.split("|", 3)
+      next if branch.nil? || branch.empty?
+
+      ahead, behind = position.to_s.split(" ", 2)
+      map[branch] = {time: time.to_i, ahead: ahead.to_i, behind: behind.to_i}
+    end
+  end
+
   # Parse `git worktree list --porcelain` into [{path:, branch:}] entries, in the
   # order git reports them. A new entry starts at each "worktree <path>" line;
   # "branch refs/heads/<name>", a bare "detached", and "prunable <reason>" (git's
@@ -339,7 +355,7 @@ module Gwt
 
       @wt_base = "#{@root}/#{@worktree_subdir}"
       case cmd
-      when nil      then usage
+      when nil      then cmd_status
       when "add"    then cmd_add(rest)
       when "cp"     then cmd_cp(rest)
       when "cd"     then cmd_cd(rest)
@@ -563,20 +579,38 @@ module Gwt
     # "what was I last on?" the top line; the root sorts in by its own commit time
     # like any other checkout (its position column is empty — it can't be ahead of
     # itself).
+    #
+    # Each branch's commit time and divergence come from a single `for-each-ref`
+    # over refs/heads — one git invocation for the whole repo, rather than a `log`
+    # plus a `rev-list` per worktree. The base for ahead/behind is the root's
+    # checked-out branch, already known from the startup worktree list (HEAD when
+    # the root is detached). Only dirtiness stays per-worktree: `status` reads each
+    # working tree's own index, so it can't be batched; a detached worktree (no
+    # branch ref in the dump) also falls back to a per-tree `log`.
+    #
+    # Those per-worktree calls run concurrently — one thread per row. Git#capture
+    # spends its life blocked in the subprocess wait, where Ruby releases the GVL,
+    # so the threads overlap their git children and the dirty-check cost stays flat
+    # as worktrees pile up rather than growing linearly.
     def cmd_status
-      main_branch_out, ok = @git.capture("-C", @root, "rev-parse", "--abbrev-ref", "HEAD")
-      main_branch = ok ? main_branch_out.strip : "main"
+      base = (root_entry[:branch] && root_entry[:branch] != "(detached)") ? root_entry[:branch] : "HEAD"
+      refs, = @git.capture("-C", @root, "for-each-ref",
+                           "--format=%(refname:short)|%(committerdate:unix)|%(ahead-behind:#{base})",
+                           "refs/heads/")
+      meta = Gwt.parse_for_each_ref(refs)
 
       rows = listed_worktrees.map do |wt|
-        dir = wt[:path]
-        branch = wt[:branch] || "???"
-        time_out, = @git.capture("-C", dir, "log", "-1", "--format=%ct")
-        dirty_out, = @git.capture("-C", dir, "status", "--porcelain")
-        counts, = @git.capture("-C", dir, "rev-list", "--left-right", "--count", "#{main_branch}...#{branch}")
-        ahead, behind = Gwt.parse_ahead_behind(counts)
-        { dir: dir, name: display_name(dir), branch: branch, time: time_out.to_s.strip.to_i,
-          dirty: dirty_out.strip.empty? ? "" : " [dirty]", position: Gwt.format_position(ahead, behind) }
-      end
+        Thread.new do
+          dir = wt[:path]
+          branch = wt[:branch] || "???"
+          info = meta[branch]
+          time = info ? info[:time] : @git.capture("-C", dir, "log", "-1", "--format=%ct").first.to_s.strip.to_i
+          dirty_out, = @git.capture("-C", dir, "status", "--porcelain")
+          { dir: dir, name: display_name(dir), branch: branch, time: time,
+            dirty: dirty_out.strip.empty? ? "" : " [dirty]",
+            position: Gwt.format_position(info&.fetch(:ahead), info&.fetch(:behind)) }
+        end
+      end.map(&:value)
 
       rows.sort_by { |row| -row[:time] }.each do |row|
         stamp = row[:time].positive? ? " (last: #{Gwt.format_time(row[:time])})" : ""

@@ -58,6 +58,26 @@ class GwtPureTest < Minitest::Test
     assert_equal [0, 0], Gwt.parse_ahead_behind("")
   end
 
+  def test_parse_for_each_ref_maps_branch_to_time_and_divergence
+    out = "feature/x|1782571757|2 4\nmain|1782722947|0 0\n"
+    assert_equal(
+      {
+        "feature/x" => {time: 1782571757, ahead: 2, behind: 4},
+        "main" => {time: 1782722947, ahead: 0, behind: 0}
+      },
+      Gwt.parse_for_each_ref(out)
+    )
+  end
+
+  def test_parse_for_each_ref_treats_an_empty_ahead_behind_field_as_zero
+    assert_equal({"orphan" => {time: 1782571757, ahead: 0, behind: 0}},
+                 Gwt.parse_for_each_ref("orphan|1782571757|\n"))
+  end
+
+  def test_parse_for_each_ref_handles_empty_input
+    assert_empty Gwt.parse_for_each_ref("")
+  end
+
   def test_current_worktree_path_inside_a_worktree
     assert_equal "/repo/.claude/worktrees/foo",
                  Gwt.current_worktree_path("/repo/.claude/worktrees/foo/lib/x.rb", "/repo/.claude/worktrees")
@@ -275,6 +295,60 @@ class GwtAppTest < Minitest::Test
       return false if @fail_runs.any? { |prefix| args.first(prefix.length) == prefix }
 
       @run_ok
+    end
+  end
+
+  # A FakeGit that gates every `status --porcelain` (the dirty check) on a
+  # barrier, then reports the most that were ever in flight at once. Serial
+  # execution can never raise that peak above one — each call would arrive, find
+  # itself alone, and time out before the next began — so asserting the peak
+  # equals the worktree count proves cmd_status fans the dirty checks out across
+  # threads rather than walking them one by one.
+  class DirtyCheckConcurrencyProbe < FakeGit
+    attr_reader :peak_in_flight
+
+    def initialize(expected:, **kwargs)
+      super(**kwargs)
+      @expected = expected
+      @monitor = Mutex.new
+      @all_arrived = ConditionVariable.new
+      @arrived = 0
+      @in_flight = 0
+      @peak_in_flight = 0
+    end
+
+    def capture(*args, **)
+      await_all_dirty_checks if dirty_check?(args)
+      super
+    end
+
+    private
+
+    def dirty_check?(args) = args.include?("status") && args.include?("--porcelain")
+
+    def await_all_dirty_checks
+      @monitor.synchronize do
+        @arrived += 1
+        @in_flight += 1
+        @peak_in_flight = [@peak_in_flight, @in_flight].max
+        @all_arrived.broadcast
+        wait_until_all_arrived_or_timeout
+        @in_flight -= 1
+      end
+    end
+
+    # The release gate is @arrived, which only ever climbs — so a woken waiter
+    # can't be sent back to sleep by a peer that has already finished and dropped
+    # out of flight. Serial callers never lift @arrived past one before the
+    # deadline, which is exactly what the peak assertion catches.
+    def wait_until_all_arrived_or_timeout
+      deadline = Process.clock_gettime(Process::CLOCK_MONOTONIC) + 2
+      while @arrived < @expected
+        remaining = deadline - Process.clock_gettime(Process::CLOCK_MONOTONIC)
+        break if remaining <= 0
+
+        @all_arrived.wait(@monitor, remaining)
+      end
     end
   end
 
@@ -846,12 +920,13 @@ class GwtAppTest < Minitest::Test
     assert_match(/No worktree matching: phantom/, @err.string)
   end
 
+  FOR_EACH_REF = "-C #{ROOT} for-each-ref " \
+                 "--format=%(refname:short)|%(committerdate:unix)|%(ahead-behind:main) refs/heads/"
+
   def test_status_shows_dirty_position_and_timestamp
     captures = {
-      "-C #{ROOT} rev-parse --abbrev-ref HEAD" => ["main\n", true],
-      "-C #{WT_BASE}/foo log -1 --format=%ct" => ["1782571757\n", true],
-      "-C #{WT_BASE}/foo status --porcelain" => [" M a.rb\n", true],
-      "-C #{WT_BASE}/foo rev-list --left-right --count main...feature/x" => ["1\t2\n", true]
+      FOR_EACH_REF => ["feature/x|1782571757|2 1\nmain|1782509451|0 0\n", true],
+      "-C #{WT_BASE}/foo status --porcelain" => [" M a.rb\n", true]
     }
     app, = build(git: FakeGit.new(captures: captures), worktrees: [["foo", "feature/x"]])
     assert_equal 0, app.run(["status"])
@@ -863,15 +938,35 @@ class GwtAppTest < Minitest::Test
 
   def test_status_orders_newest_first_and_includes_the_root
     captures = {
-      "-C #{ROOT} rev-parse --abbrev-ref HEAD" => ["main\n", true],
-      "-C #{ROOT} log -1 --format=%ct" => ["1782509451\n", true],
-      "-C #{WT_BASE}/foo log -1 --format=%ct" => ["1782571757\n", true]
+      FOR_EACH_REF => ["feature/x|1782571757|0 0\nmain|1782509451|0 0\n", true]
     }
     app, = build(git: FakeGit.new(captures: captures), worktrees: [["foo", "feature/x"]])
     assert_equal 0, app.run(["status"])
     lines = @out.string.lines.map(&:chomp).reject(&:empty?)
     assert_match(/foo/, lines[0])
     assert_match(/repo \(root\)\s+main/, lines[1])
+  end
+
+  def test_status_runs_the_per_worktree_dirty_checks_concurrently
+    worktrees = [["a", "fa"], ["b", "fb"], ["c", "fc"]]
+    listed = worktrees.length + 1
+    refs = "main|1|0 0\nfa|2|0 0\nfb|3|0 0\nfc|4|0 0\n"
+    git = DirtyCheckConcurrencyProbe.new(expected: listed, captures: { FOR_EACH_REF => [refs, true] })
+    app, = build(git: git, worktrees: worktrees)
+    assert_equal 0, app.run(["status"])
+    assert_equal listed, git.peak_in_flight
+  end
+
+  def test_status_falls_back_to_per_tree_log_for_a_detached_worktree
+    captures = {
+      FOR_EACH_REF => ["main|1782509451|0 0\n", true],
+      "-C #{WT_BASE}/foo log -1 --format=%ct" => ["1782571757\n", true]
+    }
+    app, = build(git: FakeGit.new(captures: captures), worktrees: [["foo", nil]])
+    assert_equal 0, app.run(["status"])
+    lines = @out.string.lines.map(&:chomp).reject(&:empty?)
+    assert_match(/foo\s+\(detached\)/, lines[0])
+    assert_match(/\(last: #{Regexp.escape(Gwt.format_time(1782571757))}\)/, lines[0])
   end
 
   def test_bare_name_cds_into_a_matching_worktree
@@ -893,10 +988,12 @@ class GwtAppTest < Minitest::Test
     assert_match(/No worktree matching: zzz/, @err.string)
   end
 
-  def test_no_args_prints_usage
-    app, = build
-    assert_equal 1, app.run([])
-    assert_match(/Usage: gwt/, @out.string)
+  def test_no_args_runs_status
+    captures = { FOR_EACH_REF => ["main|1782509451|0 0\n", true] }
+    app, = build(git: FakeGit.new(captures: captures))
+    assert_equal 0, app.run([])
+    assert_match(/repo \(root\)\s+main/, @out.string)
+    refute_match(/Usage: gwt/, @out.string)
   end
 
   def test_help_prints_usage_with_zero_exit

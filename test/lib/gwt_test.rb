@@ -988,10 +988,12 @@ class GwtAppTest < Minitest::Test
     assert_match(/No worktree matching: zzz/, @err.string)
   end
 
-  def test_no_args_prints_usage
-    app, = build
-    assert_equal 1, app.run([])
-    assert_match(/Usage: gwt/, @out.string)
+  def test_no_args_runs_status
+    captures = { FOR_EACH_REF => ["main|1782509451|0 0\n", true] }
+    app, = build(git: FakeGit.new(captures: captures))
+    assert_equal 0, app.run([])
+    assert_match(/repo \(root\)\s+main/, @out.string)
+    refute_match(/Usage: gwt/, @out.string)
   end
 
   def test_help_prints_usage_with_zero_exit

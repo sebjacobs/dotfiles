@@ -355,7 +355,7 @@ module Gwt
 
       @wt_base = "#{@root}/#{@worktree_subdir}"
       case cmd
-      when nil      then usage
+      when nil      then cmd_status
       when "add"    then cmd_add(rest)
       when "cp"     then cmd_cp(rest)
       when "cd"     then cmd_cd(rest)

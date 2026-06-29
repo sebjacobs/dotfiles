@@ -239,6 +239,7 @@ Always rebase the feature branch onto main before merging — ensures the histor
 4. Propose a grouping to the user and wait for approval
 5. Stage and commit each group sequentially
 6. **Never merge or raise a PR until the user explicitly says to** — propose it, then wait
+7. **After merging — preserve the branch's context with `/handover`.** Once a feature branch is merged and about to be deleted, run `/handover` to distil its session log into a single handover entry on `main` so the branch's history and decisions survive its removal. Then delete the merged branch (and its worktree, via `gwt rm`). This applies to local-only merges too, not just `gh pr merge`.
 
 **Before you push — checklist:**
 > Re-read this before every `git push`, especially to main.

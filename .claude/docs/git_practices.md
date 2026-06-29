@@ -192,6 +192,10 @@ The test for whether a branch is focused: can you describe every commit on it in
 
 When checking whether feature branches have been merged, `git branch --merged` only detects merge-commit merges — it misses branches that were fast-forward rebased onto main. Always verify with `git diff main...<branch> --stat` as well: if the diff is empty, the branch's changes are already on main regardless of how they got there.
 
+## After merging — `/handover` before deleting the branch
+
+A merged feature branch still carries context the merge commit doesn't: the session log (jotter entries) describing what was tried, what was rejected, and why. Deleting the branch loses the thread of that work. So once a branch is merged and about to be removed, run `/handover` to distil its log into a single handover entry on `main` — then delete the branch and its worktree (`gwt rm`). This is the last step of the merge process in `CLAUDE.md`, and it applies to local-only merges (rebase + `--no-ff` on main) exactly as it does to `gh pr merge`.
+
 ## Pasting a PR description into the merge commit
 
 When merging a multi-commit branch with `gh pr merge --merge`, the merge commit body should carry the PR's reasoning so the story lives in the git history, not only on GitHub. But a PR description is Markdown — `##` headers, `**bold**`, `[links](url)`, unwrapped long lines — none of which reads well in `git log`.

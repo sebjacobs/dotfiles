@@ -655,10 +655,19 @@ class ProjMvTest < Minitest::Test
     @root = Dir.mktmpdir
     @home = Dir.mktmpdir
     @personal = File.join(@root, "personal")
+    @client = File.join(@root, "client")
+    @opensource = File.join(@root, "opensource")
     @proj = File.join(@personal, "cadence")
+    @client_proj = File.join(@client, "acme", "widget")
     FileUtils.mkdir_p(@proj)
     FileUtils.mkdir_p(File.join(@personal, "cadence-extra"))
-    @trees = [{ dir: @personal, depth: 1, exclude: [], type: "personal" }]
+    FileUtils.mkdir_p(@client_proj)
+    FileUtils.mkdir_p(@opensource)
+    @trees = [
+      { dir: @personal, depth: 1, exclude: [], type: "personal" },
+      { dir: @client, depth: 2, exclude: [], type: "client" },
+      { dir: @opensource, depth: 1, exclude: [], type: "opensource" },
+    ]
     @projects = File.join(@home, ".claude", "projects")
     FileUtils.mkdir_p(@projects)
     @jotter_calls = []
@@ -685,7 +694,7 @@ class ProjMvTest < Minitest::Test
     Proj::App.new(
       trees: @trees, pwd: @root, out: @out, err: @err,
       cd: ->(p) { @cd << p }, cache: ->(_) {}, paths: ->(_) {}, types: ->(_) {}, tags: ->(_) {},
-      home: @home, confirm: ->(_) { confirm }, jotter: ->(o, n, p) { @jotter_calls << [o, n, p] }, git: git
+      home: @home, confirm: ->(_) { confirm }, jotter: ->(o, n, from, p) { @jotter_calls << [o, n, from, p] }, git: git
     )
   end
 
@@ -752,7 +761,7 @@ class ProjMvTest < Minitest::Test
   def test_mv_delegates_to_jotter_for_a_git_repo
     FileUtils.mkdir_p(File.join(@proj, ".git"))
     app.run(["mv", "cadence", "notes"])
-    assert_equal [["cadence", "notes", File.join(@personal, "notes")]], @jotter_calls
+    assert_equal [["cadence", "notes", nil, File.join(@personal, "notes")]], @jotter_calls
   end
 
   def test_mv_skips_jotter_for_a_non_git_directory
@@ -795,6 +804,66 @@ class ProjMvTest < Minitest::Test
   def test_mv_requires_two_arguments
     assert_equal 1, app.run(["mv", "cadence"])
     assert_match(/Usage: proj mv/, @err.string)
+  end
+
+  def test_mv_to_moves_into_another_category_keeping_the_name
+    assert_equal 0, app.run(["mv", "widget", "--to", "personal"])
+    assert path_exists?(File.join(@personal, "widget"))
+    refute path_exists?(@client_proj)
+  end
+
+  def test_mv_to_renames_while_moving_into_another_category
+    assert_equal 0, app.run(["mv", "cadence", "renamed", "--to", "opensource"])
+    assert path_exists?(File.join(@opensource, "renamed"))
+    refute path_exists?(@proj)
+  end
+
+  def test_mv_to_accepts_an_equals_form
+    assert_equal 0, app.run(["mv", "cadence", "--to=opensource"])
+    assert path_exists?(File.join(@opensource, "cadence"))
+  end
+
+  def test_mv_to_a_namespaced_tree_places_under_the_namespace
+    assert_equal 0, app.run(["mv", "cadence", "--to", "client/acme"])
+    assert path_exists?(File.join(@client, "acme", "cadence"))
+  end
+
+  def test_mv_to_rejects_an_unknown_category
+    assert_equal 1, app.run(["mv", "cadence", "--to", "nope"])
+    assert_match(/unknown destination category 'nope'/, @err.string)
+    assert path_exists?(@proj)
+  end
+
+  def test_mv_to_rejects_the_wrong_namespace_depth
+    assert_equal 1, app.run(["mv", "cadence", "--to", "client"])
+    assert_match(/namespace segment/, @err.string)
+    assert path_exists?(@proj)
+  end
+
+  def test_mv_to_rejects_an_existing_target
+    FileUtils.mkdir_p(File.join(@personal, "widget"))
+    assert_equal 1, app.run(["mv", "widget", "--to", "personal"])
+    assert_match(/already exists/, @err.string)
+  end
+
+  def test_mv_to_migrates_claude_history_across_categories
+    seed_history(@client_proj)
+    app.run(["mv", "widget", "--to", "personal"])
+    assert path_exists?(File.join(@projects, enc(File.join(@personal, "widget")), "s.jsonl"))
+    refute path_exists?(File.join(@projects, enc(@client_proj)))
+  end
+
+  def test_mv_to_passes_the_old_parent_as_from_dir_for_a_git_repo
+    FileUtils.mkdir_p(File.join(@client_proj, ".git"))
+    app.run(["mv", "widget", "--to", "personal"])
+    assert_equal [["widget", "widget", File.join(@client, "acme"), File.join(@personal, "widget")]], @jotter_calls
+  end
+
+  def test_mv_to_cds_into_the_moved_project_when_inside_it
+    inside = app
+    inside.instance_variable_set(:@pwd, File.join(@client_proj, "lib"))
+    inside.run(["mv", "widget", "--to", "personal"])
+    assert_equal [File.join(@personal, "widget", "/lib")], @cd
   end
 
   private

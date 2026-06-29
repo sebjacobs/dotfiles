@@ -439,25 +439,36 @@ module Proj
       0
     end
 
-    # Rename a project's directory to <new-name> within the same parent, then
-    # carry the per-checkout history that keys off its path: Claude transcripts
-    # (project root + every worktree, migrated precisely) and jotter logs (whose
-    # project name is the dir basename — delegated to `jotter mv`). Confirms
-    # first; the history moves run only after the directory move succeeds.
-    # `mv` shadows any project literally named "mv" — an accepted edge.
+    # Move a project, then carry the per-checkout state that keys off its path:
+    # Claude transcripts (project root + every worktree, migrated precisely),
+    # worktree git registrations, and jotter logs. Two shapes:
+    #
+    #   proj mv <project> <new-name>              rename within the same parent
+    #   proj mv <project> [<new-name>] --to <cat> move into another category
+    #
+    # Without --to it stays a same-parent rename. With --to the project relocates
+    # into another tree (its category), keeping its name unless a <new-name> is
+    # given. Confirms first; the state moves run only after the directory move
+    # succeeds. `mv` shadows any project literally named "mv" — an accepted edge.
     def cmd_mv(map, args)
-      old, new = args
-      return error("Usage: proj mv <project> <new-name>") if [old, new].any? { |a| a.nil? || a.empty? }
-      return error("proj mv: <new-name> must be a single path segment (no '/')") if new.include?("/")
+      positionals, to = parse_mv_args(args)
+      old = positionals[0]
+      explicit_new = positionals[1]
+      return error(MV_USAGE) if old.nil? || old.empty?
 
       old_path = resolve_project(old, map)
       return 1 if old_path.nil?
 
-      new_path = File.join(File.dirname(old_path), new)
-      return error("proj mv: '#{new}' already exists at #{new_path}") if File.exist?(new_path)
+      dest_parent, new_name = mv_destination(old_path, explicit_new, to)
+      return 1 if dest_parent.nil?
+      return error("proj mv: <new-name> must be a single path segment (no '/')") if new_name.include?("/")
+
+      new_path = File.join(dest_parent, new_name)
+      return error("proj mv: destination '#{dest_parent}' is not a directory") unless File.directory?(dest_parent)
+      return error("proj mv: '#{new_name}' already exists at #{new_path}") if File.exist?(new_path)
 
       old_name = File.basename(old_path)
-      return 1 unless @confirm.call("Move project '#{old_name}' -> '#{new}' (directory, Claude history, jotter logs)? [y/N] ")
+      return 1 unless @confirm.call("Move project '#{old_name}' -> '#{new_path}' (directory, Claude history, jotter logs)? [y/N] ")
 
       begin
         @sys.move(old_path, new_path)
@@ -467,9 +478,83 @@ module Proj
 
       migrate_claude_history(old_path, new_path)
       repair_worktrees(new_path)
-      migrate_jotter_logs(old_name, new, new_path)
+      migrate_jotter_logs(old_name, new_name, old_path, new_path)
       change_dir(new_path + @pwd[old_path.length..]) if @pwd == old_path || @pwd.start_with?("#{old_path}/")
       0
+    end
+
+    MV_USAGE = "Usage: proj mv <project> <new-name> | proj mv <project> [<new-name>] --to <category>"
+
+    # Split the mv argv into positionals and the optional --to value. `--to` (or
+    # `--to=cat`) names a destination category; a bare `--to` with no value comes
+    # back as "" so the caller can flag it. Returns [positionals, to] where to is
+    # nil when the flag is absent.
+    def parse_mv_args(args)
+      positionals = []
+      to = nil
+      i = 0
+      while i < args.length
+        arg = args[i]
+        if arg == "--to"
+          to = args[i + 1] || ""
+          i += 2
+        elsif arg.start_with?("--to=")
+          to = arg.split("=", 2)[1]
+          i += 1
+        else
+          positionals << arg
+          i += 1
+        end
+      end
+      [positionals, to]
+    end
+
+    # Work out where the project should land. Without --to it's a same-parent
+    # rename, so <new-name> is required. With --to the destination parent is the
+    # named category's directory and the name is kept unless overridden. Returns
+    # [dest_parent, new_name], or [nil, nil] after reporting a usage error.
+    def mv_destination(old_path, explicit_new, to)
+      if to.nil?
+        if explicit_new.nil? || explicit_new.empty?
+          error(MV_USAGE)
+          return [nil, nil]
+        end
+        return [File.dirname(old_path), explicit_new]
+      end
+
+      dest_parent = resolve_destination_parent(to)
+      return [nil, nil] if dest_parent.nil?
+
+      name = explicit_new.nil? || explicit_new.empty? ? File.basename(old_path) : explicit_new
+      [dest_parent, name]
+    end
+
+    # Map a --to category to the directory new projects of that category sit
+    # under. The first segment names the tree (by its type, or its dir's
+    # basename); any further segments are the namespace a deeper tree needs
+    # (a depth-2 `client` tree wants one, e.g. `client/acme`). Reports and
+    # returns nil on an unknown category or the wrong namespace depth.
+    def resolve_destination_parent(category)
+      segs = category.to_s.split("/").reject(&:empty?)
+      if segs.empty?
+        error("proj mv: --to needs a category")
+        return nil
+      end
+
+      tree = @trees.find { |t| t[:type] == segs[0] } || @trees.find { |t| File.basename(t[:dir]) == segs[0] }
+      unless tree
+        error("proj mv: unknown destination category '#{segs[0]}' (known: #{@trees.map { |t| t[:type] }.uniq.join(', ')})")
+        return nil
+      end
+
+      namespace = segs.drop(1)
+      expected = tree[:depth] - 1
+      if namespace.length != expected
+        error("proj mv: '#{tree[:type]}' projects sit #{tree[:depth]} level(s) deep — --to needs #{expected} namespace segment(s)")
+        return nil
+      end
+
+      File.join(tree[:dir], *namespace)
     end
 
     # Moving the whole project tree relocates each linked worktree too, so git's
@@ -500,13 +585,17 @@ module Proj
       Gwt::ClaudeHistory.migrate_paths(sys: @sys, home: @home, pairs: pairs, out: @out, err: @err)
     end
 
-    # Hand the jotter log rename to jotter itself (it owns its git-backed store),
+    # Hand the jotter log move to jotter itself (it owns its git-backed store),
     # but only for a git repo — jotter keys logs by the toplevel basename and has
-    # nothing to migrate for a plain directory.
-    def migrate_jotter_logs(old_name, new_name, new_path)
+    # nothing to migrate for a plain directory. A same-parent rename stays within
+    # one store, so no source dir is passed; a cross-category move can land in a
+    # different store, so the old parent goes along as +from_dir+ for jotter to
+    # resolve the source store from.
+    def migrate_jotter_logs(old_name, new_name, old_path, new_path)
       return unless File.exist?(File.join(new_path, ".git"))
 
-      @jotter.call(old_name, new_name, new_path)
+      from_dir = File.dirname(old_path) == File.dirname(new_path) ? nil : File.dirname(old_path)
+      @jotter.call(old_name, new_name, from_dir, new_path)
     end
 
     # Inside a project, echo its root (handy for `cd "$(proj)"`); outside any
@@ -606,13 +695,18 @@ if __FILE__ == $PROGRAM_NAME
     answer&.downcase == "y"
   end
 
-  # Hand a project-logs rename to jotter, which owns its git-backed store. Run
-  # from inside the moved project so jotter resolves the right data_dir from the
-  # .jotter config that travelled with the directory. Best-effort: a project
-  # with no logs makes jotter exit non-zero, which is condensed to one line
-  # rather than failing the whole move.
-  jotter_sink = lambda do |old_name, new_name, cwd|
-    out, status = Open3.capture2e("jotter", "mv", old_name, new_name, chdir: cwd)
+  # Hand a project-logs move to jotter, which owns its git-backed store. Run from
+  # inside the moved project so jotter resolves the destination data_dir from the
+  # .jotter config that now serves the new location. For a cross-category move
+  # +from_dir+ is the project's old parent, passed as `--from` so jotter resolves
+  # the source store from where the project used to live and relocates the logs
+  # across stores; for a same-parent rename it's nil and jotter renames in place.
+  # Best-effort: a project with no logs makes jotter exit non-zero, which is
+  # condensed to one line rather than failing the whole move.
+  jotter_sink = lambda do |old_name, new_name, from_dir, cwd|
+    args = ["jotter", "mv", old_name, new_name]
+    args += ["--from", from_dir] if from_dir
+    out, status = Open3.capture2e(*args, chdir: cwd)
     $stderr.puts "proj: jotter logs not migrated (#{out.lines.first&.strip})" unless status.success?
   rescue StandardError => e
     $stderr.puts "proj: jotter not available, logs left under '#{old_name}' (#{e.message})"

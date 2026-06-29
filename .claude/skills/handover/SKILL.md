@@ -1,6 +1,6 @@
 ---
 name: handover
-description: Distil a finished feature branch's log into a single handover entry on main, so its context survives the branch being deleted. Use when the user says "/handover", "this branch is done", "wrapping up this branch", "about to delete this branch", "hand this off", or just merged a branch and is about to remove it.
+description: Distil a finished feature branch's log into a single handover entry on main, so its context survives the branch being deleted — or carry an idea's origin context into a brand-new project it spawned, so it isn't stranded in the originating repo. Use when the user says "/handover", "this branch is done", "wrapping up this branch", "about to delete this branch", "hand this off", just merged a branch and is about to remove it, or when a new project is being spun out of work in an existing one.
 ---
 
 # Handover
@@ -10,6 +10,11 @@ A feature branch's jotter log is keyed by branch. When the branch is merged and 
 **Run this while the feature branch is still known** — ideally still checked out, before the branch is deleted.
 
 **Not the end of a branch, just the end of a session?** Use `/stop` instead. `handover` is a higher-order event: you may `stop` a branch many times, then `handover` once when it's done for good.
+
+## Two scenarios this covers
+
+1. **Branch → main, same project (the default).** A feature branch is merged and about to be deleted; distil its log onto the *same* project's `main`. Everything below describes this case.
+2. **Project → new project's main (cross-project spin-out).** An idea explored inside one project grows into a brand-new project of its own — which happens often. The exploration that justified the new project (why it exists, what was tried, the decisions that shaped it) lives in the *originating* project's log and would be stranded there, undiscoverable from the new repo. Hand it over to the **new project's `main`** so the new project starts with its own origin story. The only differences from the default flow: in step 1 the source is the originating project/branch (it's fine if that's already `main` here — the "no feature branch" guard doesn't apply to a spin-out); in step 4 set `--project` to the **new** project and `--branch main`; and make the provenance line name the **originating** project + branch (and commit/SHA if relevant) so the trail back is intact.
 
 ---
 

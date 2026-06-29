@@ -18,8 +18,12 @@
 # clonefile(2) copy-on-write syscall, falling back to a plain deep copy when that
 # can't apply (a symlinked entry, cross-volume, or non-APFS).
 
-require "fileutils"
-require "fiddle"
+# fileutils and fiddle are only touched by the file-moving subcommands (add, cp,
+# mv, rm) — never by `status`, the hot path. Each costs ~10ms to require, so they
+# autoload on first reference rather than on every invocation. timeout is cheap
+# and `status` uses it (the worktree-list call has a deadline), so it stays eager.
+autoload :FileUtils, "fileutils"
+autoload :Fiddle, "fiddle"
 require "timeout"
 
 module Gwt
@@ -251,16 +255,23 @@ module Gwt
 
   # Real filesystem side-effects, behind a seam so tests can fake them.
   class System
-    CLONEFILE =
-      begin
-        Fiddle::Function.new(
-          Fiddle.dlopen(nil)["clonefile"],
-          [Fiddle::TYPE_VOIDP, Fiddle::TYPE_VOIDP, Fiddle::TYPE_INT],
-          Fiddle::TYPE_INT
-        )
-      rescue Fiddle::DLError
-        nil
-      end
+    # The clonefile(2) binding loads fiddle and dlopens libc, which `status`
+    # never needs — resolve it on first copy instead of at class-load time, and
+    # memoize the result (including a nil when the symbol is unavailable).
+    def self.clonefile_fn
+      return @clonefile_fn if defined?(@clonefile_fn)
+
+      @clonefile_fn =
+        begin
+          Fiddle::Function.new(
+            Fiddle.dlopen(nil)["clonefile"],
+            [Fiddle::TYPE_VOIDP, Fiddle::TYPE_VOIDP, Fiddle::TYPE_INT],
+            Fiddle::TYPE_INT
+          )
+        rescue Fiddle::DLError
+          nil
+        end
+    end
 
     def dir?(path) = File.directory?(path)
 
@@ -294,9 +305,10 @@ module Gwt
     private
 
     def clonefile(src, dst)
-      return false unless CLONEFILE
+      fn = System.clonefile_fn
+      return false unless fn
 
-      CLONEFILE.call(src, dst, 0).zero?
+      fn.call(src, dst, 0).zero?
     rescue StandardError
       false
     end

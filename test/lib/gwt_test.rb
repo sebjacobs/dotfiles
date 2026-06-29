@@ -58,6 +58,26 @@ class GwtPureTest < Minitest::Test
     assert_equal [0, 0], Gwt.parse_ahead_behind("")
   end
 
+  def test_parse_for_each_ref_maps_branch_to_time_and_divergence
+    out = "feature/x|1782571757|2 4\nmain|1782722947|0 0\n"
+    assert_equal(
+      {
+        "feature/x" => {time: 1782571757, ahead: 2, behind: 4},
+        "main" => {time: 1782722947, ahead: 0, behind: 0}
+      },
+      Gwt.parse_for_each_ref(out)
+    )
+  end
+
+  def test_parse_for_each_ref_treats_an_empty_ahead_behind_field_as_zero
+    assert_equal({"orphan" => {time: 1782571757, ahead: 0, behind: 0}},
+                 Gwt.parse_for_each_ref("orphan|1782571757|\n"))
+  end
+
+  def test_parse_for_each_ref_handles_empty_input
+    assert_empty Gwt.parse_for_each_ref("")
+  end
+
   def test_current_worktree_path_inside_a_worktree
     assert_equal "/repo/.claude/worktrees/foo",
                  Gwt.current_worktree_path("/repo/.claude/worktrees/foo/lib/x.rb", "/repo/.claude/worktrees")
@@ -846,12 +866,13 @@ class GwtAppTest < Minitest::Test
     assert_match(/No worktree matching: phantom/, @err.string)
   end
 
+  FOR_EACH_REF = "-C #{ROOT} for-each-ref " \
+                 "--format=%(refname:short)|%(committerdate:unix)|%(ahead-behind:main) refs/heads/"
+
   def test_status_shows_dirty_position_and_timestamp
     captures = {
-      "-C #{ROOT} rev-parse --abbrev-ref HEAD" => ["main\n", true],
-      "-C #{WT_BASE}/foo log -1 --format=%ct" => ["1782571757\n", true],
-      "-C #{WT_BASE}/foo status --porcelain" => [" M a.rb\n", true],
-      "-C #{WT_BASE}/foo rev-list --left-right --count main...feature/x" => ["1\t2\n", true]
+      FOR_EACH_REF => ["feature/x|1782571757|2 1\nmain|1782509451|0 0\n", true],
+      "-C #{WT_BASE}/foo status --porcelain" => [" M a.rb\n", true]
     }
     app, = build(git: FakeGit.new(captures: captures), worktrees: [["foo", "feature/x"]])
     assert_equal 0, app.run(["status"])
@@ -863,15 +884,25 @@ class GwtAppTest < Minitest::Test
 
   def test_status_orders_newest_first_and_includes_the_root
     captures = {
-      "-C #{ROOT} rev-parse --abbrev-ref HEAD" => ["main\n", true],
-      "-C #{ROOT} log -1 --format=%ct" => ["1782509451\n", true],
-      "-C #{WT_BASE}/foo log -1 --format=%ct" => ["1782571757\n", true]
+      FOR_EACH_REF => ["feature/x|1782571757|0 0\nmain|1782509451|0 0\n", true]
     }
     app, = build(git: FakeGit.new(captures: captures), worktrees: [["foo", "feature/x"]])
     assert_equal 0, app.run(["status"])
     lines = @out.string.lines.map(&:chomp).reject(&:empty?)
     assert_match(/foo/, lines[0])
     assert_match(/repo \(root\)\s+main/, lines[1])
+  end
+
+  def test_status_falls_back_to_per_tree_log_for_a_detached_worktree
+    captures = {
+      FOR_EACH_REF => ["main|1782509451|0 0\n", true],
+      "-C #{WT_BASE}/foo log -1 --format=%ct" => ["1782571757\n", true]
+    }
+    app, = build(git: FakeGit.new(captures: captures), worktrees: [["foo", nil]])
+    assert_equal 0, app.run(["status"])
+    lines = @out.string.lines.map(&:chomp).reject(&:empty?)
+    assert_match(/foo\s+\(detached\)/, lines[0])
+    assert_match(/\(last: #{Regexp.escape(Gwt.format_time(1782571757))}\)/, lines[0])
   end
 
   def test_bare_name_cds_into_a_matching_worktree

@@ -587,6 +587,11 @@ module Gwt
     # the root is detached). Only dirtiness stays per-worktree: `status` reads each
     # working tree's own index, so it can't be batched; a detached worktree (no
     # branch ref in the dump) also falls back to a per-tree `log`.
+    #
+    # Those per-worktree calls run concurrently — one thread per row. Git#capture
+    # spends its life blocked in the subprocess wait, where Ruby releases the GVL,
+    # so the threads overlap their git children and the dirty-check cost stays flat
+    # as worktrees pile up rather than growing linearly.
     def cmd_status
       base = (root_entry[:branch] && root_entry[:branch] != "(detached)") ? root_entry[:branch] : "HEAD"
       refs, = @git.capture("-C", @root, "for-each-ref",
@@ -595,15 +600,17 @@ module Gwt
       meta = Gwt.parse_for_each_ref(refs)
 
       rows = listed_worktrees.map do |wt|
-        dir = wt[:path]
-        branch = wt[:branch] || "???"
-        info = meta[branch]
-        time = info ? info[:time] : @git.capture("-C", dir, "log", "-1", "--format=%ct").first.to_s.strip.to_i
-        dirty_out, = @git.capture("-C", dir, "status", "--porcelain")
-        { dir: dir, name: display_name(dir), branch: branch, time: time,
-          dirty: dirty_out.strip.empty? ? "" : " [dirty]",
-          position: Gwt.format_position(info&.fetch(:ahead), info&.fetch(:behind)) }
-      end
+        Thread.new do
+          dir = wt[:path]
+          branch = wt[:branch] || "???"
+          info = meta[branch]
+          time = info ? info[:time] : @git.capture("-C", dir, "log", "-1", "--format=%ct").first.to_s.strip.to_i
+          dirty_out, = @git.capture("-C", dir, "status", "--porcelain")
+          { dir: dir, name: display_name(dir), branch: branch, time: time,
+            dirty: dirty_out.strip.empty? ? "" : " [dirty]",
+            position: Gwt.format_position(info&.fetch(:ahead), info&.fetch(:behind)) }
+        end
+      end.map(&:value)
 
       rows.sort_by { |row| -row[:time] }.each do |row|
         stamp = row[:time].positive? ? " (last: #{Gwt.format_time(row[:time])})" : ""

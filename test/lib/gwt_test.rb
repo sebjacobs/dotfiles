@@ -298,6 +298,60 @@ class GwtAppTest < Minitest::Test
     end
   end
 
+  # A FakeGit that gates every `status --porcelain` (the dirty check) on a
+  # barrier, then reports the most that were ever in flight at once. Serial
+  # execution can never raise that peak above one — each call would arrive, find
+  # itself alone, and time out before the next began — so asserting the peak
+  # equals the worktree count proves cmd_status fans the dirty checks out across
+  # threads rather than walking them one by one.
+  class DirtyCheckConcurrencyProbe < FakeGit
+    attr_reader :peak_in_flight
+
+    def initialize(expected:, **kwargs)
+      super(**kwargs)
+      @expected = expected
+      @monitor = Mutex.new
+      @all_arrived = ConditionVariable.new
+      @arrived = 0
+      @in_flight = 0
+      @peak_in_flight = 0
+    end
+
+    def capture(*args, **)
+      await_all_dirty_checks if dirty_check?(args)
+      super
+    end
+
+    private
+
+    def dirty_check?(args) = args.include?("status") && args.include?("--porcelain")
+
+    def await_all_dirty_checks
+      @monitor.synchronize do
+        @arrived += 1
+        @in_flight += 1
+        @peak_in_flight = [@peak_in_flight, @in_flight].max
+        @all_arrived.broadcast
+        wait_until_all_arrived_or_timeout
+        @in_flight -= 1
+      end
+    end
+
+    # The release gate is @arrived, which only ever climbs — so a woken waiter
+    # can't be sent back to sleep by a peer that has already finished and dropped
+    # out of flight. Serial callers never lift @arrived past one before the
+    # deadline, which is exactly what the peak assertion catches.
+    def wait_until_all_arrived_or_timeout
+      deadline = Process.clock_gettime(Process::CLOCK_MONOTONIC) + 2
+      while @arrived < @expected
+        remaining = deadline - Process.clock_gettime(Process::CLOCK_MONOTONIC)
+        break if remaining <= 0
+
+        @all_arrived.wait(@monitor, remaining)
+      end
+    end
+  end
+
   class FakeSys
     attr_reader :copies, :removes, :moves
 
@@ -891,6 +945,16 @@ class GwtAppTest < Minitest::Test
     lines = @out.string.lines.map(&:chomp).reject(&:empty?)
     assert_match(/foo/, lines[0])
     assert_match(/repo \(root\)\s+main/, lines[1])
+  end
+
+  def test_status_runs_the_per_worktree_dirty_checks_concurrently
+    worktrees = [["a", "fa"], ["b", "fb"], ["c", "fc"]]
+    listed = worktrees.length + 1
+    refs = "main|1|0 0\nfa|2|0 0\nfb|3|0 0\nfc|4|0 0\n"
+    git = DirtyCheckConcurrencyProbe.new(expected: listed, captures: { FOR_EACH_REF => [refs, true] })
+    app, = build(git: git, worktrees: worktrees)
+    assert_equal 0, app.run(["status"])
+    assert_equal listed, git.peak_in_flight
   end
 
   def test_status_falls_back_to_per_tree_log_for_a_detached_worktree

@@ -18,8 +18,12 @@
 # clonefile(2) copy-on-write syscall, falling back to a plain deep copy when that
 # can't apply (a symlinked entry, cross-volume, or non-APFS).
 
-require "fileutils"
-require "fiddle"
+# fileutils and fiddle are only touched by the file-moving subcommands (add, cp,
+# mv, rm) — never by `status`, the hot path. Each costs ~10ms to require, so they
+# autoload on first reference rather than on every invocation. timeout is cheap
+# and `status` uses it (the worktree-list call has a deadline), so it stays eager.
+autoload :FileUtils, "fileutils"
+autoload :Fiddle, "fiddle"
 require "timeout"
 
 module Gwt
@@ -172,41 +176,17 @@ module Gwt
     dirs.select { |dir| pwd == dir || pwd.start_with?("#{dir}/") }.max_by(&:length)
   end
 
-  # Format the ahead/behind suffix shown in `status` (" ↑2 ↓1", " ↑2", "").
-  def format_position(ahead, behind)
-    ahead = ahead.to_i
-    behind = behind.to_i
-    if ahead.positive? && behind.positive?
-      " ↑#{ahead} ↓#{behind}"
-    elsif ahead.positive?
-      " ↑#{ahead}"
-    elsif behind.positive?
-      " ↓#{behind}"
-    else
-      ""
-    end
-  end
-
-  # Parse `git rev-list --left-right --count main...branch` — a tab-separated
-  # "<behind>\t<ahead>" — into [ahead, behind] integers.
-  def parse_ahead_behind(rev_list_output)
-    behind, ahead = rev_list_output.to_s.strip.split("\t", 2)
-    [ahead.to_i, behind.to_i]
-  end
-
   # Parse one `git for-each-ref` per-branch metadata dump into
-  # { branch => {time:, ahead:, behind:} }. The format is
-  # "<branch>|<committerdate:unix>|<ahead-behind>", where the ahead-behind atom
-  # prints "<ahead> <behind>" (or nothing when the base is unrelated to the ref,
-  # which collapses to zeros). One command yields every branch's commit time and
-  # divergence, replacing a per-worktree `log` + `rev-list` pair each.
+  # { branch => {time:} }. The format is "<branch>|<committerdate:unix>", so one
+  # command yields every branch's last-commit time, replacing a per-worktree
+  # `log` each. A pure ref read — no merge-base walk — so it stays flat as
+  # branches pile up.
   def parse_for_each_ref(output)
     output.to_s.each_line.with_object({}) do |line, map|
-      branch, time, position = line.chomp.split("|", 3)
+      branch, time = line.chomp.split("|", 2)
       next if branch.nil? || branch.empty?
 
-      ahead, behind = position.to_s.split(" ", 2)
-      map[branch] = {time: time.to_i, ahead: ahead.to_i, behind: behind.to_i}
+      map[branch] = {time: time.to_i}
     end
   end
 
@@ -275,16 +255,23 @@ module Gwt
 
   # Real filesystem side-effects, behind a seam so tests can fake them.
   class System
-    CLONEFILE =
-      begin
-        Fiddle::Function.new(
-          Fiddle.dlopen(nil)["clonefile"],
-          [Fiddle::TYPE_VOIDP, Fiddle::TYPE_VOIDP, Fiddle::TYPE_INT],
-          Fiddle::TYPE_INT
-        )
-      rescue Fiddle::DLError
-        nil
-      end
+    # The clonefile(2) binding loads fiddle and dlopens libc, which `status`
+    # never needs — resolve it on first copy instead of at class-load time, and
+    # memoize the result (including a nil when the symbol is unavailable).
+    def self.clonefile_fn
+      return @clonefile_fn if defined?(@clonefile_fn)
+
+      @clonefile_fn =
+        begin
+          Fiddle::Function.new(
+            Fiddle.dlopen(nil)["clonefile"],
+            [Fiddle::TYPE_VOIDP, Fiddle::TYPE_VOIDP, Fiddle::TYPE_INT],
+            Fiddle::TYPE_INT
+          )
+        rescue Fiddle::DLError
+          nil
+        end
+    end
 
     def dir?(path) = File.directory?(path)
 
@@ -318,9 +305,10 @@ module Gwt
     private
 
     def clonefile(src, dst)
-      return false unless CLONEFILE
+      fn = System.clonefile_fn
+      return false unless fn
 
-      CLONEFILE.call(src, dst, 0).zero?
+      fn.call(src, dst, 0).zero?
     rescue StandardError
       false
     end
@@ -574,17 +562,14 @@ module Gwt
     end
 
     # The root plus every worktree, ordered newest-commit-first, each row showing
-    # the dir name, its branch, a [dirty] flag, the ahead/behind of that branch vs
-    # the root's branch, and the last-commit timestamp. The recency order makes
-    # "what was I last on?" the top line; the root sorts in by its own commit time
-    # like any other checkout (its position column is empty — it can't be ahead of
-    # itself).
+    # the dir name, its branch, a [dirty] flag, and the last-commit timestamp. The
+    # recency order makes "what was I last on?" the top line; the root sorts in by
+    # its own commit time like any other checkout.
     #
-    # Each branch's commit time and divergence come from a single `for-each-ref`
-    # over refs/heads — one git invocation for the whole repo, rather than a `log`
-    # plus a `rev-list` per worktree. The base for ahead/behind is the root's
-    # checked-out branch, already known from the startup worktree list (HEAD when
-    # the root is detached). Only dirtiness stays per-worktree: `status` reads each
+    # Each branch's commit time comes from a single `for-each-ref` over refs/heads
+    # — one git invocation for the whole repo, rather than a `log` per worktree.
+    # It's a pure ref read (no ahead/behind merge-base walk), so it stays flat as
+    # branches pile up. Only dirtiness stays per-worktree: `status` reads each
     # working tree's own index, so it can't be batched; a detached worktree (no
     # branch ref in the dump) also falls back to a per-tree `log`.
     #
@@ -593,9 +578,8 @@ module Gwt
     # so the threads overlap their git children and the dirty-check cost stays flat
     # as worktrees pile up rather than growing linearly.
     def cmd_status
-      base = (root_entry[:branch] && root_entry[:branch] != "(detached)") ? root_entry[:branch] : "HEAD"
       refs, = @git.capture("-C", @root, "for-each-ref",
-                           "--format=%(refname:short)|%(committerdate:unix)|%(ahead-behind:#{base})",
+                           "--format=%(refname:short)|%(committerdate:unix)",
                            "refs/heads/")
       meta = Gwt.parse_for_each_ref(refs)
 
@@ -607,15 +591,14 @@ module Gwt
           time = info ? info[:time] : @git.capture("-C", dir, "log", "-1", "--format=%ct").first.to_s.strip.to_i
           dirty_out, = @git.capture("-C", dir, "status", "--porcelain")
           { dir: dir, name: display_name(dir), branch: branch, time: time,
-            dirty: dirty_out.strip.empty? ? "" : " [dirty]",
-            position: Gwt.format_position(info&.fetch(:ahead), info&.fetch(:behind)) }
+            dirty: dirty_out.strip.empty? ? "" : " [dirty]" }
         end
       end.map(&:value)
 
       rows.sort_by { |row| -row[:time] }.each do |row|
         stamp = row[:time].positive? ? " (last: #{Gwt.format_time(row[:time])})" : ""
-        @out.puts format("%s%-30s %-30s%s%s%s", marker(row[:dir]), row[:name], row[:branch],
-                         row[:dirty], row[:position], stamp)
+        @out.puts format("%s%-30s %-30s%s%s", marker(row[:dir]), row[:name], row[:branch],
+                         row[:dirty], stamp)
       end
       0
     end

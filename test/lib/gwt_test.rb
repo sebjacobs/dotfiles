@@ -34,44 +34,15 @@ class GwtPureTest < Minitest::Test
     assert_empty Gwt.fuzzy_match(%w[alpha beta], "zzz")
   end
 
-  def test_format_position_ahead_and_behind
-    assert_equal " ↑2 ↓1", Gwt.format_position(2, 1)
-  end
-
-  def test_format_position_ahead_only
-    assert_equal " ↑3", Gwt.format_position(3, 0)
-  end
-
-  def test_format_position_behind_only
-    assert_equal " ↓4", Gwt.format_position(0, 4)
-  end
-
-  def test_format_position_level
-    assert_equal "", Gwt.format_position(0, 0)
-  end
-
-  def test_parse_ahead_behind_splits_tab
-    assert_equal [3, 1], Gwt.parse_ahead_behind("1\t3")
-  end
-
-  def test_parse_ahead_behind_handles_blank
-    assert_equal [0, 0], Gwt.parse_ahead_behind("")
-  end
-
-  def test_parse_for_each_ref_maps_branch_to_time_and_divergence
-    out = "feature/x|1782571757|2 4\nmain|1782722947|0 0\n"
+  def test_parse_for_each_ref_maps_branch_to_time
+    out = "feature/x|1782571757\nmain|1782722947\n"
     assert_equal(
       {
-        "feature/x" => {time: 1782571757, ahead: 2, behind: 4},
-        "main" => {time: 1782722947, ahead: 0, behind: 0}
+        "feature/x" => {time: 1782571757},
+        "main" => {time: 1782722947}
       },
       Gwt.parse_for_each_ref(out)
     )
-  end
-
-  def test_parse_for_each_ref_treats_an_empty_ahead_behind_field_as_zero
-    assert_equal({"orphan" => {time: 1782571757, ahead: 0, behind: 0}},
-                 Gwt.parse_for_each_ref("orphan|1782571757|\n"))
   end
 
   def test_parse_for_each_ref_handles_empty_input
@@ -921,24 +892,23 @@ class GwtAppTest < Minitest::Test
   end
 
   FOR_EACH_REF = "-C #{ROOT} for-each-ref " \
-                 "--format=%(refname:short)|%(committerdate:unix)|%(ahead-behind:main) refs/heads/"
+                 "--format=%(refname:short)|%(committerdate:unix) refs/heads/"
 
-  def test_status_shows_dirty_position_and_timestamp
+  def test_status_shows_dirty_and_timestamp
     captures = {
-      FOR_EACH_REF => ["feature/x|1782571757|2 1\nmain|1782509451|0 0\n", true],
+      FOR_EACH_REF => ["feature/x|1782571757\nmain|1782509451\n", true],
       "-C #{WT_BASE}/foo status --porcelain" => [" M a.rb\n", true]
     }
     app, = build(git: FakeGit.new(captures: captures), worktrees: [["foo", "feature/x"]])
     assert_equal 0, app.run(["status"])
     assert_match(/foo/, @out.string)
     assert_match(/\[dirty\]/, @out.string)
-    assert_match(/↑2 ↓1/, @out.string)
     assert_match(/\(last: #{Regexp.escape(Gwt.format_time(1782571757))}\)/, @out.string)
   end
 
   def test_status_orders_newest_first_and_includes_the_root
     captures = {
-      FOR_EACH_REF => ["feature/x|1782571757|0 0\nmain|1782509451|0 0\n", true]
+      FOR_EACH_REF => ["feature/x|1782571757\nmain|1782509451\n", true]
     }
     app, = build(git: FakeGit.new(captures: captures), worktrees: [["foo", "feature/x"]])
     assert_equal 0, app.run(["status"])
@@ -950,7 +920,7 @@ class GwtAppTest < Minitest::Test
   def test_status_runs_the_per_worktree_dirty_checks_concurrently
     worktrees = [["a", "fa"], ["b", "fb"], ["c", "fc"]]
     listed = worktrees.length + 1
-    refs = "main|1|0 0\nfa|2|0 0\nfb|3|0 0\nfc|4|0 0\n"
+    refs = "main|1\nfa|2\nfb|3\nfc|4\n"
     git = DirtyCheckConcurrencyProbe.new(expected: listed, captures: { FOR_EACH_REF => [refs, true] })
     app, = build(git: git, worktrees: worktrees)
     assert_equal 0, app.run(["status"])
@@ -959,7 +929,7 @@ class GwtAppTest < Minitest::Test
 
   def test_status_falls_back_to_per_tree_log_for_a_detached_worktree
     captures = {
-      FOR_EACH_REF => ["main|1782509451|0 0\n", true],
+      FOR_EACH_REF => ["main|1782509451\n", true],
       "-C #{WT_BASE}/foo log -1 --format=%ct" => ["1782571757\n", true]
     }
     app, = build(git: FakeGit.new(captures: captures), worktrees: [["foo", nil]])
@@ -989,7 +959,7 @@ class GwtAppTest < Minitest::Test
   end
 
   def test_no_args_runs_status
-    captures = { FOR_EACH_REF => ["main|1782509451|0 0\n", true] }
+    captures = { FOR_EACH_REF => ["main|1782509451\n", true] }
     app, = build(git: FakeGit.new(captures: captures))
     assert_equal 0, app.run([])
     assert_match(/repo \(root\)\s+main/, @out.string)

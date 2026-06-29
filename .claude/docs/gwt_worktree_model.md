@@ -91,7 +91,7 @@ cutoff that are not active and provably safe, removes them and runs
 | `rm [-f\|--force] <name>` | Remove a worktree or orphaned directory (`-f` forces a dirty one) |
 | `prune [-f]` | Clear phantom git registrations and orphaned directories (`-f` skips prompts) |
 | `root [-p]` | `cd` to the main root (or echo it with `-p`) |
-| `status` | Per-worktree branch, dirty flag, ahead/behind |
+| `status` | Per-worktree branch, dirty flag, last-commit time |
 | `path [<name>]` | Echo a worktree's absolute path (current if no name) |
 
 ## Design decisions
@@ -125,8 +125,9 @@ Consciously left out for now (recorded so they are choices, not oversights):
 - `zed` hardcodes one editor rather than honouring `$VISUAL`/`$EDITOR`.
 - No `move`/`lock`/`unlock`/`repair` equivalents from `git worktree`.
 - `cp` targets every worktree only; there is no single-target form.
-- `status`'s ahead/behind is measured against the **root checkout's current
-  branch**, not necessarily `main`.
+- `status` shows each worktree's last-commit time and dirty flag, but no
+  ahead/behind divergence — dropped so the listing stays a pure ref read that
+  scales flat with branch count.
 
 ## Parity with the Claude Code CLI (2.1.186)
 

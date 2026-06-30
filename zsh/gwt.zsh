@@ -3,7 +3,20 @@
 #        gwt add -b <branch>    Create branch + worktree and cd into it
 #        gwt add -b <new>:<from>  Branch <new> off <from>'s tip (works even if <from>
 #                                 is already checked out elsewhere) + worktree
-#        gwt cp [-f] <path>     Copy <path> from root into every worktree (-f skips the prompt)
+#        gwt sync [<name>|--all] [-f] [-y] [--hooks]  Merge root's .worktreeinclude DOWN
+#                               into a worktree. Previews the changes and prompts before
+#                               applying; -y skips the prompt, -f makes root win on conflict,
+#                               --hooks re-runs post-add. Default target: the current worktree.
+#        gwt promote [<name>] [-f] [-y]  Merge a worktree's .worktreeinclude UP into root —
+#                               the reverse of sync, for pushing a worktree-local edit back to
+#                               the canonical root. Same preview + prompt (-y skips it); -f makes
+#                               the worktree win on conflict. Default source: the current worktree.
+#        gwt send <path> [--from <src>] [--to <dst>] [-f] [-y]  Copy one ad-hoc path (file or
+#                               whole directory, recursively) between endpoints — root or a named
+#                               worktree, --from/--to, omitted side defaults to where you are.
+#                               Unlike sync/promote it's not tied to .worktreeinclude; it moves
+#                               exactly the path you name. Same preview + prompt (-y skips it);
+#                               -f makes the source win. Serves the lateral worktree->worktree copy.
 #        gwt cd <name>          cd into an existing worktree
 #        gwt mv [-f] <name> <new-name>  Rename a worktree's dir + its Claude history (branch unchanged; -f skips the prompt)
 #        gwt <name>             Shorthand for `gwt cd <name>` (any non-subcommand name)
@@ -32,6 +45,24 @@
 #       is a standalone snapshot and can drift from the canonical target.
 #     - directory matches are copied recursively via `cp -R`; Claude Code copies
 #       individual files only and skips whole directories.
+#
+# .gwt (worktree-lifecycle hooks):
+#   If $repo_root/.gwt exists, it declares commands to run at lifecycle events —
+#   the imperative complement to .worktreeinclude's declarative file copying. YAML:
+#     hooks:
+#       post-add:   { run: [dox, setup, --force] } # after `gwt add` (+ include copy)
+#       post-mv:    { run: [dox, setup, --force] } # after `gwt mv` relocates a worktree
+#       pre-rm:     { run: dox down }              # before `gwt rm` tears it down
+#       pre-prune:  { run: dox down }              # before `gwt prune` removes an orphan dir
+#   `run` may be a string (split on whitespace) or an explicit argv list. The four
+#   events are explicit and independent — none implies another, so a `gwt mv` fires
+#   only post-mv (never post-add), and a project re-uses an action by declaring it
+#   under each event it wants. post-add/post-mv run in the new/renamed worktree;
+#   pre-rm runs in the worktree about to be removed and pre-prune in each orphaned
+#   directory about to be deleted (so a stack/stateful resource is torn down first).
+#   Hooks are best-effort: a non-zero exit warns but never aborts the verb — a
+#   worktree mid-transition is not left half-done by a provisioning hiccup. A
+#   malformed .gwt is ignored rather than blocking gwt.
 #
 # Tab completion for the subcommands and worktree names lives in the autoloaded
 # zsh/completions/_gwt, alongside the other CLIs' completions.

@@ -65,7 +65,7 @@ cutoff that are not active and provably safe, removes them and runs
 
 ## How `gwt` aligns
 
-- **Enumeration** (`ls`, `cp`, `status`, and `cd`/`path`/`zed` resolution) comes
+- **Enumeration** (`ls`, `sync`, `status`, `promote`/`send` endpoints, and `cd`/`path`/`zed` resolution) comes
   from `git worktree list --porcelain` filtered to `.claude/worktrees/`, not a
   directory scan. Neither orphans nor phantoms (`prunable` entries) appear.
 - **`add`** reuses a registered worktree; if a same-named *unregistered* directory
@@ -84,7 +84,9 @@ cutoff that are not active and provably safe, removes them and runs
 | Command | Purpose |
 | --- | --- |
 | `add [-b] <branch>` | Create a worktree (`-b` also creates the branch) and `cd` in; reuse + `cd` if it already exists |
-| `cp [-f\|--force] <path>` | Copy `<path>` from the root checkout into every worktree (`-f` skips the prompt) |
+| `sync [<name>\|--all] [-f] [-y] [--hooks]` | Merge root's `.worktreeinclude` **down** into a worktree (named, `--all`, or the current one): add missing + refresh stale, never delete. Previews the changes and prompts before applying (`-y` skips the prompt); `-f` makes root win on a conflict, `--hooks` re-runs `post-add` |
+| `promote [<name>] [-f] [-y]` | Reverse of `sync`: merge a worktree's `.worktreeinclude` **up** into root (current worktree, or a named one). Scans the worktree's own entries, so a file created there but absent from root is still promoted. Same preview + prompt (`-y` skips it); `-f` makes the worktree win. Single-source — no `--all` |
+| `send <path> [--from <src>] [--to <dst>] [-f] [-y]` | Copy **one ad-hoc path** (file or whole directory, recursively) between endpoints — `root` or a named worktree, chosen with `--from`/`--to`; the omitted side defaults to where you are. Not tied to `.worktreeinclude` — moves exactly the path named. Same preview + prompt; `-f` makes the source win. Covers the lateral worktree→worktree copy as well as a one-off up/down |
 | `cd <name>` | `cd` into a worktree |
 | `zed [<name>]` | Open a worktree in a new Zed window (current if no name) |
 | `ls` | List worktrees (name + branch) |
@@ -111,9 +113,21 @@ These are deliberate and should be preserved unless revisited on purpose:
   is an explicit, confirmed action here).
 - **stdout is data, stderr is messages.** `path` and `root -p` print only the
   path on stdout so they compose in scripts; errors and prompts go to stderr.
-- **`-f` is the one force/skip-confirm flag.** `cp`/`rm`/`prune` take `-f` (no
-  `--force` long form, matching `root -p`); on `rm` it also forwards git's
-  `--force`. Navigation flags (`add -b`, `root -p`) stay short too.
+- **`-f` is the force flag, but its meaning is per-command.** `rm`/`prune` take
+  `-f` to skip a confirm (and `rm` also forwards git's `--force`); `sync`/`promote`/`send`
+  take `-f`/`--force` to mean "source wins on a conflicting file" (root for `sync`,
+  the worktree for `promote`, the `--from` side for `send`). Because `-f` is taken,
+  those three use a separate `-y`/`--yes` to skip their preview prompt. Navigation
+  flags (`add -b`, `root -p`) stay short too.
+- **`sync`/`promote`/`send` preview before they write.** Each runs rsync's own
+  dry-run (`-n -i`) first, prints the itemised changes, and prompts before applying
+  — so a merge into a populated tree (or into the canonical root) is never a blind
+  overwrite. "Already in sync" short-circuits with no prompt; `-y` applies without
+  asking, for non-interactive use.
+- **`send`, not `cp`.** The single-path mover takes a *file* as its object, but
+  with `gwt rm` removing a *worktree*, a `gwt cp` would read as "copy a worktree".
+  `send <path> --to <wt>` keeps the object unambiguous; the config-set flows stay
+  `sync`/`promote`.
 - **Validate the slug before touching git.** `add` rejects a malformed branch
   name (over 64 chars, `.`/`..`/`.git`/empty segments, non-`[A-Za-z0-9._-]`)
   up front, mirroring the CLI, rather than letting a half-made dir/branch escape.
@@ -124,7 +138,12 @@ Consciously left out for now (recorded so they are choices, not oversights):
 
 - `zed` hardcodes one editor rather than honouring `$VISUAL`/`$EDITOR`.
 - No `move`/`lock`/`unlock`/`repair` equivalents from `git worktree`.
-- `cp` targets every worktree only; there is no single-target form.
+- `sync` (root → worktree) and `promote` (worktree → root) are separate,
+  explicitly-directional verbs rather than one `sync --to-root` flag — a
+  bidirectional verb, especially with `--all`, is a clobber footgun. The
+  config-set flows stay direction-locked; `send` is the general escape hatch for an
+  *ad-hoc single path* in any direction (including worktree → worktree), kept
+  separate so `sync`/`promote` keep meaning "the `.worktreeinclude` set".
 - `status` shows each worktree's last-commit time and dirty flag, but no
   ahead/behind divergence — dropped so the listing stays a pure ref read that
   scales flat with branch count.
@@ -154,8 +173,9 @@ entries are kept out of the live set (the CLI's enter-guard refuses them).
   (`origin/<default>` with fetch, or `pull/<n>/head`) and uses
   `worktree add --no-track -B`.
 - gwt does not lock worktrees, nor copy `settings.local.json` / set
-  `core.hooksPath` / symlink configured dirs — `gwt cp` covers manual
-  propagation instead.
+  `core.hooksPath` / symlink configured dirs — `gwt sync` re-merges the
+  `.worktreeinclude` set into an existing worktree instead (add/refresh, never
+  delete; `-f` makes root win, `--hooks` re-runs `post-add`).
 - `prune` is manual and per-directory confirmed rather than automatic and
   safety-gated. This is **safe precisely because gwt never deletes branches**:
   an orphan/stray directory holds only gitignored leftovers (a real worktree

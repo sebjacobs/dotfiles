@@ -3,9 +3,20 @@
 #        gwt add -b <branch>    Create branch + worktree and cd into it
 #        gwt add -b <new>:<from>  Branch <new> off <from>'s tip (works even if <from>
 #                                 is already checked out elsewhere) + worktree
-#        gwt sync [<name>|--all] [-f] [--hooks]  Re-merge root's .worktreeinclude into a
-#                               worktree (-f: root wins on conflict; --hooks: re-run post-add;
-#                               default target: the current worktree)
+#        gwt sync [<name>|--all] [-f] [-y] [--hooks]  Merge root's .worktreeinclude DOWN
+#                               into a worktree. Previews the changes and prompts before
+#                               applying; -y skips the prompt, -f makes root win on conflict,
+#                               --hooks re-runs post-add. Default target: the current worktree.
+#        gwt promote [<name>] [-f] [-y]  Merge a worktree's .worktreeinclude UP into root —
+#                               the reverse of sync, for pushing a worktree-local edit back to
+#                               the canonical root. Same preview + prompt (-y skips it); -f makes
+#                               the worktree win on conflict. Default source: the current worktree.
+#        gwt send <path> [--from <src>] [--to <dst>] [-f] [-y]  Copy one ad-hoc path (file or
+#                               whole directory, recursively) between endpoints — root or a named
+#                               worktree, --from/--to, omitted side defaults to where you are.
+#                               Unlike sync/promote it's not tied to .worktreeinclude; it moves
+#                               exactly the path you name. Same preview + prompt (-y skips it);
+#                               -f makes the source win. Serves the lateral worktree->worktree copy.
 #        gwt cd <name>          cd into an existing worktree
 #        gwt mv [-f] <name> <new-name>  Rename a worktree's dir + its Claude history (branch unchanged; -f skips the prompt)
 #        gwt <name>             Shorthand for `gwt cd <name>` (any non-subcommand name)

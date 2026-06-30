@@ -6,9 +6,10 @@ the dox engine via the linked-worktree self-heal plus `setup --force` (step 1
 below). The `.gwt` worktree-lifecycle hook layer it motivated (steps 2/3) has
 shipped in `dotfiles`: `post-add`/`post-mv`/`pre-rm`/`pre-prune` hooks fire on
 `gwt add`/`mv`/`rm`/`prune`, and
-`gwt sync` re-provisions an existing worktree (replacing `gwt cp`). Still open:
-the worktree→root "promote" / lateral scratch-shuttle direction, and `dox
-install-hooks`.
+`gwt sync` re-provisions an existing worktree (replacing `gwt cp`), `gwt promote`
+pushes a worktree's `.worktreeinclude` files back up to root, and `gwt send` copies
+one ad-hoc path between any two endpoints (including the lateral worktree→worktree
+shuttle). Still open: `dox install-hooks`.
 
 ## The bug
 
@@ -124,10 +125,10 @@ remains the backstop for worktrees gwt never sees (Claude Code-born, manual).
 2. **dox-cli next:** `dox install-hooks` writing the managed `.gwt` block.
 3. **dotfiles — DONE:** the `.gwt` hook engine (`post-add` on `gwt add`,
    `post-mv` on `gwt mv`, `pre-rm` on `gwt rm`, `pre-prune` on `gwt prune`) plus
-   `gwt sync` (replacing `gwt cp`) to re-provision an
-   existing worktree. The worktree→root "promote" and the lateral
-   worktree→worktree scratch-shuttle are deferred to a separate,
-   explicitly-directional command (see Open questions).
+   `gwt sync` (replacing `gwt cp`) to re-provision an existing worktree,
+   `gwt promote` for the worktree→root direction, and `gwt send` for an ad-hoc
+   single path between any two endpoints (including the lateral
+   worktree→worktree shuttle).
 
 ## Open questions
 
@@ -142,12 +143,11 @@ remains the backstop for worktrees gwt never sees (Claude Code-born, manual).
 - `.gwt` schema details: option-flag passing convention (env vars vs appended
   flags), mutually-exclusive option groups, and whether `scrub` belongs in `.gwt`
   or is subsumed by the engine self-heal.
-- The reverse direction. `gwt sync` flows root → worktree only. Two distinct
-  needs remain unserved: **promote** (push a worktree's own gitignored file up
-  to root, re-scrubbed, so future `gwt add`s inherit it) and a **lateral
-  shuttle** (copy ad-hoc scratch — e.g. `./tmp/` — from one worktree to
-  another, no config, no scrub, root uncoupled). Decided to keep these as
-  separate explicitly-directional verbs (e.g. `gwt promote <path>`) rather than
-  a `sync --to-root` flag: a bidirectional verb, especially with `--all`, risks
-  clobbering the canonical copy from a derived one. Both deferred until the need
-  is concrete.
+- The reverse direction — all **landed**. **promote** pushes a worktree's
+  `.worktreeinclude` files up to root (a separate explicitly-directional verb, not
+  a `sync --to-root` flag, since a bidirectional config-set verb risks clobbering
+  the canonical copy from a derived one). **send** then covers the ad-hoc
+  single-path case in *any* direction — root↔worktree or the **lateral shuttle**
+  (worktree→worktree, e.g. `./tmp/`, no config, root uncoupled), file or whole
+  directory. All three (`sync`/`promote`/`send`) preview their changes and prompt
+  before applying.

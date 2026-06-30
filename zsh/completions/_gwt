@@ -4,7 +4,7 @@
 #
 # First word: the subcommands, kept in sync with Gwt::SUBCOMMANDS by the
 # completion-drift smoke test (test/shell/completion_drift_test.rb). The
-# worktree-taking subcommands (cd/rm/path/zed/mv/sync) complete an existing
+# worktree-taking subcommands (cd/rm/path/zed/mv/sync/promote) complete an existing
 # worktree's name from the .claude/worktrees/ dirs; add completes branch names.
 # mv's second word (the new name) is free text.
 
@@ -15,17 +15,25 @@ _gwt() {
   if [[ -z "$root" ]]; then return; fi
   local wt_base="$root/${GWT_WORKTREE_DIR:-.claude/worktrees}"
 
+  if [[ "${words[2]}" == send ]] && (( CURRENT >= 3 )); then
+    case "${words[CURRENT-1]}" in
+      --from|--to) compadd -- root "$wt_base"/*(/:t) ;;
+      *) if (( CURRENT == 3 )); then _files; else compadd -- --from --to -f -y; fi ;;
+    esac
+    return
+  fi
+
   if (( CURRENT == 2 )); then
     zstyle ':completion:*:*:gwt:*' group-name ''
     zstyle ':completion:*:*:gwt:*' group-order commands worktrees
-    local -a _subcommands=(add sync cd mv path zed ls rm prune root status)  # @subcommands
+    local -a _subcommands=(add sync promote send cd mv path zed ls rm prune root status)  # @subcommands
     compadd -J commands -X 'commands' -- $_subcommands
     if [[ -d "$wt_base" ]]; then
       compadd -J worktrees -X 'worktrees' -- "$wt_base"/*(/:t)
     fi
   elif (( CURRENT == 3 )); then
     case "${words[2]}" in
-      cd|rm|path|zed|mv|sync)
+      cd|rm|path|zed|mv|sync|promote)
         if [[ -d "$wt_base" ]]; then
           compadd -- "$wt_base"/*(/:t)
         fi

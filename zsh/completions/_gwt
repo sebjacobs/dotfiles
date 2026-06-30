@@ -4,9 +4,9 @@
 #
 # First word: the subcommands, kept in sync with Gwt::SUBCOMMANDS by the
 # completion-drift smoke test (test/shell/completion_drift_test.rb). The
-# worktree-taking subcommands complete an existing worktree's name from the
-# .claude/worktrees/ dirs; add completes branch names; cp completes a path
-# under the worktree root. mv's second word (the new name) is free text.
+# worktree-taking subcommands (cd/rm/path/zed/mv/sync) complete an existing
+# worktree's name from the .claude/worktrees/ dirs; add completes branch names.
+# mv's second word (the new name) is free text.
 
 _gwt_root() { git worktree list --porcelain 2>/dev/null | head -1 | sed 's/^worktree //'; }
 
@@ -18,7 +18,7 @@ _gwt() {
   if (( CURRENT == 2 )); then
     zstyle ':completion:*:*:gwt:*' group-name ''
     zstyle ':completion:*:*:gwt:*' group-order commands worktrees
-    local -a _subcommands=(add cp sync cd mv path zed ls rm prune root status)  # @subcommands
+    local -a _subcommands=(add sync cd mv path zed ls rm prune root status)  # @subcommands
     compadd -J commands -X 'commands' -- $_subcommands
     if [[ -d "$wt_base" ]]; then
       compadd -J worktrees -X 'worktrees' -- "$wt_base"/*(/:t)
@@ -29,9 +29,6 @@ _gwt() {
         if [[ -d "$wt_base" ]]; then
           compadd -- "$wt_base"/*(/:t)
         fi
-        ;;
-      cp)
-        _files -W "$root"
         ;;
       add)
         # Complete branch names

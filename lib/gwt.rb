@@ -33,7 +33,7 @@ module Gwt
   # The verbs gwt dispatches on. They double as a reserved-name list: `gwt add`
   # refuses to create a worktree whose directory name would collide with one, so
   # the bare `gwt <name>` cd shortcut can never be shadowed by a worktree.
-  SUBCOMMANDS = %w[add cp sync cd mv path zed ls rm prune root status].freeze
+  SUBCOMMANDS = %w[add sync cd mv path zed ls rm prune root status].freeze
 
   # Encode slashes so a branch maps to a single worktree folder
   # (spike/twitter-classifier -> spike+twitter-classifier).
@@ -421,7 +421,6 @@ module Gwt
       case cmd
       when nil      then cmd_status
       when "add"    then cmd_add(rest)
-      when "cp"     then cmd_cp(rest)
       when "sync"   then cmd_sync(rest)
       when "cd"     then cmd_cd(rest)
       when "mv"     then cmd_mv(rest)
@@ -517,29 +516,6 @@ module Gwt
       timed("worktreeinclude") { apply_include(@root, wt_dir) }
       run_hook("post-add", wt_dir)
       change_dir(wt_dir)
-      0
-    end
-
-    def cmd_cp(args)
-      force = args.first == "-f"
-      args = args.drop(1) if force
-      rel = args.first
-      return error("Usage: gwt cp [-f] <path>") if rel.nil? || rel.empty?
-
-      src = "#{@root}/#{rel}"
-      return error("No such file or directory under root: #{rel}") unless @sys.exist?(src)
-
-      targets = worktree_dirs
-      return no_worktrees if targets.empty?
-
-      unless force
-        return 1 unless @confirm.call("Copy '#{rel}' from root into #{targets.length} worktree(s)? [y/N] ")
-      end
-
-      targets.each do |dir|
-        @sys.copy_into(src, "#{dir}/#{rel}")
-        @out.puts "gwt: copied #{rel} -> #{File.basename(dir)}"
-      end
       0
     end
 
@@ -842,11 +818,10 @@ module Gwt
 
     def usage(code = 1)
       @out.puts <<~USAGE
-        Usage: gwt <add|cp|sync|cd|mv|zed|ls|rm|prune|root|status|path> [args]
+        Usage: gwt <add|sync|cd|mv|zed|ls|rm|prune|root|status|path> [args]
                gwt <name>           Shorthand for `gwt cd <name>`
 
           add [-b] <branch>[:<start>]  Create worktree and cd in (-b <new>:<from> branches off another branch)
-          cp [-f] <path>       Copy <path> from root into every worktree (-f skips the prompt)
           sync [<name>|--all] [-f] [--hooks]  Re-merge root's .worktreeinclude into a worktree
                                (-f: root wins on conflict; --hooks: re-run post-add; default: current)
           cd <name>           cd into an existing worktree

@@ -1146,56 +1146,6 @@ class GwtAppTest < Minitest::Test
     assert_equal 2, flaky.list_calls
   end
 
-  def test_cp_force_copies_root_path_into_all_worktrees
-    sys = FakeSys.new(exists: ["#{ROOT}/.env"])
-    app, _, sys = build(sys: sys, worktrees: [["foo", "b"], ["bar", "b"]], confirm: ->(_) { false })
-    assert_equal 0, app.run(["cp", "-f", ".env"])
-    assert_includes sys.copies, ["#{ROOT}/.env", "#{WT_BASE}/foo/.env"]
-    assert_includes sys.copies, ["#{ROOT}/.env", "#{WT_BASE}/bar/.env"]
-  end
-
-  def test_cp_confirmed_copies_into_all_worktrees
-    sys = FakeSys.new(exists: ["#{ROOT}/.env"])
-    app, _, sys = build(sys: sys, worktrees: [["foo", "b"]], confirm: ->(_) { true })
-    assert_equal 0, app.run(["cp", ".env"])
-    assert_includes sys.copies, ["#{ROOT}/.env", "#{WT_BASE}/foo/.env"]
-  end
-
-  def test_cp_declined_copies_nothing
-    sys = FakeSys.new(exists: ["#{ROOT}/.env"])
-    app, _, sys = build(sys: sys, worktrees: [["foo", "b"]], confirm: ->(_) { false })
-    assert_equal 1, app.run(["cp", ".env"])
-    assert_empty sys.copies
-  end
-
-  def test_cp_preserves_nested_path_under_each_worktree
-    sys = FakeSys.new(exists: ["#{ROOT}/.claude/settings.local.json"])
-    app, _, sys = build(sys: sys, worktrees: [["foo", "b"]])
-    assert_equal 0, app.run(["cp", "-f", ".claude/settings.local.json"])
-    assert_includes sys.copies,
-                    ["#{ROOT}/.claude/settings.local.json", "#{WT_BASE}/foo/.claude/settings.local.json"]
-  end
-
-  def test_cp_missing_source_errors
-    app, = build(worktrees: [["foo", "b"]])
-    assert_equal 1, app.run(["cp", "nope.txt"])
-    assert_match(/No such file or directory under root: nope.txt/, @err.string)
-  end
-
-  def test_cp_no_worktrees_reports_and_copies_nothing
-    sys = FakeSys.new(exists: ["#{ROOT}/.env"])
-    app, _, sys = build(sys: sys)
-    assert_equal 0, app.run(["cp", "-f", ".env"])
-    assert_match(/No worktrees/, @out.string)
-    assert_empty sys.copies
-  end
-
-  def test_cp_without_path_errors
-    app, = build
-    assert_equal 1, app.run(["cp"])
-    assert_match(/Usage: gwt cp/, @err.string)
-  end
-
   # Drive cmd_sync with a known `.worktreeinclude` set: stub both ls-files scans to
   # the same entries (so all are ignored-and-matched) and present the include file
   # through the @sys seam.

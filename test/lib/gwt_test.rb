@@ -738,6 +738,30 @@ class GwtAppTest < Minitest::Test
     assert_empty git.runs
   end
 
+  def test_mv_fires_post_mv_in_the_new_worktree
+    gwt = "hooks:\n  post-mv:\n    run: [dox, setup]\n"
+    sys = FakeSys.new(dirs: [PROJECTS], entries: { PROJECTS => [] }, files: { "#{ROOT}/.gwt" => gwt })
+    app, _, sys = build(sys: sys, worktrees: [["foo", "b"]])
+    assert_equal 0, app.run(["mv", "foo", "bar"])
+    assert_equal [["#{WT_BASE}/bar", %w[dox setup]]], sys.hook_runs
+  end
+
+  def test_mv_without_post_mv_does_not_fall_back_to_post_add
+    gwt = "hooks:\n  post-add:\n    run: [dox, setup]\n"
+    sys = FakeSys.new(dirs: [PROJECTS], entries: { PROJECTS => [] }, files: { "#{ROOT}/.gwt" => gwt })
+    app, _, sys = build(sys: sys, worktrees: [["foo", "b"]])
+    assert_equal 0, app.run(["mv", "foo", "bar"])
+    assert_empty sys.hook_runs
+  end
+
+  def test_mv_failed_move_does_not_fire_post_mv
+    gwt = "hooks:\n  post-mv:\n    run: [dox, setup]\n"
+    sys = FakeSys.new(dirs: [PROJECTS], entries: { PROJECTS => [] }, files: { "#{ROOT}/.gwt" => gwt })
+    app, _, sys = build(git: FakeGit.new(run_ok: false), sys: sys, worktrees: [["foo", "b"]])
+    assert_equal 1, app.run(["mv", "foo", "bar"])
+    assert_empty sys.hook_runs
+  end
+
   def test_path_echoes_resolved_path
     app, = build(worktrees: [["foo", "b"]])
     assert_equal 0, app.run(["path", "foo"])
@@ -1272,6 +1296,30 @@ class GwtAppTest < Minitest::Test
     assert_equal 0, app.run(["prune"])
     assert_includes git.runs, ["worktree", "prune"]
     assert_match(/cleared stale git registration for phantom/, @out.string)
+  end
+
+  def test_prune_fires_pre_prune_in_each_orphan_before_removal
+    gwt = "hooks:\n  pre-prune:\n    run: [dox, down]\n"
+    sys = FakeSys.new(dirs: [WT_BASE], children: { WT_BASE => %w[foo orphan] }, files: { "#{ROOT}/.gwt" => gwt })
+    app, _, sys = build(sys: sys, worktrees: [["foo", "b"]], confirm: ->(_) { true })
+    assert_equal 0, app.run(["prune"])
+    assert_equal [["#{WT_BASE}/orphan", %w[dox down]]], sys.hook_runs
+  end
+
+  def test_prune_declined_orphan_does_not_fire_pre_prune
+    gwt = "hooks:\n  pre-prune:\n    run: [dox, down]\n"
+    sys = FakeSys.new(dirs: [WT_BASE], children: { WT_BASE => %w[orphan] }, files: { "#{ROOT}/.gwt" => gwt })
+    app, _, sys = build(sys: sys, worktrees: [], confirm: ->(_) { false })
+    assert_equal 0, app.run(["prune"])
+    assert_empty sys.hook_runs
+  end
+
+  def test_prune_phantom_only_fires_no_pre_prune
+    gwt = "hooks:\n  pre-prune:\n    run: [dox, down]\n"
+    sys = FakeSys.new(files: { "#{ROOT}/.gwt" => gwt })
+    app, _, sys = build(sys: sys, worktrees: [["phantom", "gone", "gitdir missing"]])
+    assert_equal 0, app.run(["prune"])
+    assert_empty sys.hook_runs
   end
 end
 

@@ -600,6 +600,7 @@ module Gwt
         next 1 unless timed("worktree move") { @git.run("worktree", "move", old_path, new_path) }
 
         Gwt::ClaudeHistory.migrate(sys: @sys, home: @home, old_path: old_path, new_path: new_path, out: @out, err: @err)
+        run_hook("post-mv", new_path)
         change_dir(new_path) if @pwd.start_with?(old_path)
         0
       end
@@ -810,6 +811,7 @@ module Gwt
         name = File.basename(dir)
         next unless force || @confirm.call("Remove orphaned directory '#{name}' (git does not track it)? [y/N] ")
 
+        run_hook("pre-prune", dir)
         @sys.remove(dir)
         @out.puts "gwt: removed orphaned directory #{name}"
       end

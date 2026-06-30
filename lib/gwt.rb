@@ -33,7 +33,7 @@ module Gwt
   # The verbs gwt dispatches on. They double as a reserved-name list: `gwt add`
   # refuses to create a worktree whose directory name would collide with one, so
   # the bare `gwt <name>` cd shortcut can never be shadowed by a worktree.
-  SUBCOMMANDS = %w[add sync promote send cd mv path zed ls rm prune root status].freeze
+  SUBCOMMANDS = %w[init add sync promote send cd mv path zed ls rm prune root status].freeze
 
   # Encode slashes so a branch maps to a single worktree folder
   # (spike/twitter-classifier -> spike+twitter-classifier).
@@ -151,6 +151,37 @@ module Gwt
   # same root and worktree as before.
   module Config
     module_function
+
+    # The scaffold `gwt init` writes: every lifecycle event present but commented
+    # out, each with an example command, so a repo adopts `.gwt` by uncommenting
+    # rather than recalling the schema. Inert as written (all comments) — parse
+    # yields {} — so an un-edited `.gwt` declares no hooks.
+    TEMPLATE = <<~YAML
+      # .gwt — git worktree lifecycle hooks for this repo.
+      #
+      # Declares commands to run at worktree lifecycle events — the imperative
+      # complement to .worktreeinclude's declarative file copying. Each event takes
+      # a `run:` that is either a string (split on whitespace) or an explicit argv
+      # list. Hooks are best-effort: a non-zero exit warns but never aborts the gwt
+      # verb. Uncomment the events you want and replace the example commands.
+
+      # hooks:
+      #   # After `gwt add` provisions a worktree (runs in the new worktree):
+      #   post-add:
+      #     run: [echo, "provision the worktree here"]
+      #
+      #   # After `gwt mv` relocates a worktree (runs in the renamed worktree):
+      #   post-mv:
+      #     run: [echo, "re-provision after a move"]
+      #
+      #   # Before `gwt rm` removes a worktree (runs in the worktree being removed):
+      #   pre-rm:
+      #     run: [echo, "tear the worktree down here"]
+      #
+      #   # Before `gwt prune` deletes an orphaned dir (runs in that directory):
+      #   pre-prune:
+      #     run: [echo, "tear an orphaned worktree down here"]
+    YAML
 
     # Read and parse the repo's `.gwt`, returning the empty config when the file is
     # absent so callers treat "no config" and "empty config" identically. +gwt_file+
@@ -369,6 +400,11 @@ module Gwt
 
     def read(path) = File.read(path)
 
+    def write(path, content)
+      FileUtils.mkdir_p(File.dirname(path))
+      File.write(path, content)
+    end
+
     # Run a `.gwt` lifecycle hook: spawn argv with the worktree as cwd and stream
     # its output to the terminal (the user should see what provisioning does),
     # returning success. Not exec — gwt continues afterwards (cd in, finish the rm).
@@ -479,6 +515,7 @@ module Gwt
       @wt_base = "#{@root}/#{@worktree_subdir}"
       case cmd
       when nil      then cmd_status
+      when "init"   then cmd_init(rest)
       when "add"    then cmd_add(rest)
       when "sync"   then cmd_sync(rest)
       when "promote" then cmd_promote(rest)
@@ -522,6 +559,24 @@ module Gwt
       ms = ((Process.clock_gettime(Process::CLOCK_MONOTONIC) - start) * 1000).round(1)
       @err.puts "gwt[timing] #{label}: #{ms}ms"
       result
+    end
+
+    # Scaffold the repo's `.gwt` config: write the commented-out hook template at
+    # the GWT_FILE-resolved path. Refuses inside a worktree — `.gwt` is the repo's
+    # canonical config and belongs at the root, not in a throwaway checkout — and
+    # refuses to clobber an existing file, so re-running never overwrites edits.
+    def cmd_init(_args)
+      if Gwt.current_worktree_path(@pwd, @wt_base)
+        return error("gwt init: refusing to run inside a worktree — run it from the repo root")
+      end
+
+      relpath = Gwt::Config.config_relpath(@root, @sys, @gwt_file)
+      path = File.expand_path(relpath, @root)
+      return error("gwt init: #{relpath} already exists") if @sys.file?(path)
+
+      @sys.write(path, Gwt::Config::TEMPLATE)
+      @out.puts "gwt: wrote #{relpath} — edit it to declare worktree lifecycle hooks"
+      0
     end
 
     def cmd_add(args)
@@ -1036,9 +1091,10 @@ module Gwt
 
     def usage(code = 1)
       @out.puts <<~USAGE
-        Usage: gwt <add|sync|promote|send|cd|mv|zed|ls|rm|prune|root|status|path> [args]
+        Usage: gwt <init|add|sync|promote|send|cd|mv|zed|ls|rm|prune|root|status|path> [args]
                gwt <name>           Shorthand for `gwt cd <name>`
 
+          init                Scaffold a commented-out .gwt hook template at the repo root
           add [-b] <branch>[:<start>]  Create worktree and cd in (-b <new>:<from> branches off another branch)
           sync [<name>|--all] [-f] [-y] [--hooks]  Merge root's .worktreeinclude DOWN into a worktree
                                (previews + prompts; -y skips the prompt; -f: root wins on conflict;

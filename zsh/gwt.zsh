@@ -1,5 +1,7 @@
 # --- gwt: git worktree helpers for .claude/worktrees/ ---
-# Usage: gwt add <branch>       Create worktree and cd into it
+# Usage: gwt init              Scaffold a commented-out .gwt hook template at the repo root
+#                              (refuses inside a worktree or if the file already exists)
+#        gwt add <branch>       Create worktree and cd into it
 #        gwt add -b <branch>    Create branch + worktree and cd into it
 #        gwt add -b <new>:<from>  Branch <new> off <from>'s tip (works even if <from>
 #                                 is already checked out elsewhere) + worktree
@@ -47,6 +49,8 @@
 #       individual files only and skips whole directories.
 #
 # .gwt (worktree-lifecycle hooks):
+#   `gwt init` scaffolds one — every event present but commented out, so a repo
+#   adopts it by uncommenting rather than recalling the schema.
 #   If $repo_root/.gwt exists, it declares commands to run at lifecycle events —
 #   the imperative complement to .worktreeinclude's declarative file copying. YAML:
 #     hooks:

@@ -26,7 +26,7 @@ _gwt() {
   if (( CURRENT == 2 )); then
     zstyle ':completion:*:*:gwt:*' group-name ''
     zstyle ':completion:*:*:gwt:*' group-order commands worktrees
-    local -a _subcommands=(add sync promote send cd mv path zed ls rm prune root status)  # @subcommands
+    local -a _subcommands=(init add sync promote send cd mv path zed ls rm prune root status)  # @subcommands
     compadd -J commands -X 'commands' -- $_subcommands
     if [[ -d "$wt_base" ]]; then
       compadd -J worktrees -X 'worktrees' -- "$wt_base"/*(/:t)

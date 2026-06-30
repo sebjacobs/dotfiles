@@ -161,6 +161,12 @@ class GwtConfigTest < Minitest::Test
     assert_equal({ "run" => ["dox", "setup", "--force"] }, config.dig("hooks", "post-add"))
   end
 
+  def test_template_is_inert_until_uncommented
+    config = Gwt::Config.parse(Gwt::Config::TEMPLATE)
+    assert_empty config
+    assert_nil Gwt::Config.hook(config, "post-add")
+  end
+
   def test_parse_returns_empty_for_blank_or_non_mapping_documents
     assert_empty Gwt::Config.parse("")
     assert_empty Gwt::Config.parse("- just\n- a\n- list\n")
@@ -429,7 +435,7 @@ class GwtAppTest < Minitest::Test
   end
 
   class FakeSys
-    attr_reader :copies, :removes, :moves, :hook_runs, :syncs, :previews
+    attr_reader :copies, :removes, :moves, :hook_runs, :syncs, :previews, :writes
 
     def initialize(dirs: [], children: {}, which: true, exists: [], entries: {},
                    files: {}, hook_ok: true, preview: :auto)
@@ -447,12 +453,14 @@ class GwtAppTest < Minitest::Test
       @hook_runs = []
       @syncs = []
       @previews = []
+      @writes = []
     end
 
     def dir?(path) = @dirs.include?(path)
     def exist?(path) = @exists.include?(path) || @dirs.include?(path)
     def file?(path) = @files.key?(path)
     def read(path) = @files.fetch(path)
+    def write(path, content) = (@writes << [path, content]; @files[path] = content)
     def children(path) = @children.fetch(path, [])
     def entries(path) = @entries.fetch(path, [])
     def which?(_cmd) = @which
@@ -519,6 +527,41 @@ class GwtAppTest < Minitest::Test
       text << "\n"
     end
     text
+  end
+
+  def test_init_writes_the_template_to_dotgwt_at_the_root
+    app, _git, sys = build
+    assert_equal 0, app.run(["init"])
+    assert_equal [["#{ROOT}/.gwt", Gwt::Config::TEMPLATE]], sys.writes
+    assert_match(/wrote \.gwt/, @out.string)
+  end
+
+  def test_init_refuses_inside_a_worktree
+    app, _git, sys = build(worktrees: [["foo", "b"]], pwd: "#{WT_BASE}/foo/lib")
+    assert_equal 1, app.run(["init"])
+    assert_empty sys.writes
+    assert_match(/refusing to run inside a worktree/, @err.string)
+  end
+
+  def test_init_refuses_when_dotgwt_already_exists
+    sys = FakeSys.new(files: { "#{ROOT}/.gwt" => "hooks:\n" })
+    app, = build(sys: sys)
+    assert_equal 1, app.run(["init"])
+    assert_empty sys.writes
+    assert_match(/\.gwt already exists/, @err.string)
+  end
+
+  def test_init_writes_to_the_gwt_file_from_the_environment
+    app, _git, sys = build(gwt_file: ".local/.gwt")
+    assert_equal 0, app.run(["init"])
+    assert_equal [["#{ROOT}/.local/.gwt", Gwt::Config::TEMPLATE]], sys.writes
+  end
+
+  def test_init_writes_to_the_gwt_file_pinned_in_dotenv
+    sys = FakeSys.new(files: { "#{ROOT}/.env" => %(GWT_FILE=".local/.gwt"\n) })
+    app, = build(sys: sys)
+    assert_equal 0, app.run(["init"])
+    assert_equal "#{ROOT}/.local/.gwt", sys.writes.first.first
   end
 
   def test_add_creates_worktree_and_cds_in

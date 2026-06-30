@@ -4,7 +4,8 @@
 (a worktree inheriting the main checkout's `COMPOSE_PROJECT_NAME`) is closed in
 the dox engine via the linked-worktree self-heal plus `setup --force` (step 1
 below). The `.gwt` worktree-lifecycle hook layer it motivated (steps 2/3) has
-shipped in `dotfiles`: `post-add`/`pre-rm` hooks fire on `gwt add`/`rm`, and
+shipped in `dotfiles`: `post-add`/`post-mv`/`pre-rm`/`pre-prune` hooks fire on
+`gwt add`/`mv`/`rm`/`prune`, and
 `gwt sync` re-provisions an existing worktree (replacing `gwt cp`). Still open:
 the worktree→root "promote" / lateral scratch-shuttle direction, and `dox
 install-hooks`.
@@ -76,10 +77,20 @@ seed:
 
 hooks:
   post-add:   { run: [dox, setup, --force] }   # provision eagerly on create
+  post-mv:    { run: [dox, setup, --force] }   # re-point path-derived state after a rename
   pre-rm:     { run: [dox, down] }              # stop the stack before the worktree dies
+  pre-prune:  { run: [dox, down] }              # tear down an orphan dir before prune deletes it
   # project example:
   # post-add: { run: [db/bootstrap.py], options: { mode: {values: [read, seed], default: read}, from: {} } }
 ```
+
+The four events are explicit and independent — none implies another. A `gwt mv`
+fires only `post-mv` (a move is a relocation, not a destroy-and-recreate, so it
+must not bounce the stack via `pre-rm` or re-seed via `post-add`); a project that
+wants the same action on several events declares it under each. A future schema
+addition could let one `run:` register for multiple events, and a `version:` field
+would only be needed if a key's meaning ever changed incompatibly — neither is
+required while every change stays additive.
 
 - **`gwt add <branch> [--seed] [--from main]`** — create, apply `seed`, run
   `post-add` with chosen options.
@@ -112,7 +123,8 @@ remains the backstop for worktrees gwt never sees (Claude Code-born, manual).
    own `.env` value) was deferred — fold it in with step 2 if/when it's needed.
 2. **dox-cli next:** `dox install-hooks` writing the managed `.gwt` block.
 3. **dotfiles — DONE:** the `.gwt` hook engine (`post-add` on `gwt add`,
-   `pre-rm` on `gwt rm`) plus `gwt sync` (replacing `gwt cp`) to re-provision an
+   `post-mv` on `gwt mv`, `pre-rm` on `gwt rm`, `pre-prune` on `gwt prune`) plus
+   `gwt sync` (replacing `gwt cp`) to re-provision an
    existing worktree. The worktree→root "promote" and the lateral
    worktree→worktree scratch-shuttle are deferred to a separate,
    explicitly-directional command (see Open questions).

@@ -33,7 +33,7 @@ module Gwt
   # The verbs gwt dispatches on. They double as a reserved-name list: `gwt add`
   # refuses to create a worktree whose directory name would collide with one, so
   # the bare `gwt <name>` cd shortcut can never be shadowed by a worktree.
-  SUBCOMMANDS = %w[add cp cd mv path zed ls rm prune root status].freeze
+  SUBCOMMANDS = %w[add cp sync cd mv path zed ls rm prune root status].freeze
 
   # Encode slashes so a branch maps to a single worktree folder
   # (spike/twitter-classifier -> spike+twitter-classifier).
@@ -356,6 +356,26 @@ module Gwt
       system("cp", "-RL", src, dst)
     end
 
+    # Merge +src+ into +dst+ for `gwt sync`: bring in what's missing and refresh
+    # what's stale, but never delete the destination's own files (no --delete), so a
+    # worktree's untracked scratch always survives. --update (the default) keeps a
+    # destination copy that's newer than the source — a local edit wins unless
+    # +force+ makes the source authoritative. -aL dereferences symlinks to real
+    # files, matching copy_into. A directory source gets trailing slashes so its
+    # contents merge in place rather than nesting a copy inside.
+    def sync_into(src, dst, force:)
+      flags = ["-aL"]
+      flags << "--update" unless force
+      if File.directory?(src)
+        FileUtils.mkdir_p(dst)
+        src += "/"
+        dst += "/"
+      else
+        FileUtils.mkdir_p(File.dirname(dst))
+      end
+      system("rsync", *flags, src, dst)
+    end
+
     def which?(cmd) = system("command -v #{cmd} >/dev/null 2>&1")
 
     private
@@ -402,6 +422,7 @@ module Gwt
       when nil      then cmd_status
       when "add"    then cmd_add(rest)
       when "cp"     then cmd_cp(rest)
+      when "sync"   then cmd_sync(rest)
       when "cd"     then cmd_cd(rest)
       when "mv"     then cmd_mv(rest)
       when "path"   then cmd_path(rest)
@@ -518,6 +539,50 @@ module Gwt
       targets.each do |dir|
         @sys.copy_into(src, "#{dir}/#{rel}")
         @out.puts "gwt: copied #{rel} -> #{File.basename(dir)}"
+      end
+      0
+    end
+
+    # Re-provision an existing worktree by merging the root's `.worktreeinclude`
+    # entries back into it — bring in what's missing, refresh what's stale, never
+    # delete the worktree's own files. Targets the named worktree, every worktree
+    # (--all), or the current one when neither is given. -f makes the root win on a
+    # differing entry (default keeps a locally-newer copy); --hooks re-fires the
+    # post-add hook after the merge. Unlike a fresh `add`, this merges into a
+    # populated tree, hence rsync rather than copy_into.
+    def cmd_sync(args)
+      force = [args.delete("-f"), args.delete("--force")].any?
+      hooks = !args.delete("--hooks").nil?
+      all   = !args.delete("--all").nil?
+      name  = args.first
+
+      return error("gwt sync requires rsync, which isn't on PATH") unless @sys.which?("rsync")
+      return error("gwt sync: pass either a name or --all, not both") if all && name
+
+      if all
+        targets = worktree_dirs
+        return no_worktrees if targets.empty?
+        return sync_worktrees(targets, force: force, hooks: hooks)
+      end
+
+      if name
+        return resolve(name) { |dir| sync_worktrees([dir], force: force, hooks: hooks) }
+      end
+
+      current = Gwt.current_worktree_path(@pwd, @wt_base)
+      return error("Usage: gwt sync [<name>|--all] [-f] [--hooks]") if current.nil?
+
+      sync_worktrees([current], force: force, hooks: hooks)
+    end
+
+    def sync_worktrees(dirs, force:, hooks:)
+      entries = included_entries(@root)
+      dirs.each do |dir|
+        timed("sync merge") do
+          entries.each { |rel| @sys.sync_into("#{@root}/#{rel}", "#{dir}/#{rel}", force: force) }
+        end
+        @out.puts "gwt: synced #{entries.length} entries -> #{File.basename(dir)}"
+        run_hook("post-add", dir) if hooks
       end
       0
     end
@@ -777,11 +842,13 @@ module Gwt
 
     def usage(code = 1)
       @out.puts <<~USAGE
-        Usage: gwt <add|cp|cd|mv|zed|ls|rm|prune|root|status|path> [args]
+        Usage: gwt <add|cp|sync|cd|mv|zed|ls|rm|prune|root|status|path> [args]
                gwt <name>           Shorthand for `gwt cd <name>`
 
           add [-b] <branch>[:<start>]  Create worktree and cd in (-b <new>:<from> branches off another branch)
           cp [-f] <path>       Copy <path> from root into every worktree (-f skips the prompt)
+          sync [<name>|--all] [-f] [--hooks]  Re-merge root's .worktreeinclude into a worktree
+                               (-f: root wins on conflict; --hooks: re-run post-add; default: current)
           cd <name>           cd into an existing worktree
           mv [-f] <name> <new-name>  Rename a worktree's directory + Claude history (-f skips the prompt)
           zed [<name>]        Open a worktree in a new Zed window (current if no name)
@@ -840,7 +907,7 @@ module Gwt
     # existing one) provision from this same set.
     def included_entries(src_root)
       include = "#{src_root}/.worktreeinclude"
-      return [] unless File.file?(include)
+      return [] unless @sys.file?(include)
 
       ignored_set, matched = timed("worktreeinclude scan") do
         ignored, = @git.capture("-C", src_root, "ls-files", "--others", "--ignored", "--exclude-standard", "--directory")

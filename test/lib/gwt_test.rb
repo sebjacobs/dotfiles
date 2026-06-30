@@ -384,7 +384,7 @@ class GwtAppTest < Minitest::Test
   end
 
   class FakeSys
-    attr_reader :copies, :removes, :moves, :hook_runs
+    attr_reader :copies, :removes, :moves, :hook_runs, :syncs
 
     def initialize(dirs: [], children: {}, which: true, exists: [], entries: {},
                    files: {}, hook_ok: true)
@@ -399,6 +399,7 @@ class GwtAppTest < Minitest::Test
       @removes = []
       @moves = []
       @hook_runs = []
+      @syncs = []
     end
 
     def dir?(path) = @dirs.include?(path)
@@ -409,6 +410,7 @@ class GwtAppTest < Minitest::Test
     def entries(path) = @entries.fetch(path, [])
     def which?(_cmd) = @which
     def copy_into(src, dst) = @copies << [src, dst]
+    def sync_into(src, dst, force:) = @syncs << [src, dst, force]
     def move(src, dst) = @moves << [src, dst]
     def remove(path) = @removes << path
 
@@ -1194,6 +1196,96 @@ class GwtAppTest < Minitest::Test
     assert_match(/Usage: gwt cp/, @err.string)
   end
 
+  # Drive cmd_sync with a known `.worktreeinclude` set: stub both ls-files scans to
+  # the same entries (so all are ignored-and-matched) and present the include file
+  # through the @sys seam.
+  def sync_build(entries:, worktrees:, pwd: ROOT, gwt: nil, which: true)
+    list = "#{entries.join("\n")}\n"
+    captures = {
+      "-C #{ROOT} ls-files --others --ignored --exclude-standard --directory" => [list, true],
+      "-C #{ROOT} ls-files --others --ignored --exclude-from=#{ROOT}/.worktreeinclude --directory" => [list, true]
+    }
+    files = { "#{ROOT}/.worktreeinclude" => "" }
+    files["#{ROOT}/.gwt"] = gwt if gwt
+    sys = FakeSys.new(files: files, which: which)
+    build(git: FakeGit.new(captures: captures), sys: sys, worktrees: worktrees, pwd: pwd)
+  end
+
+  def test_sync_current_worktree_merges_include_entries
+    app, _, sys = sync_build(entries: [".env"], worktrees: [["foo", "b"]], pwd: "#{WT_BASE}/foo")
+    assert_equal 0, app.run(["sync"])
+    assert_equal [["#{ROOT}/.env", "#{WT_BASE}/foo/.env", false]], sys.syncs
+    assert_match(/synced 1 entries -> foo/, @out.string)
+  end
+
+  def test_sync_named_worktree_merges_into_that_one_only
+    app, _, sys = sync_build(entries: [".env"], worktrees: [["foo", "b"], ["bar", "b"]])
+    assert_equal 0, app.run(["sync", "bar"])
+    assert_equal [["#{ROOT}/.env", "#{WT_BASE}/bar/.env", false]], sys.syncs
+  end
+
+  def test_sync_all_merges_into_every_worktree
+    app, _, sys = sync_build(entries: [".env"], worktrees: [["foo", "b"], ["bar", "b"]])
+    assert_equal 0, app.run(["sync", "--all"])
+    assert_includes sys.syncs, ["#{ROOT}/.env", "#{WT_BASE}/foo/.env", false]
+    assert_includes sys.syncs, ["#{ROOT}/.env", "#{WT_BASE}/bar/.env", false]
+  end
+
+  def test_sync_force_makes_root_win
+    app, _, sys = sync_build(entries: [".env"], worktrees: [["foo", "b"]])
+    assert_equal 0, app.run(["sync", "-f", "foo"])
+    assert_equal [["#{ROOT}/.env", "#{WT_BASE}/foo/.env", true]], sys.syncs
+  end
+
+  def test_sync_hooks_refires_post_add_in_the_worktree
+    gwt = "hooks:\n  post-add:\n    run: [dox, setup]\n"
+    app, _, sys = sync_build(entries: [".env"], worktrees: [["foo", "b"]], gwt: gwt)
+    assert_equal 0, app.run(["sync", "--hooks", "foo"])
+    assert_equal [["#{WT_BASE}/foo", %w[dox setup]]], sys.hook_runs
+  end
+
+  def test_sync_without_hooks_skips_post_add
+    gwt = "hooks:\n  post-add:\n    run: [dox, setup]\n"
+    app, _, sys = sync_build(entries: [".env"], worktrees: [["foo", "b"]], gwt: gwt)
+    assert_equal 0, app.run(["sync", "foo"])
+    assert_empty sys.hook_runs
+  end
+
+  def test_sync_outside_a_worktree_with_no_name_errors
+    app, _, sys = sync_build(entries: [".env"], worktrees: [["foo", "b"]], pwd: ROOT)
+    assert_equal 1, app.run(["sync"])
+    assert_match(/Usage: gwt sync/, @err.string)
+    assert_empty sys.syncs
+  end
+
+  def test_sync_name_and_all_together_errors
+    app, _, sys = sync_build(entries: [".env"], worktrees: [["foo", "b"]])
+    assert_equal 1, app.run(["sync", "foo", "--all"])
+    assert_match(/either a name or --all/, @err.string)
+    assert_empty sys.syncs
+  end
+
+  def test_sync_unknown_name_errors
+    app, _, sys = sync_build(entries: [".env"], worktrees: [["foo", "b"]])
+    assert_equal 1, app.run(["sync", "nope"])
+    assert_match(/No worktree matching: nope/, @err.string)
+    assert_empty sys.syncs
+  end
+
+  def test_sync_all_with_no_worktrees_reports_and_syncs_nothing
+    app, _, sys = sync_build(entries: [".env"], worktrees: [])
+    assert_equal 0, app.run(["sync", "--all"])
+    assert_match(/No worktrees/, @out.string)
+    assert_empty sys.syncs
+  end
+
+  def test_sync_requires_rsync
+    app, _, sys = sync_build(entries: [".env"], worktrees: [["foo", "b"]], which: false)
+    assert_equal 1, app.run(["sync", "foo"])
+    assert_match(/requires rsync/, @err.string)
+    assert_empty sys.syncs
+  end
+
   def test_prune_removes_confirmed_orphans_only
     sys = FakeSys.new(dirs: [WT_BASE], children: { WT_BASE => %w[foo orphan] })
     app, _, sys = build(sys: sys, worktrees: [["foo", "b"]], confirm: ->(_) { true })
@@ -1273,5 +1365,85 @@ class GwtSystemCopyTest < Minitest::Test
 
     assert_equal "BUNDLE_PATH: .bundle", File.read("#{@dir}/wt/.bundle/config")
     assert_equal "module Foo; end", File.read("#{@dir}/wt/.bundle/gems/foo.rb")
+  end
+end
+
+class GwtSystemSyncTest < Minitest::Test
+  def setup
+    skip "rsync not on PATH" unless system("command -v rsync >/dev/null 2>&1")
+
+    @sys = Gwt::System.new
+    @dir = Dir.mktmpdir("gwt-sync")
+  end
+
+  def teardown
+    FileUtils.rm_rf(@dir)
+  end
+
+  def aged(path, contents, age)
+    File.write(path, contents)
+    t = Time.now - age
+    File.utime(t, t, path)
+  end
+
+  def test_sync_into_copies_a_missing_file
+    File.write("#{@dir}/.env", "ROOT=1")
+
+    @sys.sync_into("#{@dir}/.env", "#{@dir}/wt/.env", force: false)
+
+    assert_equal "ROOT=1", File.read("#{@dir}/wt/.env")
+  end
+
+  def test_sync_into_default_preserves_a_newer_destination
+    aged("#{@dir}/.env", "ROOT=old", 100)
+    FileUtils.mkdir_p("#{@dir}/wt")
+    aged("#{@dir}/wt/.env", "LOCAL=new", 10)
+
+    @sys.sync_into("#{@dir}/.env", "#{@dir}/wt/.env", force: false)
+
+    assert_equal "LOCAL=new", File.read("#{@dir}/wt/.env")
+  end
+
+  def test_sync_into_default_refreshes_an_older_destination
+    aged("#{@dir}/.env", "ROOT=new", 10)
+    FileUtils.mkdir_p("#{@dir}/wt")
+    aged("#{@dir}/wt/.env", "LOCAL=old", 100)
+
+    @sys.sync_into("#{@dir}/.env", "#{@dir}/wt/.env", force: false)
+
+    assert_equal "ROOT=new", File.read("#{@dir}/wt/.env")
+  end
+
+  def test_sync_into_force_overwrites_a_newer_destination
+    aged("#{@dir}/.env", "ROOT=old", 100)
+    FileUtils.mkdir_p("#{@dir}/wt")
+    aged("#{@dir}/wt/.env", "LOCAL=new", 10)
+
+    @sys.sync_into("#{@dir}/.env", "#{@dir}/wt/.env", force: true)
+
+    assert_equal "ROOT=old", File.read("#{@dir}/wt/.env")
+  end
+
+  def test_sync_into_merges_a_directory_without_deleting_destination_extras
+    FileUtils.mkdir_p("#{@dir}/src")
+    aged("#{@dir}/src/shared.txt", "from root", 10)
+    FileUtils.mkdir_p("#{@dir}/wt/.config")
+    aged("#{@dir}/wt/.config/shared.txt", "stale", 100)
+    File.write("#{@dir}/wt/.config/scratch.txt", "worktree only")
+
+    @sys.sync_into("#{@dir}/src", "#{@dir}/wt/.config", force: false)
+
+    assert_equal "from root", File.read("#{@dir}/wt/.config/shared.txt")
+    assert_equal "worktree only", File.read("#{@dir}/wt/.config/scratch.txt")
+  end
+
+  def test_sync_into_dereferences_a_symlink
+    File.write("#{@dir}/target.txt", "canonical")
+    File.symlink("target.txt", "#{@dir}/link.txt")
+
+    @sys.sync_into("#{@dir}/link.txt", "#{@dir}/wt/link.txt", force: false)
+
+    refute File.symlink?("#{@dir}/wt/link.txt")
+    assert_equal "canonical", File.read("#{@dir}/wt/link.txt")
   end
 end

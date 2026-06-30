@@ -834,9 +834,13 @@ module Gwt
       ok
     end
 
-    def apply_include(src_root, dst_root)
+    # The `.worktreeinclude`-matched gitignored entries under +src_root+, as
+    # repo-relative paths (trailing slash trimmed), or [] when no `.worktreeinclude`
+    # exists. Both `add` (copy into a fresh worktree) and `sync` (merge into an
+    # existing one) provision from this same set.
+    def included_entries(src_root)
       include = "#{src_root}/.worktreeinclude"
-      return unless File.file?(include)
+      return [] unless File.file?(include)
 
       ignored_set, matched = timed("worktreeinclude scan") do
         ignored, = @git.capture("-C", src_root, "ls-files", "--others", "--ignored", "--exclude-standard", "--directory")
@@ -844,13 +848,18 @@ module Gwt
         [ignored.split("\n"), matched]
       end
 
+      matched.split("\n").filter_map do |rel|
+        next if rel.empty?
+        next unless ignored_set.include?(rel)
+
+        rel.chomp("/")
+      end
+    end
+
+    def apply_include(src_root, dst_root)
       copied = []
       timed("worktreeinclude copy") do
-        matched.split("\n").each do |rel|
-          next if rel.empty?
-          next unless ignored_set.include?(rel)
-
-          rel = rel.chomp("/")
+        included_entries(src_root).each do |rel|
           @sys.copy_into("#{src_root}/#{rel}", "#{dst_root}/#{rel}")
           copied << rel
         end

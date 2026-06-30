@@ -64,6 +64,12 @@
 #   worktree mid-transition is not left half-done by a provisioning hiccup. A
 #   malformed .gwt is ignored rather than blocking gwt.
 #
+#   GWT_FILE relocates the config file (e.g. .local/.gwt for a project that keeps
+#   its config out of the repo root), mirroring dox's DOX_FILE. It's resolved
+#   relative to the repo root, from the shell environment first, then a GWT_FILE
+#   pinned in the repo's $repo_root/.env, else the default .gwt. Only the config
+#   file moves — every operation still keys off the same root and worktree.
+#
 # Tab completion for the subcommands and worktree names lives in the autoloaded
 # zsh/completions/_gwt, alongside the other CLIs' completions.
 

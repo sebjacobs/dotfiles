@@ -69,6 +69,12 @@ each with a default action and forwarded option flags (each flag may carry a
 value). Motivated by the `stock-fetch` project's `db/bootstrap.py` (`--read`:
 symlink prod DBs read-only; `--seed`: migrate + load seed data).
 
+The `.gwt` location is overridable with `GWT_FILE` (e.g. `.local/.gwt` for a
+project that keeps config out of the repo root), mirroring `DOX_FILE`: resolved
+relative to the root, from the shell environment first, then a `GWT_FILE` pinned
+in the repo's `.env`, else the default `.gwt`. Only the config file moves — every
+operation still keys off the same root and worktree.
+
 ```yaml
 # .gwt — worktree lifecycle
 seed:

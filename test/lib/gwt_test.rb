@@ -200,6 +200,51 @@ class GwtConfigTest < Minitest::Test
     end.new
     assert_equal ["echo", "hi"], Gwt::Config.hook(Gwt::Config.load("/repo", reader: reader), "post-add")
   end
+
+  # Stub reader for a fixed set of path => contents.
+  def files_reader(files)
+    Class.new do
+      def initialize(files) = @files = files
+      def file?(path) = @files.key?(path)
+      def read(path) = @files.fetch(path, "")
+    end.new(files)
+  end
+
+  def test_load_relocates_the_dotgwt_via_gwt_file_from_the_environment
+    reader = files_reader("/repo/.local/.gwt" => "hooks:\n  post-add:\n    run: echo env\n")
+    config = Gwt::Config.load("/repo", reader: reader, gwt_file: ".local/.gwt")
+    assert_equal ["echo", "env"], Gwt::Config.hook(config, "post-add")
+  end
+
+  def test_load_reads_gwt_file_from_dotenv_when_the_environment_is_unset
+    reader = files_reader(
+      "/repo/.env" => %(GWT_FILE=".local/.gwt"\n),
+      "/repo/.local/.gwt" => "hooks:\n  post-add:\n    run: echo dotenv\n"
+    )
+    config = Gwt::Config.load("/repo", reader: reader)
+    assert_equal ["echo", "dotenv"], Gwt::Config.hook(config, "post-add")
+  end
+
+  def test_load_prefers_the_environment_gwt_file_over_dotenv
+    reader = files_reader(
+      "/repo/.env" => "GWT_FILE=from-dotenv/.gwt\n",
+      "/repo/from-env/.gwt" => "hooks:\n  post-add:\n    run: echo win\n"
+    )
+    config = Gwt::Config.load("/repo", reader: reader, gwt_file: "from-env/.gwt")
+    assert_equal ["echo", "win"], Gwt::Config.hook(config, "post-add")
+  end
+
+  def test_load_ignores_a_blank_gwt_file_and_falls_back_to_default
+    reader = files_reader("/repo/.gwt" => "hooks:\n  post-add:\n    run: echo default\n")
+    config = Gwt::Config.load("/repo", reader: reader, gwt_file: "")
+    assert_equal ["echo", "default"], Gwt::Config.hook(config, "post-add")
+  end
+
+  def test_dotenv_value_handles_quotes_export_and_comments
+    reader = files_reader("/repo/.env" => "# a comment\nexport FOO='bar'\nGWT_FILE = \".local/.gwt\"  \n")
+    assert_equal ".local/.gwt", Gwt::Config.dotenv_value(reader, "/repo/.env", "GWT_FILE")
+    assert_nil Gwt::Config.dotenv_value(reader, "/repo/.env", "MISSING")
+  end
 end
 
 class GwtClaudeHistoryTest < Minitest::Test
@@ -433,7 +478,7 @@ class GwtAppTest < Minitest::Test
   HOME = "/home"
 
   def build(git: FakeGit.new, sys: FakeSys.new, pwd: ROOT, confirm: ->(_) { true },
-            worktree_subdir: ".claude/worktrees", worktrees: [], home: HOME)
+            worktree_subdir: ".claude/worktrees", worktrees: [], home: HOME, gwt_file: nil)
     @out = StringIO.new
     @err = StringIO.new
     @cd = []
@@ -449,7 +494,8 @@ class GwtAppTest < Minitest::Test
       pwd: pwd,
       exec: ->(*a) { @execs << a },
       worktree_subdir: worktree_subdir,
-      home: home
+      home: home,
+      gwt_file: gwt_file
     )
     [app, git_with_root, sys]
   end
@@ -507,6 +553,23 @@ class GwtAppTest < Minitest::Test
     app, = build(sys: sys)
     app.run(["add", "feature/x"])
     assert_empty sys.hook_runs
+  end
+
+  def test_add_reads_hooks_from_the_gwt_file_pinned_in_dotenv
+    sys = FakeSys.new(files: {
+      "#{ROOT}/.env" => %(GWT_FILE=".local/.gwt"\n),
+      "#{ROOT}/.local/.gwt" => "hooks:\n  post-add:\n    run: [dox, setup]\n"
+    })
+    app, = build(sys: sys)
+    assert_equal 0, app.run(["add", "feature/x"])
+    assert_equal [["#{WT_BASE}/feature+x", %w[dox setup]]], sys.hook_runs
+  end
+
+  def test_add_honours_gwt_file_from_the_environment
+    sys = FakeSys.new(files: { "#{ROOT}/.local/.gwt" => "hooks:\n  post-add:\n    run: [dox, go]\n" })
+    app, = build(sys: sys, gwt_file: ".local/.gwt")
+    assert_equal 0, app.run(["add", "feature/x"])
+    assert_equal [["#{WT_BASE}/feature+x", %w[dox go]]], sys.hook_runs
   end
 
   def test_add_with_a_failing_post_add_warns_but_still_cds_in

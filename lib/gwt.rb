@@ -143,16 +143,57 @@ module Gwt
   # is data, not just a checkout: `.gwt` is how a repo declares how to bring one to
   # life and tear it down. The parser keeps the raw tree and exposes thin accessors
   # so the schema can grow (option forwarding, scrub) without reshaping callers.
+  #
+  # The `.gwt` location can be relocated with GWT_FILE (e.g. `.local/.gwt`),
+  # mirroring dox's DOX_FILE: resolved relative to the repo root, taken from the
+  # shell environment first, then a GWT_FILE pinned in the repo's `.env`, else the
+  # default `.gwt`. Only the config file moves — every operation still keys off the
+  # same root and worktree as before.
   module Config
     module_function
 
-    # Read and parse `$root/.gwt`, returning the empty config when the file is
-    # absent so callers treat "no config" and "empty config" identically.
-    def load(root, reader: File)
-      path = File.join(root, ".gwt")
+    # Read and parse the repo's `.gwt`, returning the empty config when the file is
+    # absent so callers treat "no config" and "empty config" identically. +gwt_file+
+    # is the shell-environment GWT_FILE (nil when unset); the `.env` fallback and
+    # default are resolved here through the same reader seam.
+    def load(root, reader: File, gwt_file: nil)
+      path = File.expand_path(config_relpath(root, reader, gwt_file), root)
       return {} unless reader.file?(path)
 
       parse(reader.read(path))
+    end
+
+    # Where the `.gwt` lives, relative to +root+: an explicit GWT_FILE from the
+    # shell wins, then a GWT_FILE pinned in `$root/.env`, else the default `.gwt`.
+    def config_relpath(root, reader, gwt_file)
+      return gwt_file if gwt_file && !gwt_file.empty?
+
+      from_dotenv = dotenv_value(reader, File.expand_path(".env", root), "GWT_FILE")
+      from_dotenv && !from_dotenv.empty? ? from_dotenv : ".gwt"
+    end
+
+    # Pull KEY's value from a dotenv-style file through the reader seam, or nil when
+    # the file or key is absent. Skips blanks, `#` comments, and an `export ` prefix;
+    # strips matching surrounding single/double quotes from the value.
+    def dotenv_value(reader, path, key)
+      return nil unless reader.file?(path)
+
+      reader.read(path).each_line do |line|
+        assignment = line.strip.delete_prefix("export ").strip
+        next if assignment.empty? || assignment.start_with?("#")
+
+        name, sep, value = assignment.partition("=")
+        return unquote(value.strip) if sep == "=" && name.strip == key
+      end
+      nil
+    end
+
+    def unquote(value)
+      return value[1...-1] if value.length >= 2 &&
+                              ((value.start_with?(%(")) && value.end_with?(%("))) ||
+                               (value.start_with?("'") && value.end_with?("'")))
+
+      value
     end
 
     # Parse `.gwt` YAML into its raw hash. A malformed or non-mapping document
@@ -408,7 +449,7 @@ module Gwt
   end
 
   class App
-    def initialize(git:, sys:, out:, err:, cd:, confirm:, pwd:, exec:, worktree_subdir: ".claude/worktrees", root_override: nil, timing: false, home: Dir.home)
+    def initialize(git:, sys:, out:, err:, cd:, confirm:, pwd:, exec:, worktree_subdir: ".claude/worktrees", root_override: nil, timing: false, home: Dir.home, gwt_file: nil)
       @git = git
       @sys = sys
       @out = out
@@ -421,6 +462,7 @@ module Gwt
       @root_override = root_override
       @timing = timing
       @home = home
+      @gwt_file = gwt_file
     end
 
     def run(argv)
@@ -1041,7 +1083,7 @@ module Gwt
 
     # The repo's `.gwt` config, loaded once per run through the @sys seam so tests
     # can stub the file without touching disk.
-    def config = @config ||= Gwt::Config.load(@root, reader: @sys)
+    def config = @config ||= Gwt::Config.load(@root, reader: @sys, gwt_file: @gwt_file)
 
     # Fire a lifecycle hook if `.gwt` declares one for +event+, running it with
     # +dir+ as cwd. Best-effort: a failing hook warns but doesn't abort the verb —
@@ -1183,7 +1225,8 @@ if __FILE__ == $PROGRAM_NAME
     pwd: Dir.pwd,
     exec: ->(*args) { exec(*args) },
     worktree_subdir: subdir,
-    timing: !ENV["GWT_TIMING"].to_s.empty?
+    timing: !ENV["GWT_TIMING"].to_s.empty?,
+    gwt_file: ENV["GWT_FILE"]
   )
 
   exit app.run(ARGV)

@@ -3,7 +3,9 @@
 #        gwt add -b <branch>    Create branch + worktree and cd into it
 #        gwt add -b <new>:<from>  Branch <new> off <from>'s tip (works even if <from>
 #                                 is already checked out elsewhere) + worktree
-#        gwt cp [-f] <path>     Copy <path> from root into every worktree (-f skips the prompt)
+#        gwt sync [<name>|--all] [-f] [--hooks]  Re-merge root's .worktreeinclude into a
+#                               worktree (-f: root wins on conflict; --hooks: re-run post-add;
+#                               default target: the current worktree)
 #        gwt cd <name>          cd into an existing worktree
 #        gwt mv [-f] <name> <new-name>  Rename a worktree's dir + its Claude history (branch unchanged; -f skips the prompt)
 #        gwt <name>             Shorthand for `gwt cd <name>` (any non-subcommand name)

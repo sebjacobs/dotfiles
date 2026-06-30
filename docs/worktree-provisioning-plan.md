@@ -1,10 +1,13 @@
 # Worktree provisioning — `.env` project-name isolation + `.gwt` hooks plan
 
-**Status:** engine fix landed; `.gwt` hook layer still to do. The collision bug
+**Status:** engine fix landed; `.gwt` hook layer landed. The collision bug
 (a worktree inheriting the main checkout's `COMPOSE_PROJECT_NAME`) is closed in
 the dox engine via the linked-worktree self-heal plus `setup --force` (step 1
-below). The richer `.gwt` worktree-lifecycle hook layer it motivated (step 2/3,
-spanning the `gwt` helper in `dotfiles`, `zsh/gwt.zsh`) is still outstanding.
+below). The `.gwt` worktree-lifecycle hook layer it motivated (steps 2/3) has
+shipped in `dotfiles`: `post-add`/`pre-rm` hooks fire on `gwt add`/`rm`, and
+`gwt sync` re-provisions an existing worktree (replacing `gwt cp`). Still open:
+the worktree→root "promote" / lateral scratch-shuttle direction, and `dox
+install-hooks`.
 
 ## The bug
 
@@ -80,9 +83,16 @@ hooks:
 
 - **`gwt add <branch> [--seed] [--from main]`** — create, apply `seed`, run
   `post-add` with chosen options.
-- **`gwt init [<name>|--all] [--force]`** — re-provision an existing worktree
-  (re-apply `seed` + re-run hooks; idempotent; `--force` overwrites). **Replaces
-  `gwt cp`** — re-provisioning is a more meaningful unit than copying one path.
+- **`gwt sync [<name>|--all] [-f] [--hooks]`** — re-provision an existing
+  worktree by merging the root's `.worktreeinclude` set back into it (the named
+  one, every one with `--all`, or the current one). The merge is rsync without
+  `--delete`: add missing, refresh stale, never prune the worktree's own
+  untracked files. Default uses `--update` so a locally-newer copy survives; `-f`
+  makes root authoritative; `--hooks` re-fires `post-add` after the merge (off by
+  default — a plain sync has no side-effects). **Replaces `gwt cp`** —
+  re-provisioning declaratively from `.worktreeinclude` is a more meaningful unit
+  than pushing one hand-named path. (Named `sync`, not `init`: it reconciles an
+  *existing* worktree rather than initialising a new one.) **Shipped.**
 - **`pre-rm: dox down`** removes the leaked-stack / phantom-dir class of problem
   at the source (a worktree's stack is always torn down before the directory is
   removed).
@@ -101,8 +111,11 @@ remains the backstop for worktrees gwt never sees (Claude Code-born, manual).
    the pin comment, so it also fixes moved worktrees and distinguishes a user's
    own `.env` value) was deferred — fold it in with step 2 if/when it's needed.
 2. **dox-cli next:** `dox install-hooks` writing the managed `.gwt` block.
-3. **dotfiles:** the `.gwt` hook engine in `gwt.zsh` (`post-add` / `pre-rm` /
-   `gwt init`) that makes the hook actually fire.
+3. **dotfiles — DONE:** the `.gwt` hook engine (`post-add` on `gwt add`,
+   `pre-rm` on `gwt rm`) plus `gwt sync` (replacing `gwt cp`) to re-provision an
+   existing worktree. The worktree→root "promote" and the lateral
+   worktree→worktree scratch-shuttle are deferred to a separate,
+   explicitly-directional command (see Open questions).
 
 ## Open questions
 
@@ -117,3 +130,12 @@ remains the backstop for worktrees gwt never sees (Claude Code-born, manual).
 - `.gwt` schema details: option-flag passing convention (env vars vs appended
   flags), mutually-exclusive option groups, and whether `scrub` belongs in `.gwt`
   or is subsumed by the engine self-heal.
+- The reverse direction. `gwt sync` flows root → worktree only. Two distinct
+  needs remain unserved: **promote** (push a worktree's own gitignored file up
+  to root, re-scrubbed, so future `gwt add`s inherit it) and a **lateral
+  shuttle** (copy ad-hoc scratch — e.g. `./tmp/` — from one worktree to
+  another, no config, no scrub, root uncoupled). Decided to keep these as
+  separate explicitly-directional verbs (e.g. `gwt promote <path>`) rather than
+  a `sync --to-root` flag: a bidirectional verb, especially with `--all`, risks
+  clobbering the canonical copy from a derived one. Both deferred until the need
+  is concrete.

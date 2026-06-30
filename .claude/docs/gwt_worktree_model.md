@@ -65,7 +65,7 @@ cutoff that are not active and provably safe, removes them and runs
 
 ## How `gwt` aligns
 
-- **Enumeration** (`ls`, `cp`, `status`, and `cd`/`path`/`zed` resolution) comes
+- **Enumeration** (`ls`, `sync`, `status`, and `cd`/`path`/`zed` resolution) comes
   from `git worktree list --porcelain` filtered to `.claude/worktrees/`, not a
   directory scan. Neither orphans nor phantoms (`prunable` entries) appear.
 - **`add`** reuses a registered worktree; if a same-named *unregistered* directory
@@ -84,7 +84,7 @@ cutoff that are not active and provably safe, removes them and runs
 | Command | Purpose |
 | --- | --- |
 | `add [-b] <branch>` | Create a worktree (`-b` also creates the branch) and `cd` in; reuse + `cd` if it already exists |
-| `cp [-f\|--force] <path>` | Copy `<path>` from the root checkout into every worktree (`-f` skips the prompt) |
+| `sync [<name>\|--all] [-f] [--hooks]` | Re-merge root's `.worktreeinclude` into a worktree (named, `--all`, or the current one): add missing + refresh stale, never delete; `-f` makes root win on a conflict, `--hooks` re-runs `post-add` |
 | `cd <name>` | `cd` into a worktree |
 | `zed [<name>]` | Open a worktree in a new Zed window (current if no name) |
 | `ls` | List worktrees (name + branch) |
@@ -111,9 +111,10 @@ These are deliberate and should be preserved unless revisited on purpose:
   is an explicit, confirmed action here).
 - **stdout is data, stderr is messages.** `path` and `root -p` print only the
   path on stdout so they compose in scripts; errors and prompts go to stderr.
-- **`-f` is the one force/skip-confirm flag.** `cp`/`rm`/`prune` take `-f` (no
-  `--force` long form, matching `root -p`); on `rm` it also forwards git's
-  `--force`. Navigation flags (`add -b`, `root -p`) stay short too.
+- **`-f` is the force flag, but its meaning is per-command.** `rm`/`prune` take
+  `-f` to skip a confirm (and `rm` also forwards git's `--force`); `sync` takes
+  `-f`/`--force` to mean "root wins on a conflicting file" (it has no prompt to
+  skip). Navigation flags (`add -b`, `root -p`) stay short too.
 - **Validate the slug before touching git.** `add` rejects a malformed branch
   name (over 64 chars, `.`/`..`/`.git`/empty segments, non-`[A-Za-z0-9._-]`)
   up front, mirroring the CLI, rather than letting a half-made dir/branch escape.
@@ -124,7 +125,11 @@ Consciously left out for now (recorded so they are choices, not oversights):
 
 - `zed` hardcodes one editor rather than honouring `$VISUAL`/`$EDITOR`.
 - No `move`/`lock`/`unlock`/`repair` equivalents from `git worktree`.
-- `cp` targets every worktree only; there is no single-target form.
+- `sync` only flows root → worktree (canonical → derived). The reverse —
+  promoting a worktree's own gitignored file up to root, or shuttling scratch
+  laterally between worktrees — is deliberately deferred to a separate,
+  explicitly-directional command rather than a `sync --to-root` flag (a
+  bidirectional verb, especially with `--all`, is a clobber footgun).
 - `status` shows each worktree's last-commit time and dirty flag, but no
   ahead/behind divergence — dropped so the listing stays a pure ref read that
   scales flat with branch count.
@@ -154,8 +159,9 @@ entries are kept out of the live set (the CLI's enter-guard refuses them).
   (`origin/<default>` with fetch, or `pull/<n>/head`) and uses
   `worktree add --no-track -B`.
 - gwt does not lock worktrees, nor copy `settings.local.json` / set
-  `core.hooksPath` / symlink configured dirs — `gwt cp` covers manual
-  propagation instead.
+  `core.hooksPath` / symlink configured dirs — `gwt sync` re-merges the
+  `.worktreeinclude` set into an existing worktree instead (add/refresh, never
+  delete; `-f` makes root win, `--hooks` re-runs `post-add`).
 - `prune` is manual and per-directory confirmed rather than automatic and
   safety-gated. This is **safe precisely because gwt never deletes branches**:
   an orphan/stray directory holds only gitignored leftovers (a real worktree

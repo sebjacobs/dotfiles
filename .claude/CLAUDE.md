@@ -161,7 +161,7 @@ Common commands:
 - `gwt rm [-f] <name>` — remove a worktree (fuzzy name; `-f` skips the prompt)
 - `gwt path [<name>]` — echo a worktree's absolute path (current if omitted)
 - `gwt root [-p]` — cd back to the main worktree root (`-p` echoes the path)
-- `gwt cp [-f] <path>` — copy `<path>` from root into every worktree
+- `gwt sync [<name>|--all] [-f] [--hooks]` — re-merge root's `.worktreeinclude` into a worktree (the named one, every one with `--all`, or the current one); adds missing files and refreshes stale ones without deleting the worktree's own, `-f` makes root win on a conflict, `--hooks` re-runs the `post-add` hook
 
 The directory-changing subcommands (`add`, `cd`, `root`) rely on a shell wrapper, so from a non-interactive `Bash` call prefer the non-cd forms (`gwt path`, `gwt ls`, `gwt status`) and `cd "$(gwt path <name>)"` when you need to be inside one. Full reference and `.worktreeinclude` semantics live in the header of `zsh/gwt.zsh`.
 

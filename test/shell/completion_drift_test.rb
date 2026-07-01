@@ -17,14 +17,16 @@ require_relative "../test_helper"
 # `# @subcommands` line) does fail — that means the check itself is blind and
 # would silently pass on real drift.
 #
-# jotter is excluded on purpose: it's a Go/cobra tool distributed via Homebrew
-# whose completion asks the binary at runtime (`jotter __complete`), so it has no
-# hand-kept copy of the command list to drift from.
+# jotter and gwt are excluded on purpose: both are Go tools distributed via
+# Homebrew whose command surface lives in the binary, not a Ruby SUBCOMMANDS.
+# jotter's completion asks the binary at runtime (`jotter __complete`); gwt's
+# hand-kept `_gwt` now mirrors the Go tool (github.com/sebjacobs/gwt), not the
+# dormant `lib/gwt.rb` kept only as proj's engine — so neither has a Ruby source
+# in this repo to check against.
 module CompletionDrift
   REPO_ROOT = File.expand_path("../..", __dir__)
 
   TOOLS = [
-    { name: "gwt",  source: "lib/gwt.rb",  completion: "zsh/completions/_gwt" },
     { name: "proj", source: "lib/proj.rb", completion: "zsh/completions/_proj" },
     { name: "svc",  source: "bin/svc",     completion: "zsh/completions/_svc" },
     { name: "dot",  source: "bin/dot",     completion: "zsh/completions/_dot" }

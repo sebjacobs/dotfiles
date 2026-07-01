@@ -17,8 +17,8 @@ dox:
 
 gwt:
   desc: Git worktree manager for .claude/worktrees
-  location: lib/gwt.rb
-  repo: dotfiles
+  location: ~/.local/bin/gwt-bin
+  repo: gwt
 
 jotter:
   desc: Session-note logging CLI (write, search, ls)

@@ -1,7 +1,8 @@
 # Worktree handling: Claude Code CLI vs `gwt`
 
 Reference for how the Claude Code CLI manages `.claude/worktrees/`, and the
-contract `gwt` (`lib/gwt.rb`) follows to stay consistent with it.
+contract `gwt` (the Go tool at github.com/sebjacobs/gwt) follows to stay
+consistent with it.
 
 ## Principle: git is the source of truth
 
@@ -65,7 +66,7 @@ cutoff that are not active and provably safe, removes them and runs
 
 ## How `gwt` aligns
 
-- **Enumeration** (`ls`, `sync`, `status`, `promote`/`send` endpoints, and `cd`/`path`/`zed` resolution) comes
+- **Enumeration** (`ls`, `sync`, `status`, `promote`/`send` endpoints, and `cd`/`path`/`edit` resolution) comes
   from `git worktree list --porcelain` filtered to `.claude/worktrees/`, not a
   directory scan. Neither orphans nor phantoms (`prunable` entries) appear.
 - **`add`** reuses a registered worktree; if a same-named *unregistered* directory
@@ -88,7 +89,7 @@ cutoff that are not active and provably safe, removes them and runs
 | `promote [<name>] [-f] [-y]` | Reverse of `sync`: merge a worktree's `.worktreeinclude` **up** into root (current worktree, or a named one). Scans the worktree's own entries, so a file created there but absent from root is still promoted. Same preview + prompt (`-y` skips it); `-f` makes the worktree win. Single-source — no `--all` |
 | `send <path> [--from <src>] [--to <dst>] [-f] [-y]` | Copy **one ad-hoc path** (file or whole directory, recursively) between endpoints — `root` or a named worktree, chosen with `--from`/`--to`; the omitted side defaults to where you are. Not tied to `.worktreeinclude` — moves exactly the path named. Same preview + prompt; `-f` makes the source win. Covers the lateral worktree→worktree copy as well as a one-off up/down |
 | `cd <name>` | `cd` into a worktree |
-| `zed [<name>]` | Open a worktree in a new Zed window (current if no name) |
+| `edit [<name>]` | Open a worktree in your editor (current if no name; `~/.gwt.yml` `editor:` or `$VISUAL`/`$EDITOR`) |
 | `ls` | List worktrees (name + branch) |
 | `rm [-f\|--force] <name>` | Remove a worktree or orphaned directory (`-f` forces a dirty one) |
 | `prune [-f]` | Clear phantom git registrations and orphaned directories (`-f` skips prompts) |
@@ -100,7 +101,7 @@ cutoff that are not active and provably safe, removes them and runs
 
 These are deliberate and should be preserved unless revisited on purpose:
 
-- **Fuzzy for navigation, exact for destruction.** `cd`/`path`/`zed` resolve a
+- **Fuzzy for navigation, exact for destruction.** `cd`/`path`/`edit` resolve a
   query by exact → prefix → substring match; `rm` requires the exact worktree
   name. Navigation is forgiving; deletion is not fuzzy-matched.
 - **Defer to git's guards rather than reimplement them.** `rm` runs
@@ -136,7 +137,6 @@ These are deliberate and should be preserved unless revisited on purpose:
 
 Consciously left out for now (recorded so they are choices, not oversights):
 
-- `zed` hardcodes one editor rather than honouring `$VISUAL`/`$EDITOR`.
 - No `move`/`lock`/`unlock`/`repair` equivalents from `git worktree`.
 - `sync` (root → worktree) and `promote` (worktree → root) are separate,
   explicitly-directional verbs rather than one `sync --to-root` flag — a

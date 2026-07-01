@@ -22,7 +22,8 @@
 #        gwt cd <name>          cd into an existing worktree
 #        gwt mv [-f] <name> <new-name>  Rename a worktree's dir + its Claude history (branch unchanged; -f skips the prompt)
 #        gwt <name>             Shorthand for `gwt cd <name>` (any non-subcommand name)
-#        gwt zed [<name>]       Open a worktree in a new Zed window (current if no name)
+#        gwt edit [<name>]      Open a worktree in your editor (current if no name;
+#                               ~/.gwt `editor:` -> $VISUAL -> $EDITOR)
 #        gwt ls                 List worktrees
 #        gwt rm [-f] [-d|-D] <name>  Remove a worktree (fuzzy name like `cd`; -f/--force skips the prompt;
 #                                    -d also deletes its local branch, -D force-deletes an unmerged one)
@@ -77,13 +78,13 @@
 # Tab completion for the subcommands and worktree names lives in the autoloaded
 # zsh/completions/_gwt, alongside the other CLIs' completions.
 
-# The logic lives in lib/gwt.rb (Ruby, unit-tested). A subprocess cannot
-# change this shell's directory, so the helper writes the cd target to the file
-# named by $GWT_CD_FILE and we cd there on return — the one thing the shell must
-# own. Everything else (resolution, fuzzy matching, .worktreeinclude, status)
-# is the helper's job.
+# The logic lives in the gwt-bin binary (a Go port of the old lib/gwt.rb, unit-
+# tested). A subprocess cannot change this shell's directory, so the helper writes
+# the cd target to the file named by $GWT_CD_FILE and we cd there on return — the
+# one thing the shell must own. Everything else (resolution, fuzzy matching,
+# .worktreeinclude, status) is the helper's job.
 gwt() {
-  local helper="$HOME/dotfiles/lib/gwt.rb"
+  local helper="$HOME/.local/bin/gwt-bin"
   local cd_file rc
   cd_file=$(mktemp "${TMPDIR:-/tmp}/gwt-cd.XXXXXX")
 
@@ -92,7 +93,7 @@ gwt() {
     local start=$EPOCHREALTIME
     GWT_CD_FILE="$cd_file" "$helper" "$@"
     rc=$?
-    printf 'gwt[timing] total (incl. ruby boot): %.1fms\n' \
+    printf 'gwt[timing] total (incl. process boot): %.1fms\n' \
       $(( (EPOCHREALTIME - start) * 1000 )) >&2
   else
     GWT_CD_FILE="$cd_file" "$helper" "$@"

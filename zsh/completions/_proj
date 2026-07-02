@@ -94,8 +94,15 @@ _proj() {
 
     zstyle ':completion:*:*:proj:*' group-name ''
     zstyle ':completion:*:*:proj:*' group-order commands $type_order
+
+    # Each group header carries its own formatting rather than leaning on a
+    # global `descriptions` format style: a leading newline sets a blank line
+    # between groups, and %B/%F render it bold and coloured. compadd's -X
+    # explanation supports both prompt escapes and embedded newlines, so the
+    # spacing and colour live with the group they head. Commands wear one accent
+    # (yellow), project types another (cyan), to tell the two kinds apart.
     local -a _subcommands=(ls show status mv init)  # @subcommands
-    compadd -J commands -X 'commands' -- $_subcommands
+    compadd -J commands -X $'\n%B%F{yellow}commands%f%b' -- $_subcommands
 
     local -a matches
     matches=("${(@f)$(_proj_match_keys "${words[2]}")}")
@@ -112,7 +119,7 @@ _proj() {
       local -a group
       group=()
       for m in $matches; do [[ "${typeof[$m]}" == "$t" ]] && group+=$m; done
-      (( ${#group} )) && compadd -U -J "$t" -X "$t" -- $group
+      (( ${#group} )) && compadd -U -J "$t" -X $'\n%B%F{cyan}'"$t"$'%f%b' -- $group
     done
 
     local -a untyped

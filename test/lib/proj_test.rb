@@ -403,6 +403,15 @@ class ProjAppTest < Minitest::Test
     assert_includes err.string, "No project matching: zzz"
   end
 
+  def test_help_prints_usage_without_cding
+    ["help", "-h", "--help"].each do |flag|
+      app, cd, out = build_app(pwd: @root)
+      assert_equal 0, app.run([flag])
+      assert_empty cd
+      assert_includes out.string, "Usage: proj <name>"
+    end
+  end
+
   def test_dot_cds_to_current_root
     app, cd, = build_app(pwd: File.join(@personal, "cadence", "lib"))
     assert_equal 0, app.run(["."])

@@ -356,6 +356,7 @@ module Proj
       worktree = argv[1]
       root = Proj.root_from_pwd(@pwd, @trees)
 
+      return usage(0) if ["help", "-h", "--help"].include?(name)
       return goto_current_root(root) if name == "."
 
       map = Proj.build_map(@trees)
@@ -695,6 +696,25 @@ module Proj
     def change_dir(path)
       @cd.call(path)
       0
+    end
+
+    def usage(code = 1)
+      @out.puts <<~USAGE
+        Usage: proj <name> [<worktree>]      cd into a project (2nd arg: a worktree under it)
+               proj <client>/<name>          cd into a namespaced client project
+               proj <ls|show|status|mv|init> [args]
+
+          <name> [<worktree>]  cd into a project; a 2nd arg cd's into a worktree under it (via gwt)
+          ls [<type>] [--tag T...]  List projects grouped by type (with description + tags),
+                               narrowed by type and/or tags
+          show <project>       Show a project's path, description, tags, and last commit
+          status               List git projects newest-commit-first, with branch and timestamp
+          mv <project> <new-name> [--to <category>]  Rename/relocate a project, carrying its history
+          init                 Scaffold a commented-out .proj (description + tags) at the project root
+          .                    cd to the current project root
+          (no args)            Inside a project print its root, else list all
+      USAGE
+      code
     end
 
     def error(message)

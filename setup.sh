@@ -55,6 +55,7 @@ files=(
   ".gitconfig"
   ".gitignore"
   ".gwt.yml"
+  ".ruby-version"
   ".jotter"
   ".claude/CLAUDE.md"
   ".claude/settings.json"

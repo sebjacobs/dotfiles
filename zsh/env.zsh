@@ -11,7 +11,13 @@ export EDITOR='zed --wait'
 
 export LAUNCHD_PREFIX="com.sebjacobs"
 
-DEFAULT_RUBY=ruby-4.0.5
+# The default ruby, single-sourced from the repo's .ruby-version (also symlinked
+# to ~/.ruby-version by setup.sh). That file is the floor chruby's auto.sh walks
+# up to: without it, chruby_auto resets to system ruby 2.6 in any unpinned dir,
+# breaking ruby CLIs that assume 3.x+ (e.g. proj). Reading it here keeps one
+# place to bump the version. ${(%):-%x} is this file's own path; :A resolves the
+# ~/.zshenv symlink back to the repo so the read works from any checkout.
+read -r DEFAULT_RUBY < "${${(%):-%x}:A:h:h}/.ruby-version"
 if [[ -o interactive ]]; then
   source /opt/homebrew/opt/chruby/share/chruby/chruby.sh
   chruby "$DEFAULT_RUBY"

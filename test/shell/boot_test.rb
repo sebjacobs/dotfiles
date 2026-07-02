@@ -9,8 +9,7 @@ module ShellBoot
   REPO_ROOT = File.expand_path("../..", __dir__)
 
   def self.default_ruby
-    env = File.read(File.join(REPO_ROOT, "zsh", "env.zsh"))
-    env[/^DEFAULT_RUBY=(\S+)/, 1]
+    File.read(File.join(REPO_ROOT, ".ruby-version")).strip
   end
 
   def self.ruby_bin_dir

@@ -42,7 +42,7 @@ module Proj
   # any divergence between this list and the completion's. The bare `.` and
   # `--list` forms are internal (current-root jump / cache warm), not offered as
   # completions, so they are deliberately absent.
-  SUBCOMMANDS = %w[ls status mv].freeze
+  SUBCOMMANDS = %w[ls show status mv init].freeze
 
   PROJ_ROOT = ENV.fetch("PROJ_ROOT", File.join(Dir.home, "Tech/Projects"))
 
@@ -134,11 +134,26 @@ module Proj
   end
 
   # A project's optional, gitignored `.proj` file declares per-checkout metadata
-  # that doesn't belong in the repo. Tags (orthogonal to the structural type) are
-  # the first use; the format is forgiving `key: value` lines so it can grow
-  # (description, default branch, …) without breaking older parsers — blank lines
-  # and `#` comments are skipped and unknown keys ignored.
+  # that doesn't belong in the repo. Tags (orthogonal to the structural type) and
+  # a one-line description are the current uses; the format is forgiving
+  # `key: value` lines so it can grow (default branch, …) without breaking older
+  # parsers — blank lines and `#` comments are skipped and unknown keys ignored.
   PROJ_FILE = ".proj"
+
+  # The scaffold `proj init` writes: every field present but commented out with
+  # an example value, so a project adopts `.proj` by uncommenting rather than
+  # recalling the schema. Inert as written (all comments) — parse yields {} — so
+  # an un-edited `.proj` declares no metadata.
+  PROJ_TEMPLATE = <<~PROJ
+    # .proj — per-checkout project metadata (gitignored).
+    #
+    # Forgiving `key: value` lines; blank lines and `#` comments are ignored.
+    # Uncomment and edit the fields you want — they surface in `proj ls` and
+    # `proj show`.
+
+    # description: One-line summary of what this project is
+    # tags: tag-one tag-two
+  PROJ
 
   def parse_proj_file(content)
     content.to_s.each_line.each_with_object({}) do |line, config|
@@ -153,15 +168,30 @@ module Proj
   # Tokenise a tag value on commas or whitespace, so `tags: a, b c` is [a, b, c].
   def split_tags(value) = value.to_s.split(/[,\s]+/).reject(&:empty?)
 
-  # An indented `ls` row: bare name when untagged, name padded then "[tag …]"
-  # when tagged, so the tag columns line up down the listing.
-  def format_ls_row(key, tags)
-    return "  #{key}" if tags.nil? || tags.empty?
+  # Column widths for the `ls` listing: the name, then the description, so the
+  # description text and the trailing "[tags]" each line up down the listing.
+  LS_NAME_WIDTH = 16
+  LS_DESC_WIDTH = 30
 
-    format("  %-28s [%s]", key, tags.join(" "))
+  # An indented `ls` row. Bare name when it has neither a description nor tags;
+  # otherwise the name, the description (padded to its column so tags align),
+  # and a trailing "[tag …]". Trailing padding is trimmed, so a description with
+  # no tags doesn't drag whitespace to the edge.
+  def format_ls_row(key, tags, description = nil)
+    tags = tags || []
+    desc = description.to_s.strip
+    return "  #{key}" if desc.empty? && tags.empty?
+
+    row = format("  %-#{LS_NAME_WIDTH}s %-#{LS_DESC_WIDTH}s", key, desc)
+    row = "#{row} [#{tags.join(' ')}]" unless tags.empty?
+    row.rstrip
   end
 
   def tags_for(content) = split_tags(parse_proj_file(content)["tags"])
+
+  # A project's one-line description from its `.proj`, or "" when absent. Trimmed
+  # so a stray trailing space in the file doesn't misalign the `ls` columns.
+  def description_for(content) = parse_proj_file(content)["description"].to_s.strip
 
   # Pull the most-recent branch and its commit time from a single
   # `git for-each-ref --sort=-committerdate --count=1` line (tab-separated
@@ -204,6 +234,12 @@ module Proj
   # directory, consistent with build_types.
   def build_tags(map)
     map.transform_values { |dir| tags_for(read_proj(dir)) }
+  end
+
+  # Build the display-name -> description map by reading each project's .proj,
+  # mirroring build_tags so a project's description comes from its winning dir.
+  def build_descriptions(map)
+    map.transform_values { |dir| description_for(read_proj(dir)) }
   end
 
   # Parse `ls` arguments into a {type:, tags:} filter. The lone positional (if
@@ -320,21 +356,25 @@ module Proj
       worktree = argv[1]
       root = Proj.root_from_pwd(@pwd, @trees)
 
+      return usage(0) if ["help", "-h", "--help"].include?(name)
       return goto_current_root(root) if name == "."
 
       map = Proj.build_map(@trees)
       types = Proj.build_types(@trees)
       tags = Proj.build_tags(map)
+      descriptions = Proj.build_descriptions(map)
       @cache.call(map.keys.sort)
       @paths.call(map)
       @types.call(types)
       @tags.call(tags)
 
       return 0 if name == "--list"
-      return cmd_ls(map, types, tags, argv.drop(1)) if name == "ls"
+      return cmd_init(root) if name == "init"
+      return cmd_ls(map, types, tags, descriptions, argv.drop(1)) if name == "ls"
+      return cmd_show(map, types, tags, descriptions, argv.drop(1)) if name == "show"
       return cmd_status(map) if name == "status"
       return cmd_mv(map, argv.drop(1)) if name == "mv"
-      return print_current_or_list(root, map, types, tags) if name.nil? || name.empty?
+      return print_current_or_list(root, map, types, tags, descriptions) if name.nil? || name.empty?
 
       path = resolve_project(name, map)
       return 1 if path.nil?
@@ -390,7 +430,7 @@ module Proj
     # group display order and the "known types" set for the bad-type error.
     def type_order = @trees.map { |tree| tree[:type] }.uniq
 
-    def cmd_ls(map, types, tags, args)
+    def cmd_ls(map, types, tags, descriptions, args)
       filter = Proj.parse_ls_args(args)
       keys = map.keys
 
@@ -408,8 +448,52 @@ module Proj
       Proj.group_by_type(keys, types, type_order).each_with_index do |(type, group_keys), i|
         @out.puts "" unless i.zero?
         @out.puts type
-        group_keys.each { |key| @out.puts Proj.format_ls_row(key, tags[key]) }
+        group_keys.each { |key| @out.puts Proj.format_ls_row(key, tags[key], descriptions[key]) }
       end
+      0
+    end
+
+    # Show one project's metadata: its key and type, absolute path, description
+    # and tags when present, and its most-recent branch + commit time (the same
+    # `for-each-ref` `cmd_status` uses). Non-git projects and commit-less repos
+    # simply omit the last-commit line. `show` shadows any project literally
+    # named "show" — an accepted edge, as with `ls`/`status`/`mv`.
+    def cmd_show(map, types, tags, descriptions, args)
+      name = args[0]
+      return error("Usage: proj show <project>") if name.nil? || name.empty?
+
+      path = resolve_project(name, map)
+      return 1 if path.nil?
+
+      key = map.key(path)
+      @out.puts "#{key}  (#{types[key]})"
+      @out.puts "  #{path}"
+      desc = descriptions[key].to_s.strip
+      @out.puts "  #{desc}" unless desc.empty?
+      project_tags = tags[key] || []
+      @out.puts "  tags: #{project_tags.join(' ')}" unless project_tags.empty?
+
+      out, ok = @git.capture("-C", path, "for-each-ref", "--sort=-committerdate", "--count=1",
+                             "refs/heads", "--format=%(refname:short)%09%(committerdate:unix)")
+      if ok
+        branch, time = Proj.parse_for_each_ref(out)
+        @out.puts "  last: #{branch} (#{Proj.format_time(time)})" unless branch.nil?
+      end
+      0
+    end
+
+    # Scaffold a commented-out `.proj` at the current project root, so adopting
+    # per-checkout metadata is uncommenting the template rather than recalling the
+    # schema. Refuses outside a known project tree, and won't clobber an existing
+    # `.proj`. `init` shadows any project literally named "init" — an accepted edge.
+    def cmd_init(root)
+      return error("proj init: not inside a known project tree (#{@trees.map { |t| t[:dir] }.join(', ')})") if root.nil?
+
+      path = File.join(root, Proj::PROJ_FILE)
+      return error("proj init: #{Proj::PROJ_FILE} already exists at #{path}") if @sys.file?(path)
+
+      @sys.write(path, Proj::PROJ_TEMPLATE)
+      @out.puts "proj: wrote #{path} — uncomment and edit to add a description and tags"
       0
     end
 
@@ -600,18 +684,37 @@ module Proj
 
     # Inside a project, echo its root (handy for `cd "$(proj)"`); outside any
     # project, fall back to the full grouped listing.
-    def print_current_or_list(root, map, types, tags)
+    def print_current_or_list(root, map, types, tags, descriptions)
       if root
         @out.puts root
         return 0
       end
 
-      cmd_ls(map, types, tags, [])
+      cmd_ls(map, types, tags, descriptions, [])
     end
 
     def change_dir(path)
       @cd.call(path)
       0
+    end
+
+    def usage(code = 1)
+      @out.puts <<~USAGE
+        Usage: proj <name> [<worktree>]      cd into a project (2nd arg: a worktree under it)
+               proj <client>/<name>          cd into a namespaced client project
+               proj <ls|show|status|mv|init> [args]
+
+          <name> [<worktree>]  cd into a project; a 2nd arg cd's into a worktree under it (via gwt)
+          ls [<type>] [--tag T...]  List projects grouped by type (with description + tags),
+                               narrowed by type and/or tags
+          show <project>       Show a project's path, description, tags, and last commit
+          status               List git projects newest-commit-first, with branch and timestamp
+          mv <project> <new-name> [--to <category>]  Rename/relocate a project, carrying its history
+          init                 Scaffold a commented-out .proj (description + tags) at the project root
+          .                    cd to the current project root
+          (no args)            Inside a project print its root, else list all
+      USAGE
+      code
     end
 
     def error(message)

@@ -10,8 +10,14 @@
 #                            declared in $PROJ_ROOT/.projroot, e.g. personal,
 #                            private, client, opensource), optionally narrowed to
 #                            a type and/or tags (repeatable --tag; carry all).
-#                            Tags come from each project's gitignored .proj file
-#                            and show inline in the listing.
+#                            Tags and a one-line description come from each
+#                            project's gitignored .proj file and show inline.
+#   proj show <name>         show a project's path, description, tags, and its
+#                            most-recent branch + commit time (like `proj status`
+#                            for one project).
+#   proj init                scaffold a commented-out .proj (description + tags)
+#                            at the current project root; won't clobber an
+#                            existing one. Uncomment the fields you want.
 #   proj status              list git projects newest-first by their most-recent
 #                            commit, each row showing the project name, the branch
 #                            (across main + worktrees) carrying that commit, and

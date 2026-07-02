@@ -95,6 +95,15 @@ class ProjPureTest < Minitest::Test
     assert_empty Proj.tags_for("")
   end
 
+  def test_description_for_reads_and_trims_the_description_line
+    assert_equal "Fast, quiet file watcher", Proj.description_for("description:  Fast, quiet file watcher  \n")
+  end
+
+  def test_description_for_is_empty_without_a_description_line
+    assert_empty Proj.description_for("tags: rust cli\n")
+    assert_empty Proj.description_for("")
+  end
+
   def test_parse_ls_args_takes_lone_positional_as_type
     assert_equal({ type: "personal", tags: [] }, Proj.parse_ls_args(["personal"]))
   end
@@ -118,9 +127,23 @@ class ProjPureTest < Minitest::Test
     assert_equal "  cadence", Proj.format_ls_row("cadence", nil)
   end
 
-  def test_format_ls_row_appends_tags_when_present
-    assert_equal "  cadence                      [archived billable]",
+  def test_format_ls_row_appends_tags_after_the_reserved_description_column
+    assert_equal "  cadence                                         [archived billable]",
                  Proj.format_ls_row("cadence", %w[archived billable])
+  end
+
+  def test_format_ls_row_shows_description_then_tags
+    assert_equal "  otter            Fast, quiet file watcher       [rust cli]",
+                 Proj.format_ls_row("otter", %w[rust cli], "Fast, quiet file watcher")
+  end
+
+  def test_format_ls_row_trims_trailing_padding_when_description_has_no_tags
+    assert_equal "  otter            Fast, quiet file watcher",
+                 Proj.format_ls_row("otter", [], "Fast, quiet file watcher")
+  end
+
+  def test_format_ls_row_bare_when_description_and_tags_both_empty
+    assert_equal "  cadence", Proj.format_ls_row("cadence", [], "")
   end
 
   def test_parse_for_each_ref_takes_branch_and_time_from_the_top_line
@@ -582,6 +605,66 @@ class ProjAppTest < Minitest::Test
     assert_equal 0, app.run(["status"])
     assert_includes out.string, "cadence "
     refute_includes out.string, "cadence-extra"
+  end
+
+  def test_ls_shows_description_inline
+    cadence = File.join(@personal, "cadence")
+    File.write(File.join(cadence, ".proj"), "description: Task scheduler\ntags: ruby\n")
+    app, _cd, out = build_app(pwd: @root)
+    assert_equal 0, app.run(["ls"])
+    assert_includes out.string, Proj.format_ls_row("cadence", ["ruby"], "Task scheduler")
+  end
+
+  def test_show_displays_metadata_and_last_commit
+    cadence = File.join(@personal, "cadence")
+    File.write(File.join(cadence, ".proj"), "description: Task scheduler\ntags: ruby cli\n")
+    git = FakeGit.new(cadence => ["main\t1782509451\n", true])
+    app, _cd, out = build_app(pwd: @root, git: git)
+    assert_equal 0, app.run(["show", "cadence"])
+    assert_includes out.string, "cadence  (personal)"
+    assert_includes out.string, cadence
+    assert_includes out.string, "Task scheduler"
+    assert_includes out.string, "tags: ruby cli"
+    assert_includes out.string, "last: main (#{Proj.format_time(1782509451)})"
+  end
+
+  def test_show_omits_absent_description_tags_and_commit
+    app, _cd, out = build_app(pwd: @root, git: FakeGit.new({}))
+    assert_equal 0, app.run(["show", "cadence"])
+    assert_includes out.string, "cadence  (personal)"
+    refute_includes out.string, "tags:"
+    refute_includes out.string, "last:"
+  end
+
+  def test_show_requires_a_project_argument
+    app, _cd, _out, err = build_app(pwd: @root, git: FakeGit.new({}))
+    assert_equal 1, app.run(["show"])
+    assert_includes err.string, "Usage: proj show"
+  end
+
+  def test_init_writes_a_commented_out_proj_at_the_project_root
+    app, _cd, out = build_app(pwd: File.join(@personal, "cadence", "lib"))
+    assert_equal 0, app.run(["init"])
+    path = File.join(@personal, "cadence", ".proj")
+    content = File.read(path)
+    assert_includes content, "# description:"
+    assert_includes content, "# tags:"
+    assert_empty Proj.parse_proj_file(content)
+    assert_includes out.string, path
+  end
+
+  def test_init_refuses_outside_a_known_project_tree
+    app, _cd, _out, err = build_app(pwd: "/elsewhere")
+    assert_equal 1, app.run(["init"])
+    assert_includes err.string, "not inside a known project tree"
+  end
+
+  def test_init_refuses_to_clobber_an_existing_proj
+    cadence = File.join(@personal, "cadence")
+    File.write(File.join(cadence, ".proj"), "tags: x\n")
+    app, _cd, _out, err = build_app(pwd: cadence)
+    assert_equal 1, app.run(["init"])
+    assert_includes err.string, "already exists"
   end
 
   class FakeGit

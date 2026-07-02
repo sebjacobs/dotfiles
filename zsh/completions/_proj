@@ -77,9 +77,9 @@ _proj() {
     return
   fi
 
-  # `proj mv <project> <new-name>`: complete the project to rename in slot one;
-  # the new name is free text, so slot two offers nothing.
-  if (( CURRENT == 3 )) && [[ "${words[2]}" == mv ]]; then
+  # `proj mv <project> <new-name>` / `proj show <project>`: complete the project
+  # in slot one; mv's new name is free text, so slot two offers nothing.
+  if (( CURRENT == 3 )) && [[ "${words[2]}" == (mv|show) ]]; then
     local -a matches
     matches=("${(@f)$(_proj_match_keys "${words[3]}")}")
     (( ${#matches} )) && compadd -- $matches
@@ -94,7 +94,7 @@ _proj() {
 
     zstyle ':completion:*:*:proj:*' group-name ''
     zstyle ':completion:*:*:proj:*' group-order commands $type_order
-    local -a _subcommands=(ls status mv)  # @subcommands
+    local -a _subcommands=(ls show status mv init)  # @subcommands
     compadd -J commands -X 'commands' -- $_subcommands
 
     local -a matches

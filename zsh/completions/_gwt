@@ -2,11 +2,13 @@
 
 # Completion for `gwt` (zsh/gwt.zsh — git worktree helpers for .claude/worktrees/).
 #
-# First word: the subcommands, kept in sync with Gwt::SUBCOMMANDS by the
+# First word: the subcommands, kept in sync with the binary's command list by the
 # completion-drift smoke test (test/shell/completion_drift_test.rb). The
-# worktree-taking subcommands (cd/rm/path/zed/mv/sync/promote) complete an existing
-# worktree's name from the .claude/worktrees/ dirs; add completes branch names.
-# mv's second word (the new name) is free text.
+# worktree-taking subcommands (cd/rm/path/edit/mv/sync/promote) complete an
+# existing worktree's name from the .claude/worktrees/ dirs; add completes branch
+# names. Flag-taking subcommands (rm/sync/promote/mv/add) offer their flags when
+# the current word starts with `-`, and still complete the worktree name after a
+# flag (e.g. `gwt rm -D <name>`). mv's second word (the new name) is free text.
 
 _gwt_root() { git worktree list --porcelain 2>/dev/null | head -1 | sed 's/^worktree //'; }
 
@@ -26,21 +28,35 @@ _gwt() {
   if (( CURRENT == 2 )); then
     zstyle ':completion:*:*:gwt:*' group-name ''
     zstyle ':completion:*:*:gwt:*' group-order commands worktrees
-    local -a _subcommands=(init add sync promote send cd mv path zed ls rm prune root status)  # @subcommands
+    local -a _subcommands=(init add sync promote send cd mv path edit ls rm prune root status)  # @subcommands
     compadd -J commands -X 'commands' -- $_subcommands
     if [[ -d "$wt_base" ]]; then
       compadd -J worktrees -X 'worktrees' -- "$wt_base"/*(/:t)
     fi
-  elif (( CURRENT == 3 )); then
+  elif (( CURRENT >= 3 )); then
+    local cur="${words[CURRENT]}"
+    local -a wts
+    [[ -d "$wt_base" ]] && wts=("$wt_base"/*(/:t))
     case "${words[2]}" in
-      cd|rm|path|zed|mv|sync|promote)
-        if [[ -d "$wt_base" ]]; then
-          compadd -- "$wt_base"/*(/:t)
-        fi
+      rm)
+        if [[ "$cur" == -* ]]; then compadd -- -f -d -D; else compadd -- $wts; fi
+        ;;
+      sync)
+        if [[ "$cur" == -* ]]; then compadd -- --all -f -y --hooks; else compadd -- $wts; fi
+        ;;
+      promote)
+        if [[ "$cur" == -* ]]; then compadd -- -f -y; else compadd -- $wts; fi
+        ;;
+      cd|path|edit)
+        (( CURRENT == 3 )) && compadd -- $wts
+        ;;
+      mv)
+        if [[ "$cur" == -* ]]; then compadd -- -f
+        elif (( CURRENT == 3 )); then compadd -- $wts; fi
         ;;
       add)
-        # Complete branch names
-        compadd -- $(git branch --format='%(refname:short)' 2>/dev/null)
+        if [[ "$cur" == -* ]]; then compadd -- -b
+        else compadd -- $(git branch --format='%(refname:short)' 2>/dev/null); fi
         ;;
       root)
         compadd -- -p --path

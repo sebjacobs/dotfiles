@@ -1,10 +1,24 @@
 #!/usr/bin/env sh
 
-# Update Homebrew and upgrade all formulae. Safe to run interactively or from
-# the launchd timer (com.sebjacobs.brewup) — sourcing brew shellenv first means
-# it works even in launchd's bare PATH-less environment.
+# Update Homebrew and upgrade all formulae, plus any installed casks that come
+# from my own tap (sebjacobs/tap). Safe to run interactively or from the
+# launchd timer (com.sebjacobs.brewup) — sourcing brew shellenv first means it
+# works even in launchd's bare PATH-less environment.
 
 eval "$(/opt/homebrew/bin/brew shellenv)"
 
 echo "=== brewup $(date '+%Y-%m-%d %H:%M:%S') ==="
 brew update && brew upgrade --formula --yes
+
+# `brew upgrade --formula` skips casks, so upgrade my own tap's casks (e.g.
+# jotter) explicitly — one per cask file that's actually installed.
+tap_repo="$(brew --repository sebjacobs/tap 2>/dev/null)"
+if [ -d "$tap_repo/Casks" ]; then
+  for cask_file in "$tap_repo"/Casks/*.rb; do
+    [ -e "$cask_file" ] || continue
+    token="$(basename "$cask_file" .rb)"
+    if brew list --cask --versions "$token" >/dev/null 2>&1; then
+      brew upgrade --cask --yes "$token"
+    fi
+  done
+fi

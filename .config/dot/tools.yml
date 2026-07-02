@@ -6,7 +6,7 @@
 # in too). `dot ls` reads `desc`; `dot show`/`dot where` resolve `location`.
 
 brewup:
-  desc: Update Homebrew and upgrade all formulae
+  desc: Update Homebrew, upgrade all formulae and my own tap's casks
   location: bin/brewup
   repo: dotfiles
 

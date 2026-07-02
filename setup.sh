@@ -54,6 +54,7 @@ files=(
   ".gitattributes"
   ".gitconfig"
   ".gitignore"
+  ".gwt.yml"
   ".jotter"
   ".claude/CLAUDE.md"
   ".claude/settings.json"

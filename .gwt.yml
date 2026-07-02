@@ -1,0 +1,9 @@
+# ~/.gwt.yml — personal gwt config.
+#
+# Only the `editor:` key is read from the home ~/.gwt.yml (hooks live in a repo's
+# own .gwt.yml). It sets the editor `gwt edit` launches, taking precedence over $VISUAL
+# and $EDITOR. The value is either a string (split on whitespace) or an explicit
+# argv list; it may carry flags, and the command is checked on PATH before launch.
+#
+# Replicates the old `gwt zed` behaviour — `zed -n <target>` (open in a new window).
+editor: [zed, -n]

@@ -19,7 +19,7 @@ alias gad="git add ."
 alias gam="git commit --amend"
 alias gcon="git rebase --continue || git cherry-pick --continue"
 alias gab="git rebase --abort || git cherry-pick --abort"
-alias gls="git ls-files --others --exclude tmp --exclude .venv --exclude storage --exclude log --exclude .ruby-lsp --exclude .bundle --exclude .claude"
+alias gls="git ls-files --others --exclude node_modules --exclude __pycache__ --exclude tmp --exclude .venv --exclude storage --exclude log --exclude .ruby-lsp --exclude .bundle --exclude .claude"
 
 grod() {
   local target

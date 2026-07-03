@@ -84,6 +84,17 @@ class InteractiveBootTest < Minitest::Test
     assert_empty result.stderr, "login boot wrote to stderr"
   end
 
+  def test_login_shell_resolves_the_default_ruby
+    skip "#{ShellBoot.default_ruby} not installed" unless Dir.exist?(ShellBoot.ruby_bin_dir)
+
+    result = ShellBoot.interactive('print -r -- "$(command -v ruby)|$RUBY_VERSION"', login: true)
+    path, version = result.stdout.strip.split("|")
+
+    assert_equal File.join(ShellBoot.ruby_bin_dir, "ruby"), path,
+      "login shell fell back to system ruby — /etc/zprofile's path_helper reshuffled PATH and the active ruby was not restored on .zshrc's re-source"
+    assert_equal ShellBoot.default_ruby.delete_prefix("ruby-"), version
+  end
+
   def test_resolves_the_default_ruby
     skip "#{ShellBoot.default_ruby} not installed" unless Dir.exist?(ShellBoot.ruby_bin_dir)
 

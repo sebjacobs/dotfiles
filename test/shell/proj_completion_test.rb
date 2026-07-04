@@ -97,3 +97,51 @@ class ProjCompletionTest < Minitest::Test
     )
   end
 end
+
+# Proves projects.zsh registers a yellow `list-colors` entry for each starred
+# project, and only for those. `_proj_apply_star_colors` runs when projects.zsh
+# is sourced; zstyle is stubbed to echo its list-colors payload, so the assertion
+# is on exactly what the shell asks the completion listing to colour under the
+# broad `default`-tag context (the only one list-colors is honoured under). The
+# rendered yellow only paints in a live terminal (checked by eye via zpty).
+class ProjStarColorsTest < Minitest::Test
+  REPO_ROOT = File.expand_path("../..", __dir__)
+
+  DRIVER = <<~'ZSH'
+    zstyle() {
+      [[ $2 == list-colors ]] && print -r -- "LISTCOLORS<::>${(j: :)@[3,-1]}"
+    }
+    source $REPO/zsh/projects.zsh
+  ZSH
+
+  def setup
+    @dir = Dir.mktmpdir
+    FileUtils.mkdir_p(File.join(@dir, "proj"))
+  end
+
+  def teardown
+    FileUtils.remove_entry(@dir)
+  end
+
+  def test_registers_a_yellow_list_color_for_each_starred_project
+    write_starred("cadence\notter\n")
+    line = list_colors
+    assert_includes line, "=cadence=01;33"
+    assert_includes line, "=otter=01;33"
+  end
+
+  def test_registers_no_list_colors_when_nothing_is_starred
+    write_starred("")
+    assert_nil list_colors
+  end
+
+  private
+
+  def write_starred(content) = File.write(File.join(@dir, "proj", "starred"), content)
+
+  def list_colors
+    env = { "REPO" => REPO_ROOT, "XDG_CACHE_HOME" => @dir }
+    out, _err, _status = Open3.capture3(env, "zsh", "-f", "-c", DRIVER)
+    out.lines.grep(/^LISTCOLORS<::>/).first&.chomp&.split("<::>", 2)&.last
+  end
+end

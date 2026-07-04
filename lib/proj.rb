@@ -134,10 +134,11 @@ module Proj
   end
 
   # A project's optional, gitignored `.proj` file declares per-checkout metadata
-  # that doesn't belong in the repo. Tags (orthogonal to the structural type) and
-  # a one-line description are the current uses; the format is forgiving
-  # `key: value` lines so it can grow (default branch, …) without breaking older
-  # parsers — blank lines and `#` comments are skipped and unknown keys ignored.
+  # that doesn't belong in the repo. Tags (orthogonal to the structural type), a
+  # one-line description, and a `starred` favourite flag are the current uses; the
+  # format is forgiving `key: value` lines so it can grow (default branch, …)
+  # without breaking older parsers — blank lines and `#` comments are skipped and
+  # unknown keys ignored.
   PROJ_FILE = ".proj"
 
   # The scaffold `proj init` writes: every field present but commented out with
@@ -153,6 +154,7 @@ module Proj
 
     # description: One-line summary of what this project is
     # tags: tag-one tag-two
+    # starred: true
   PROJ
 
   def parse_proj_file(content)
@@ -192,6 +194,22 @@ module Proj
   # A project's one-line description from its `.proj`, or "" when absent. Trimmed
   # so a stray trailing space in the file doesn't misalign the `ls` columns.
   def description_for(content) = parse_proj_file(content)["description"].to_s.strip
+
+  # The `.proj` values that opt a project into being starred (a favourite);
+  # anything else — including an absent key — reads false, so `starred: true`
+  # opts in and nothing is accidentally starred.
+  STARRED_TRUE = %w[true yes on 1].freeze
+
+  # Whether a project's `.proj` flags it as a starred favourite.
+  def starred_for(content) = STARRED_TRUE.include?(parse_proj_file(content)["starred"].to_s.strip.downcase)
+
+  # ANSI yellow, wrapping a starred project's `ls` row so it stands out. Applied
+  # only when `ls` is writing to a terminal (see cmd_ls), so piped output — and
+  # the unit tests — stay plain.
+  STARRED_COLOR = "\e[33m"
+  COLOR_RESET = "\e[0m"
+
+  def colorize_starred(text) = "#{STARRED_COLOR}#{text}#{COLOR_RESET}"
 
   # Pull the most-recent branch and its commit time from a single
   # `git for-each-ref --sort=-committerdate --count=1` line (tab-separated
@@ -240,6 +258,12 @@ module Proj
   # mirroring build_tags so a project's description comes from its winning dir.
   def build_descriptions(map)
     map.transform_values { |dir| description_for(read_proj(dir)) }
+  end
+
+  # Build the display-name -> starred? map by reading each project's .proj,
+  # mirroring build_tags so a project's flag comes from its winning dir.
+  def build_starred(map)
+    map.transform_values { |dir| starred_for(read_proj(dir)) }
   end
 
   # Parse `ls` arguments into a {type:, tags:} filter. The lone positional (if
@@ -332,7 +356,8 @@ module Proj
   # resolution logic above stays pure and testable: +cd+ receives the directory
   # to change into, +cache+ receives the key list to persist for completion.
   class App
-    def initialize(trees:, pwd:, out:, err:, cd:, cache:, paths: ->(_) {}, types: ->(_) {}, tags: ->(_) {}, worktree: nil,
+    def initialize(trees:, pwd:, out:, err:, cd:, cache:, paths: ->(_) {}, types: ->(_) {}, tags: ->(_) {},
+                   starred: ->(_) {}, worktree: nil,
                    sys: nil, git: nil, home: Dir.home, confirm: ->(_) { false }, jotter: ->(*) {})
       @trees = trees
       @pwd = pwd
@@ -343,6 +368,7 @@ module Proj
       @paths = paths
       @types = types
       @tags = tags
+      @starred = starred
       @worktree = worktree
       @sys = sys || Gwt::System.new
       @git = git || Gwt::Git.new
@@ -363,18 +389,20 @@ module Proj
       types = Proj.build_types(@trees)
       tags = Proj.build_tags(map)
       descriptions = Proj.build_descriptions(map)
+      starred = Proj.build_starred(map)
       @cache.call(map.keys.sort)
       @paths.call(map)
       @types.call(types)
       @tags.call(tags)
+      @starred.call(starred)
 
       return 0 if name == "--list"
       return cmd_init(root) if name == "init"
-      return cmd_ls(map, types, tags, descriptions, argv.drop(1)) if name == "ls"
-      return cmd_show(map, types, tags, descriptions, argv.drop(1)) if name == "show"
+      return cmd_ls(map, types, tags, descriptions, starred, argv.drop(1)) if name == "ls"
+      return cmd_show(map, types, tags, descriptions, starred, argv.drop(1)) if name == "show"
       return cmd_status(map) if name == "status"
       return cmd_mv(map, argv.drop(1)) if name == "mv"
-      return print_current_or_list(root, map, types, tags, descriptions) if name.nil? || name.empty?
+      return print_current_or_list(root, map, types, tags, descriptions, starred) if name.nil? || name.empty?
 
       path = resolve_project(name, map)
       return 1 if path.nil?
@@ -430,7 +458,7 @@ module Proj
     # group display order and the "known types" set for the bad-type error.
     def type_order = @trees.map { |tree| tree[:type] }.uniq
 
-    def cmd_ls(map, types, tags, descriptions, args)
+    def cmd_ls(map, types, tags, descriptions, starred, args)
       filter = Proj.parse_ls_args(args)
       keys = map.keys
 
@@ -448,7 +476,11 @@ module Proj
       Proj.group_by_type(keys, types, type_order).each_with_index do |(type, group_keys), i|
         @out.puts "" unless i.zero?
         @out.puts type
-        group_keys.each { |key| @out.puts Proj.format_ls_row(key, tags[key], descriptions[key]) }
+        group_keys.each do |key|
+          row = Proj.format_ls_row(key, tags[key], descriptions[key])
+          row = Proj.colorize_starred(row) if starred[key] && @out.tty?
+          @out.puts row
+        end
       end
       0
     end
@@ -458,7 +490,7 @@ module Proj
     # `for-each-ref` `cmd_status` uses). Non-git projects and commit-less repos
     # simply omit the last-commit line. `show` shadows any project literally
     # named "show" — an accepted edge, as with `ls`/`status`/`mv`.
-    def cmd_show(map, types, tags, descriptions, args)
+    def cmd_show(map, types, tags, descriptions, starred, args)
       name = args[0]
       return error("Usage: proj show <project>") if name.nil? || name.empty?
 
@@ -472,6 +504,7 @@ module Proj
       @out.puts "  #{desc}" unless desc.empty?
       project_tags = tags[key] || []
       @out.puts "  tags: #{project_tags.join(' ')}" unless project_tags.empty?
+      @out.puts "  ★ starred" if starred[key]
 
       out, ok = @git.capture("-C", path, "for-each-ref", "--sort=-committerdate", "--count=1",
                              "refs/heads", "--format=%(refname:short)%09%(committerdate:unix)")
@@ -684,13 +717,13 @@ module Proj
 
     # Inside a project, echo its root (handy for `cd "$(proj)"`); outside any
     # project, fall back to the full grouped listing.
-    def print_current_or_list(root, map, types, tags, descriptions)
+    def print_current_or_list(root, map, types, tags, descriptions, starred)
       if root
         @out.puts root
         return 0
       end
 
-      cmd_ls(map, types, tags, descriptions, [])
+      cmd_ls(map, types, tags, descriptions, starred, [])
     end
 
     def change_dir(path)
@@ -765,6 +798,18 @@ if __FILE__ == $PROGRAM_NAME
     File.write(file, map.values.flatten.uniq.sort.join("\n"))
   end
 
+  # The starred (favourite) project keys, sorted, so completion can paint them
+  # yellow without booting Ruby. Only the flagged keys are written — the
+  # completion needs the set, not each project's boolean — so an empty file just
+  # means nothing is starred.
+  starred_sink = lambda do |map|
+    file = ENV["PROJ_STARRED_FILE"]
+    next if file.nil? || file.empty?
+
+    FileUtils.mkdir_p(File.dirname(file))
+    File.write(file, map.select { |_key, flag| flag }.keys.sort.join("\n"))
+  end
+
   # Pull in the sibling gwt.rb for its Gwt module; its `__FILE__ == $PROGRAM_NAME`
   # guard keeps its CLI body dormant when required rather than run directly.
   require_relative "gwt"
@@ -825,6 +870,7 @@ if __FILE__ == $PROGRAM_NAME
     paths: paths_sink,
     types: types_sink,
     tags: tags_sink,
+    starred: starred_sink,
     worktree: worktree_sink,
     confirm: confirm,
     jotter: jotter_sink

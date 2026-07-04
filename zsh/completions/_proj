@@ -59,8 +59,12 @@ _proj_match_keys() {
 # the second completes worktree names under the chosen project, resolving a
 # partial project name the same way.
 _proj() {
+  # The starred cache is deliberately absent from this freshness check: it is
+  # empty when nothing is starred, which -s reads as missing and would warm on
+  # every keypress. Warming on the core caches still (re)writes it, so it stays
+  # current without gating.
   if [[ ! -s "$PROJ_CACHE_FILE" || ! -s "$PROJ_PATHS_FILE" || ! -s "$PROJ_TYPES_FILE" || ! -s "$PROJ_TAGS_FILE" ]]; then
-    PROJ_CACHE_FILE="$PROJ_CACHE_FILE" PROJ_PATHS_FILE="$PROJ_PATHS_FILE" PROJ_TYPES_FILE="$PROJ_TYPES_FILE" PROJ_TAGS_FILE="$PROJ_TAGS_FILE" \
+    PROJ_CACHE_FILE="$PROJ_CACHE_FILE" PROJ_PATHS_FILE="$PROJ_PATHS_FILE" PROJ_TYPES_FILE="$PROJ_TYPES_FILE" PROJ_TAGS_FILE="$PROJ_TAGS_FILE" PROJ_STARRED_FILE="$PROJ_STARRED_FILE" \
       "$HOME/dotfiles/lib/proj.rb" --list >/dev/null 2>&1
   fi
 

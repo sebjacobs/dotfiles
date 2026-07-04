@@ -146,6 +146,23 @@ class ProjPureTest < Minitest::Test
     assert_equal "  cadence", Proj.format_ls_row("cadence", [], "")
   end
 
+  def test_starred_for_reads_truthy_values
+    %w[true yes on 1 TRUE Yes].each do |value|
+      assert Proj.starred_for("starred: #{value}\n"), "expected #{value.inspect} to star"
+    end
+  end
+
+  def test_starred_for_is_false_when_absent_or_falsey
+    refute Proj.starred_for("tags: rust\n")
+    refute Proj.starred_for("starred: false\n")
+    refute Proj.starred_for("starred: nope\n")
+    refute Proj.starred_for("")
+  end
+
+  def test_colorize_starred_wraps_text_in_yellow
+    assert_equal "\e[33m  cadence\e[0m", Proj.colorize_starred("  cadence")
+  end
+
   def test_parse_for_each_ref_takes_branch_and_time_from_the_top_line
     assert_equal ["main", 1782571757], Proj.parse_for_each_ref("main\t1782571757\n")
   end
@@ -324,6 +341,13 @@ class ProjTreeTest < Minitest::Test
     tags = Proj.build_tags(Proj.build_map(@trees))
     assert_equal %w[archived billable], tags["cadence"]
     assert_empty tags["ripgrep"]
+  end
+
+  def test_build_starred_reads_each_projects_proj_file
+    File.write(File.join(@personal, "cadence", ".proj"), "starred: true\n")
+    starred = Proj.build_starred(Proj.build_map(@trees))
+    assert starred["cadence"]
+    refute starred["ripgrep"]
   end
 
   def test_build_map_skips_archive_everywhere
@@ -516,6 +540,17 @@ class ProjAppTest < Minitest::Test
     assert_equal({ "cadence" => [], "cadence-extra" => [] }, captured)
   end
 
+  def test_run_invokes_starred_sink_with_the_starred_map
+    File.write(File.join(@personal, "cadence", ".proj"), "starred: true\n")
+    captured = nil
+    app = Proj::App.new(
+      trees: @trees, pwd: @root, out: StringIO.new, err: StringIO.new,
+      cd: ->(_) {}, cache: ->(_) {}, starred: ->(map) { captured = map }
+    )
+    app.run(["cadence"])
+    assert_equal({ "cadence" => true, "cadence-extra" => false }, captured)
+  end
+
   def test_run_refreshes_cache
     cached = nil
     app = Proj::App.new(
@@ -624,6 +659,38 @@ class ProjAppTest < Minitest::Test
     assert_includes out.string, Proj.format_ls_row("cadence", ["ruby"], "Task scheduler")
   end
 
+  def test_ls_colors_starred_projects_yellow_on_a_tty
+    File.write(File.join(@personal, "cadence", ".proj"), "starred: true\n")
+    out = TTYStringIO.new
+    app = Proj::App.new(
+      trees: @trees, pwd: @root, out: out, err: StringIO.new,
+      cd: ->(_) {}, cache: ->(_) {}
+    )
+    assert_equal 0, app.run(["ls"])
+    assert_includes out.string, Proj.colorize_starred(Proj.format_ls_row("cadence", [], ""))
+    assert_includes out.string, "\n  cadence-extra\n"
+  end
+
+  def test_ls_leaves_starred_rows_plain_when_not_a_tty
+    File.write(File.join(@personal, "cadence", ".proj"), "starred: true\n")
+    app, _cd, out = build_app(pwd: @root)
+    assert_equal 0, app.run(["ls"])
+    refute_includes out.string, "\e[33m"
+  end
+
+  def test_show_marks_a_starred_project
+    File.write(File.join(@personal, "cadence", ".proj"), "starred: true\n")
+    app, _cd, out = build_app(pwd: @root, git: FakeGit.new({}))
+    assert_equal 0, app.run(["show", "cadence"])
+    assert_includes out.string, "★ starred"
+  end
+
+  def test_show_omits_the_star_for_an_unstarred_project
+    app, _cd, out = build_app(pwd: @root, git: FakeGit.new({}))
+    assert_equal 0, app.run(["show", "cadence"])
+    refute_includes out.string, "★"
+  end
+
   def test_show_displays_metadata_and_last_commit
     cadence = File.join(@personal, "cadence")
     File.write(File.join(cadence, ".proj"), "description: Task scheduler\ntags: ruby cli\n")
@@ -658,6 +725,7 @@ class ProjAppTest < Minitest::Test
     content = File.read(path)
     assert_includes content, "# description:"
     assert_includes content, "# tags:"
+    assert_includes content, "# starred:"
     assert_empty Proj.parse_proj_file(content)
     assert_includes out.string, path
   end
@@ -680,6 +748,12 @@ class ProjAppTest < Minitest::Test
     def initialize(by_dir) = @by_dir = by_dir
 
     def capture(*args, **) = @by_dir.fetch(args[1], ["", false])
+  end
+
+  # A StringIO that claims to be a terminal, so cmd_ls's tty-gated colouring of
+  # starred rows fires under test (a plain StringIO reports tty? false).
+  class TTYStringIO < StringIO
+    def tty? = true
   end
 
   def build_app(pwd:, worktree: nil, git: nil)

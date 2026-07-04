@@ -1032,6 +1032,58 @@ class ProjMvTest < Minitest::Test
     assert_equal [File.join(@personal, "widget", "/lib")], @cd
   end
 
+  def test_archive_moves_the_project_into_the_archive_folder_keeping_its_name
+    assert_equal 0, app.run(["archive", "cadence"])
+    assert path_exists?(File.join(@personal, "ARCHIVE", "cadence"))
+    refute path_exists?(@proj)
+  end
+
+  def test_archive_places_a_namespaced_project_under_its_own_archive_folder
+    assert_equal 0, app.run(["archive", "widget"])
+    assert path_exists?(File.join(@client, "acme", "ARCHIVE", "widget"))
+    refute path_exists?(@client_proj)
+  end
+
+  def test_archive_migrates_the_projects_claude_history
+    seed_history(@proj)
+    app.run(["archive", "cadence"])
+    assert path_exists?(File.join(@projects, enc(File.join(@personal, "ARCHIVE", "cadence")), "s.jsonl"))
+    refute path_exists?(File.join(@projects, enc(@proj)))
+  end
+
+  def test_archive_does_not_touch_jotter_since_name_and_store_are_unchanged
+    FileUtils.mkdir_p(File.join(@proj, ".git"))
+    app.run(["archive", "cadence"])
+    assert_empty @jotter_calls
+  end
+
+  def test_archive_declined_changes_nothing
+    assert_equal 1, app(confirm: false).run(["archive", "cadence"])
+    assert path_exists?(@proj)
+    refute path_exists?(File.join(@personal, "ARCHIVE", "cadence"))
+  end
+
+  def test_archive_rejects_an_existing_target
+    FileUtils.mkdir_p(File.join(@personal, "ARCHIVE", "cadence"))
+    assert_equal 1, app.run(["archive", "cadence"])
+    assert_match(/already exists/, @err.string)
+  end
+
+  def test_archive_errors_on_an_unknown_project
+    assert_equal 1, app.run(["archive", "nope"])
+  end
+
+  def test_archive_requires_a_project
+    assert_equal 1, app.run(["archive"])
+  end
+
+  def test_archive_cds_into_the_archived_project_when_inside_it
+    inside = app
+    inside.instance_variable_set(:@pwd, File.join(@proj, "lib"))
+    inside.run(["archive", "cadence"])
+    assert_equal [File.join(@personal, "ARCHIVE", "cadence", "/lib")], @cd
+  end
+
   private
 
   def path_exists?(path) = File.exist?(path)

@@ -30,6 +30,9 @@
 #                            per-checkout history: Claude transcripts (project +
 #                            worktrees) and jotter logs (via `jotter mv`).
 #                            Confirms first. <new-name> is a single path segment.
+#   proj archive <project>   move a project into its category's ARCHIVE folder
+#                            (kept out of every listing), carrying the same
+#                            per-checkout history mv does. Confirms first.
 #   proj .                   cd to the current project root
 #   proj                     inside a project print its root, else list all (`ls`)
 #

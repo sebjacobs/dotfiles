@@ -42,7 +42,7 @@ module Proj
   # any divergence between this list and the completion's. The bare `.` and
   # `--list` forms are internal (current-root jump / cache warm), not offered as
   # completions, so they are deliberately absent.
-  SUBCOMMANDS = %w[ls show status mv init].freeze
+  SUBCOMMANDS = %w[ls show status mv archive init].freeze
 
   PROJ_ROOT = ENV.fetch("PROJ_ROOT", File.join(Dir.home, "Tech/Projects"))
 
@@ -50,10 +50,14 @@ module Proj
   # categories; the tree list below is derived from it rather than hardcoded.
   MANIFEST_FILE = ".projroot"
 
+  # The per-category folder archived projects move into (`proj archive`),
+  # excluded from every listing so it holds retired work out of sight.
+  ARCHIVE_DIR = "ARCHIVE"
+
   # Directory names that are never a project in any category — ARCHIVE (archived
   # work) and session-logs (a jotter store) — excluded globally rather than per
   # line in the manifest.
-  GLOBAL_EXCLUDE = ["ARCHIVE", "session-logs"].freeze
+  GLOBAL_EXCLUDE = [ARCHIVE_DIR, "session-logs"].freeze
 
   # Parse a manifest into ordered tree hashes. Each non-comment line is
   # `<dir> [depth=N] [type=NAME]`, with <dir> relative to +root+: a bare line
@@ -402,6 +406,7 @@ module Proj
       return cmd_show(map, types, tags, descriptions, starred, argv.drop(1)) if name == "show"
       return cmd_status(map) if name == "status"
       return cmd_mv(map, argv.drop(1)) if name == "mv"
+      return cmd_archive(map, argv.drop(1)) if name == "archive"
       return print_current_or_list(root, map, types, tags, descriptions, starred) if name.nil? || name.empty?
 
       path = resolve_project(name, map)
@@ -584,18 +589,58 @@ module Proj
       return error("proj mv: destination '#{dest_parent}' is not a directory") unless File.directory?(dest_parent)
       return error("proj mv: '#{new_name}' already exists at #{new_path}") if File.exist?(new_path)
 
+      move_project(old_path, new_path,
+                   "Move project '#{File.basename(old_path)}' -> '#{new_path}' (directory, Claude history, jotter logs)? [y/N] ")
+    end
+
+    # Archive a project by moving it into the ARCHIVE folder beside it — the
+    # per-category archive dir, excluded from every `proj` listing — carrying the
+    # per-checkout state whose key is the project's *path*: Claude transcripts and
+    # worktree registrations. Jotter is deliberately skipped: it keys logs by the
+    # git-toplevel basename (unchanged) and resolves the store by walking up the
+    # tree (ARCHIVE sits under the same category, so the store is unchanged too),
+    # so an archive orphans nothing. The name is kept; ARCHIVE is created on
+    # demand (the move mkdir -p's its parent). Confirms first. `archive` shadows
+    # any project literally named "archive" — an accepted edge, as with `mv`.
+    def cmd_archive(map, args)
+      name = args[0]
+      return error(ARCHIVE_USAGE) if name.nil? || name.empty?
+
+      old_path = resolve_project(name, map)
+      return 1 if old_path.nil?
+
       old_name = File.basename(old_path)
-      return 1 unless @confirm.call("Move project '#{old_name}' -> '#{new_path}' (directory, Claude history, jotter logs)? [y/N] ")
+      new_path = File.join(File.dirname(old_path), Proj::ARCHIVE_DIR, old_name)
+      return error("proj archive: '#{old_name}' already exists at #{new_path}") if File.exist?(new_path)
+
+      move_project(old_path, new_path,
+                   "Archive project '#{old_name}' -> '#{new_path}' (directory, Claude history)? [y/N] ",
+                   migrate_jotter: false)
+    end
+
+    ARCHIVE_USAGE = "Usage: proj archive <project>"
+
+    # Confirm, move the directory, then carry the per-checkout state that keys off
+    # its path — Claude transcripts (project root + every worktree), worktree git
+    # registrations, and (unless +migrate_jotter+ is false) jotter logs — and
+    # follow the move with a cd when we're standing inside it. Shared by `mv` and
+    # `archive`; +prompt+ is the wording of the confirmation. Archive keeps the
+    # basename and store, so it opts out of the jotter move. Returns 0 on success,
+    # 1 on decline or a failed move.
+    def move_project(old_path, new_path, prompt, migrate_jotter: true)
+      old_name = File.basename(old_path)
+      new_name = File.basename(new_path)
+      return 1 unless @confirm.call(prompt)
 
       begin
         @sys.move(old_path, new_path)
       rescue StandardError => e
-        return error("proj mv: failed to move #{old_path} -> #{new_path} (#{e.message})")
+        return error("proj: failed to move #{old_path} -> #{new_path} (#{e.message})")
       end
 
       migrate_claude_history(old_path, new_path)
       repair_worktrees(new_path)
-      migrate_jotter_logs(old_name, new_name, old_path, new_path)
+      migrate_jotter_logs(old_name, new_name, old_path, new_path) if migrate_jotter
       change_dir(new_path + @pwd[old_path.length..]) if @pwd == old_path || @pwd.start_with?("#{old_path}/")
       0
     end
@@ -735,7 +780,7 @@ module Proj
       @out.puts <<~USAGE
         Usage: proj <name> [<worktree>]      cd into a project (2nd arg: a worktree under it)
                proj <client>/<name>          cd into a namespaced client project
-               proj <ls|show|status|mv|init> [args]
+               proj <ls|show|status|mv|archive|init> [args]
 
           <name> [<worktree>]  cd into a project; a 2nd arg cd's into a worktree under it (via gwt)
           ls [<type>] [--tag T...]  List projects grouped by type (with description + tags),
@@ -743,6 +788,7 @@ module Proj
           show <project>       Show a project's path, description, tags, and last commit
           status               List git projects newest-commit-first, with branch and timestamp
           mv <project> <new-name> [--to <category>]  Rename/relocate a project, carrying its history
+          archive <project>    Move a project into its category's ARCHIVE folder, carrying its history
           init                 Scaffold a commented-out .proj (description + tags) at the project root
           .                    cd to the current project root
           (no args)            Inside a project print its root, else list all

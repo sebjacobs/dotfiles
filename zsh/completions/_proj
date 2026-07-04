@@ -83,7 +83,7 @@ _proj() {
 
   # `proj mv <project> <new-name>` / `proj show <project>`: complete the project
   # in slot one; mv's new name is free text, so slot two offers nothing.
-  if (( CURRENT == 3 )) && [[ "${words[2]}" == (mv|show) ]]; then
+  if (( CURRENT == 3 )) && [[ "${words[2]}" == (mv|archive|show) ]]; then
     local -a matches
     matches=("${(@f)$(_proj_match_keys "${words[3]}")}")
     (( ${#matches} )) && compadd -- $matches
@@ -105,7 +105,7 @@ _proj() {
     # explanation supports both prompt escapes and embedded newlines, so the
     # spacing and colour live with the group they head. Commands wear one accent
     # (yellow), project types another (cyan), to tell the two kinds apart.
-    local -a _subcommands=(ls show status mv init)  # @subcommands
+    local -a _subcommands=(ls show status mv archive init)  # @subcommands
     compadd -J commands -X $'\n%B%F{yellow}commands%f%b' -- $_subcommands
 
     local -a matches

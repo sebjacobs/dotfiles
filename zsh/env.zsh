@@ -3,54 +3,35 @@ typeset -U path PATH fpath
 source ~/dotfiles/zsh/00_brew.zsh
 
 # brew's shellenv rebuilds PATH via path_helper, which yields only Homebrew dirs
-# when PATH started empty (cold cron/launchd). Re-add the system base so chruby
-# and coreutils resolve; typeset -U dedupes and appending keeps Homebrew first.
+# when PATH started empty (cold cron/launchd). Re-add the system base so system
+# tools and coreutils resolve; typeset -U dedupes and appending keeps Homebrew first.
 path+=(/usr/bin /bin /usr/sbin /sbin)
 
 export EDITOR='zed --wait'
 
 export LAUNCHD_PREFIX="com.sebjacobs"
 
-# The default ruby, single-sourced from the repo's .ruby-version (also symlinked
-# to ~/.ruby-version by setup.sh). That file is the floor chruby's auto.sh walks
-# up to: without it, chruby_auto resets to system ruby 2.6 in any unpinned dir,
-# breaking ruby CLIs that assume 3.x+ (e.g. proj). Reading it here keeps one
-# place to bump the version. ${(%):-%x} is this file's own path; :A resolves the
-# ~/.zshenv symlink back to the repo so the read works from any checkout.
-read -r DEFAULT_RUBY < "${${(%):-%x}:A:h:h}/.ruby-version"
-if [[ -o interactive ]]; then
-  source /opt/homebrew/opt/chruby/share/chruby/chruby.sh
-  chruby "$DEFAULT_RUBY"
-  # chruby silently no-ops if its RUBIES glob is empty during a transient init
-  # (seen in Claude Code shell-snapshot capture): ruby then never lands on PATH
-  # and `ruby` falls through to system 2.6. Assert the chosen bin dir directly.
-  [[ -d "$HOME/.rubies/$DEFAULT_RUBY/bin" ]] && path=("$HOME/.rubies/$DEFAULT_RUBY/bin" $path)
-else
-  # chruby's switch spawns `ruby` once just to read the gem paths — ~40ms a
-  # shell. Those paths are deterministic from DEFAULT_RUBY, so for
-  # non-interactive shells set the same environment chruby would (RUBY_ROOT,
-  # GEM_HOME, GEM_PATH, PATH) without the spawn or the function machinery the
-  # interactive `chruby`/`ruby-version` commands need. gem/bundler behave
-  # identically; only the startup cost is shed.
-  ruby_root="$HOME/.rubies/$DEFAULT_RUBY"
-  if [[ -d "$ruby_root/bin" ]]; then
-    export RUBY_ROOT="$ruby_root"
-    export RUBY_ENGINE=ruby
-    export RUBY_VERSION="${DEFAULT_RUBY#ruby-}"
-    gem_root=("$ruby_root"/lib/ruby/gems/*(N/))
-    export GEM_ROOT="${gem_root[1]}"
-    export GEM_HOME="$HOME/.gem/$RUBY_ENGINE/$RUBY_VERSION"
-    export GEM_PATH="$GEM_HOME:$GEM_ROOT"
-    export PATH="$GEM_HOME/bin:$GEM_ROOT/bin:$ruby_root/bin:$PATH"
-  fi
-  unset ruby_root gem_root
-fi
+# rpup (github.com/sebjacobs/rpup) lives in go's bin dir and must be on PATH
+# before its hook runs below, so add go's bin here rather than further down.
+export PATH="$HOME/go/bin:$PATH"
+
+# Ruby version management via rpup, a fork-free chruby replacement. Its hook
+# reads the default from ~/.ruby-version (symlinked to the repo's copy by
+# setup.sh), activates it, and wires per-directory switching on chpwd — one line
+# serving every shell, with no ruby spawn and no split interactive/
+# non-interactive paths.
+#
+# Clear the per-directory guard first so the hook re-activates on every source,
+# not just the first: /etc/zprofile's path_helper reshuffles PATH between
+# .zshenv and .zshrc's re-source (see .zshrc), pushing system ruby ahead of
+# rpup's bins, and only a fresh activation puts them back. Guarded on the binary
+# so a missing rpup degrades to system ruby rather than erroring shell init.
+unset RPUP_CURRENT_VERSION
+command -v rpup >/dev/null && eval "$(rpup hook zsh)"
 
 export VOLTA_HOME="$HOME/.volta"
 export PATH="$VOLTA_HOME/bin:$PATH"
 unset _VOLTA_TOOL_RECURSION
-
-export PATH="$HOME/go/bin:$PATH"
 
 export PATH="$HOME/.opencode/bin:$PATH"
 export PATH="$PATH:$HOME/.lmstudio/bin"
@@ -75,10 +56,10 @@ else
   # sdkman-init.sh runs compinit and registers a chpwd hook every time it is
   # sourced (~50ms a shell) — all interactive-only machinery a `zsh -c` never
   # touches. Skip it for non-interactive shells and instead put the active
-  # candidate bins and their *_HOME vars on the environment directly, the same
-  # way chruby's bin dir is asserted above. java/gradle/kotlin/maven stay
-  # resolvable — and win over the /usr/bin/java stub — for only the cost of a
-  # glob; the init script and its completion scan are shed entirely.
+  # candidate bins and their *_HOME vars on the environment directly.
+  # java/gradle/kotlin/maven stay resolvable — and win over the /usr/bin/java
+  # stub — for only the cost of a glob; the init script and its completion scan
+  # are shed entirely.
   for _sdkman_home in "$SDKMAN_DIR"/candidates/*/current(N-/); do
     path=("$_sdkman_home/bin" $path)
     _sdkman_name=${_sdkman_home:h:t}

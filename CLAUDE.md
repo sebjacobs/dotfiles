@@ -24,10 +24,10 @@ curl https://get.volta.sh | bash
 
 # 5. Run setup
 ./setup.sh          # Creates ~/dotfiles symlink + all $HOME symlinks; idempotent
-brew bundle         # Installs all packages including chruby, starship, zsh plugins
+brew bundle         # Installs all packages including ruby-install, starship, zsh plugins
 ```
 
-`setup.sh` requires Homebrew, Chruby, Volta, and Starship to already be installed. It creates a `~/dotfiles` symlink pointing to the repo, then symlinks all config files into `$HOME` and all scripts under `bin/` into `~/bin/`.
+`setup.sh` requires Homebrew, rpup, Volta, and Starship to already be installed (rpup is not in the Brewfile — see the manual `go install` step below). It creates a `~/dotfiles` symlink pointing to the repo, then symlinks all config files into `$HOME` and all scripts under `bin/` into `~/bin/`.
 
 ## Architecture
 
@@ -44,9 +44,9 @@ brew bundle         # Installs all packages including chruby, starship, zsh plug
 - `bin/` — shell utilities → symlinked into `~/bin/`
 - `Brewfile` — full tool inventory (Homebrew formulae, casks, Go/Rust/Python/NPM packages)
 
-**Shell init load order:** `~/.zshrc` → `zsh/00_brew.zsh` (Homebrew env) → `zsh/01_env.zsh` (PATH: PostgreSQL, MySQL, Volta, Go, Chruby, sdkman) → `zsh/git_aliases.zsh` + `zsh/aliases.zsh` → `~/.secrets.zsh` → Starship prompt
+**Shell init load order:** `~/.zshrc` → `zsh/00_brew.zsh` (Homebrew env) → `zsh/01_env.zsh` (PATH: PostgreSQL, MySQL, Volta, Go, rpup, sdkman) → `zsh/git_aliases.zsh` + `zsh/aliases.zsh` → `~/.secrets.zsh` → Starship prompt
 
-**Tool versions:** Ruby via Chruby (`.ruby-version` in project dirs), Node via Volta, Python via `uv`, Go and Rust via Homebrew, Java via sdkman.
+**Tool versions:** Ruby via rpup (`.ruby-version` in project dirs), Node via Volta, Python via `uv`, Go and Rust via Homebrew, Java via sdkman.
 
 ## Manual steps after setup
 
@@ -61,9 +61,12 @@ npm install -g @anthropic-ai/claude-code
 sdk install java 21.0.7-tem
 sdk install java 11.0.x-amzn   # for Android
 
+# rpup — ruby version switcher, built from Go (not in the Brewfile)
+go install github.com/sebjacobs/rpup@latest
+
 # Ruby
 ruby-install ruby 4.0.5
-chruby ruby-4.0.5
+rpup use ruby-4.0.5
 
 # Secrets — create manually, never commit
 cp /path/to/backup/.secrets.zsh ~/.secrets.zsh

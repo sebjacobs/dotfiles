@@ -10,8 +10,7 @@ source "$dotfiles/zsh/env.zsh"
 source $(brew --prefix)/share/zsh-autosuggestions/zsh-autosuggestions.zsh
 source $(brew --prefix)/share/zsh-syntax-highlighting/zsh-syntax-highlighting.zsh
 
-# Per-directory ruby switching + direnv (interactive only)
-source /opt/homebrew/opt/chruby/share/chruby/auto.sh
+# Per-directory ruby switching is wired by rpup's hook in env.zsh; direnv here.
 eval "$(direnv hook zsh)"
 
 source "$dotfiles/zsh/aliases.zsh"

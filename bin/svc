@@ -74,6 +74,20 @@ module Svc
     names.select { |n| n.include?(query) }
   end
 
+  # Filesystem-sanity warnings for an agent: its WorkingDirectory and program
+  # path should both exist on disk. A missing one means a moved or renamed
+  # checkout — the exact rot that silently stops a drain loading — so surface it
+  # loudly. Yields each path to the caller's existence check to stay pure.
+  def path_warnings(plist)
+    warnings = []
+    wd = plist["WorkingDirectory"]
+    warnings << "WorkingDirectory missing: #{wd}" if wd && !yield(wd)
+
+    program = plist["Program"] || (plist["ProgramArguments"] || [])[0]
+    warnings << "program missing: #{program}" if program && !yield(program)
+    warnings
+  end
+
   # Why a plist can't be installed, or nil if its name is fine. The opt-in
   # contract is enforced on the filename: it must be a .plist named
   # "<prefix>.<job>.plist" so it joins the managed, prefix-globbed set.
@@ -237,6 +251,7 @@ module Svc
       @out.printf("  program  : %s\n", Svc.program_of(plist))
       @out.printf("  log      : %s\n", log || "(none)")
       @out.printf("  last log : %s\n", log_summary(log))
+      print_warnings(plist)
       0
     end
 
@@ -357,7 +372,16 @@ module Svc
       @out.printf("  schedule : %s\n", Svc.schedule_of(plist))
       @out.printf("  state    : %s\n", state_line(agent[:label], disabled, list))
       @out.printf("  last log : %s\n", log_summary(plist["StandardOutPath"]))
+      print_warnings(plist)
       @out.puts
+    end
+
+    # Print any stale-path warnings in yellow, so a rotted checkout stands out in
+    # ls/show. Silent when the paths are fine.
+    def print_warnings(plist)
+      Svc.path_warnings(plist) { |p| @sys.exist?(p) }.each do |w|
+        @out.printf("  \033[33m⚠ %s\033[0m\n", w)
+      end
     end
 
     # The "enabled/DISABLED   last exit: N" status fragment shared by ls and show.

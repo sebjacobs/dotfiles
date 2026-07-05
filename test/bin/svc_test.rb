@@ -103,6 +103,27 @@ class SvcPureTest < Minitest::Test
     reason = Svc.install_name_error("com.other.foo.plist", "com.sebjacobs")
     assert_includes reason, %(must be named "com.sebjacobs.<job>.plist")
   end
+
+  def test_path_warnings_empty_when_paths_exist
+    plist = { "WorkingDirectory" => "/proj", "ProgramArguments" => ["/proj/tick.sh"] }
+    assert_empty Svc.path_warnings(plist) { |_| true }
+  end
+
+  def test_path_warnings_flag_missing_working_dir_and_program
+    plist = { "WorkingDirectory" => "/gone", "ProgramArguments" => ["/gone/tick.sh"] }
+    warnings = Svc.path_warnings(plist) { |_| false }
+    assert_includes warnings, "WorkingDirectory missing: /gone"
+    assert_includes warnings, "program missing: /gone/tick.sh"
+  end
+
+  def test_path_warnings_uses_bare_program_when_no_arguments
+    plist = { "Program" => "/gone/bin" }
+    assert_equal ["program missing: /gone/bin"], Svc.path_warnings(plist) { |_| false }
+  end
+
+  def test_path_warnings_silent_when_keys_absent
+    assert_empty Svc.path_warnings({}) { |_| false }
+  end
 end
 
 class SvcAppTest < Minitest::Test
@@ -224,6 +245,7 @@ class SvcAppTest < Minitest::Test
                    "StartCalendarInterval" => { "Weekday" => 1, "Hour" => 10, "Minute" => 0 },
                    "ProgramArguments" => ["/Users/me/bin/brewup"],
                    "StandardOutPath" => "/log/brewup.log")
+    @sys.add_file("/Users/me/bin/brewup")
     @sys.add_log("/log/brewup.log", mtime: Time.new(2026, 6, 26, 10, 1), last_line: "ok")
     @launchctl.list = "-\t0\tcom.sebjacobs.brewup\n"
 
@@ -243,6 +265,26 @@ class SvcAppTest < Minitest::Test
 
     build_app.run(["show", "silent"])
     assert_includes @out.string, "log      : (none)"
+  end
+
+  def test_show_warns_when_working_dir_is_gone
+    @sys.add_plist("/agents/com.sebjacobs.stale.plist",
+                   "Label" => "com.sebjacobs.stale",
+                   "WorkingDirectory" => "/moved/away",
+                   "ProgramArguments" => ["/moved/away/tick.sh"])
+
+    build_app.run(["show", "stale"])
+    assert_includes @out.string, "⚠ WorkingDirectory missing: /moved/away"
+    assert_includes @out.string, "⚠ program missing: /moved/away/tick.sh"
+  end
+
+  def test_ls_warns_on_stale_path
+    @sys.add_plist("/agents/com.sebjacobs.stale.plist",
+                   "Label" => "com.sebjacobs.stale",
+                   "WorkingDirectory" => "/moved/away")
+
+    build_app.run(["ls"])
+    assert_includes @out.string, "⚠ WorkingDirectory missing: /moved/away"
   end
 
   def test_show_errors_on_no_match

@@ -68,6 +68,15 @@ _proj() {
       "$HOME/dotfiles/lib/proj.rb" --list >/dev/null 2>&1
   fi
 
+  # `proj cd <category>`: complete the category (type) names, the same cached
+  # vocabulary `ls`'s positional uses, so a category root is one Tab away.
+  if (( CURRENT == 3 )) && [[ "${words[2]}" == cd ]]; then
+    local -a cnames
+    [[ -s "$PROJ_TYPES_FILE" ]] && cnames=("${(@f)$(cut -f2 "$PROJ_TYPES_FILE" | sort -u)}")
+    compadd -- $cnames
+    return
+  fi
+
   # `proj ls ...`: after --tag complete the cached tag vocabulary; otherwise
   # complete the type names (the positional) plus the --tag flag itself.
   if (( CURRENT >= 3 )) && [[ "${words[2]}" == ls ]]; then
@@ -105,7 +114,7 @@ _proj() {
     # explanation supports both prompt escapes and embedded newlines, so the
     # spacing and colour live with the group they head. Commands wear one accent
     # (yellow), project types another (cyan), to tell the two kinds apart.
-    local -a _subcommands=(ls show status mv archive init)  # @subcommands
+    local -a _subcommands=(cd ls show status mv archive init)  # @subcommands
     compadd -J commands -X $'\n%B%F{yellow}commands%f%b' -- $_subcommands
 
     local -a matches

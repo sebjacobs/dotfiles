@@ -42,7 +42,7 @@ module Proj
   # any divergence between this list and the completion's. The bare `.` and
   # `--list` forms are internal (current-root jump / cache warm), not offered as
   # completions, so they are deliberately absent.
-  SUBCOMMANDS = %w[ls show status mv archive init].freeze
+  SUBCOMMANDS = %w[cd ls show status mv archive init].freeze
 
   PROJ_ROOT = ENV.fetch("PROJ_ROOT", File.join(Dir.home, "Tech/Projects"))
 
@@ -401,6 +401,7 @@ module Proj
       @starred.call(starred)
 
       return 0 if name == "--list"
+      return cmd_cd(argv.drop(1)) if name == "cd"
       return cmd_init(root) if name == "init"
       return cmd_ls(map, types, tags, descriptions, starred, argv.drop(1)) if name == "ls"
       return cmd_show(map, types, tags, descriptions, starred, argv.drop(1)) if name == "show"
@@ -453,6 +454,25 @@ module Proj
 
       error("proj: not inside a known project tree (#{@trees.map { |t| t[:dir] }.join(', ')})")
     end
+
+    # cd into a category's root directory — the tree a category's projects sit
+    # under, named by its type (or its dir's basename), so `proj cd personal`
+    # lands in the personal tree and `proj cd private` in `personal/PRIVATE`. The
+    # counterpart to `proj <name>` (a project) and `proj .` (the current project
+    # root): this jumps to a whole category. Reports the known set on a bad name.
+    # `cd` shadows any project literally named "cd" — an accepted edge, as with
+    # the other subcommands.
+    def cmd_cd(args)
+      category = args[0]
+      return error(CD_USAGE) if category.nil? || category.empty?
+
+      tree = @trees.find { |t| t[:type] == category } || @trees.find { |t| File.basename(t[:dir]) == category }
+      return error("proj cd: unknown category '#{category}' (known: #{type_order.join(', ')})") if tree.nil?
+
+      change_dir(tree[:dir])
+    end
+
+    CD_USAGE = "Usage: proj cd <category>"
 
     # List projects grouped by type, optionally narrowed by a type positional
     # and/or repeated --tag flags (a project must carry every requested tag).
@@ -780,9 +800,10 @@ module Proj
       @out.puts <<~USAGE
         Usage: proj <name> [<worktree>]      cd into a project (2nd arg: a worktree under it)
                proj <client>/<name>          cd into a namespaced client project
-               proj <ls|show|status|mv|archive|init> [args]
+               proj <cd|ls|show|status|mv|archive|init> [args]
 
           <name> [<worktree>]  cd into a project; a 2nd arg cd's into a worktree under it (via gwt)
+          cd <category>        cd into a category's root directory (e.g. personal, private, client)
           ls [<type>] [--tag T...]  List projects grouped by type (with description + tags),
                                narrowed by type and/or tags
           show <project>       Show a project's path, description, tags, and last commit

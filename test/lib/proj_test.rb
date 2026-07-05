@@ -449,6 +449,39 @@ class ProjAppTest < Minitest::Test
     assert_includes err.string, "not inside a known project tree"
   end
 
+  def test_cd_into_a_category_root
+    app, cd = build_categorised_app(pwd: @root)
+    assert_equal 0, app.run(["cd", "personal"])
+    assert_equal [@personal], cd
+  end
+
+  def test_cd_into_a_nested_category_by_type
+    app, cd = build_categorised_app(pwd: @root)
+    assert_equal 0, app.run(["cd", "private"])
+    assert_equal [File.join(@personal, "PRIVATE")], cd
+  end
+
+  def test_cd_resolves_a_category_by_dir_basename
+    app, cd = build_categorised_app(pwd: @root)
+    assert_equal 0, app.run(["cd", "client"])
+    assert_equal [File.join(@root, "client")], cd
+  end
+
+  def test_cd_unknown_category_fails
+    app, cd, _out, err = build_categorised_app(pwd: @root)
+    assert_equal 1, app.run(["cd", "nope"])
+    assert_empty cd
+    assert_includes err.string, "unknown category 'nope'"
+    assert_includes err.string, "personal, private, client"
+  end
+
+  def test_cd_without_a_category_prints_usage
+    app, cd, _out, err = build_categorised_app(pwd: @root)
+    assert_equal 1, app.run(["cd"])
+    assert_empty cd
+    assert_includes err.string, "Usage: proj cd <category>"
+  end
+
   def test_bare_inside_project_prints_root
     app, _cd, out = build_app(pwd: File.join(@personal, "cadence", "lib"))
     assert_equal 0, app.run([])
@@ -767,6 +800,26 @@ class ProjAppTest < Minitest::Test
       cd: ->(path) { cd << path }, cache: ->(_) {}, paths: ->(_) {}, worktree: resolver, git: git
     )
     [app, cd, out, err, wt_calls]
+  end
+
+  # An app over the three category shapes `proj cd` must resolve — a plain
+  # depth-1 tree (personal), a nested one typed apart from its dir (private under
+  # personal/PRIVATE), and a depth-2 namespaced one (client) — so a category
+  # jump is exercised by type, by nesting, and by dir basename.
+  def build_categorised_app(pwd:)
+    cd = []
+    out = StringIO.new
+    err = StringIO.new
+    trees = [
+      { dir: @personal, depth: 1, exclude: ["ARCHIVE"], type: "personal" },
+      { dir: File.join(@personal, "PRIVATE"), depth: 1, exclude: ["ARCHIVE"], type: "private" },
+      { dir: File.join(@root, "client"), depth: 2, exclude: ["ARCHIVE"], type: "client" }
+    ]
+    app = Proj::App.new(
+      trees: trees, pwd: pwd, out: out, err: err,
+      cd: ->(path) { cd << path }, cache: ->(_) {}, paths: ->(_) {}
+    )
+    [app, cd, out, err]
   end
 
   # An app over one project of each type, so `ls` grouping and filtering can be

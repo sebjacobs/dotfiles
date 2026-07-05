@@ -5,6 +5,10 @@
 #                            tab-completion on the worktree name (delegates to gwt)
 #   proj <client>/<name>     cd into a namespaced client project
 #                            (e.g. `proj acme/widget-tracker`)
+#   proj cd <category>       cd into a category's root directory (the tree its
+#                            projects sit under), named by the category as it
+#                            appears in `proj ls` — e.g. `proj cd personal`,
+#                            `proj cd private`, `proj cd client`.
 #   proj ls [<type>] [--tag T...]
 #                            list projects grouped by type (the categories
 #                            declared in $PROJ_ROOT/.projroot, e.g. personal,

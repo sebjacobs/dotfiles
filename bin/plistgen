@@ -1,0 +1,350 @@
+#!/usr/bin/env ruby
+# frozen_string_literal: true
+
+# plistgen — render launchd agent plists from a compact manifest.
+#
+# A repo's periodic drains differ only in a short name, an optional extra env
+# var, and (rarely) an interval — everything else (the checkout root, the tick
+# script path, the log path, PATH, ProcessType, RunAtLoad) is boilerplate that
+# was previously copied into every plist, hardcoding an absolute checkout path
+# four times per file. When the repo was renamed those paths silently rotted.
+#
+# So the only committed artifact is the manifest (scripts/launchd/drains.yml);
+# the absolute paths are resolved at render time from --root and never live in
+# git. Rendered plists land in a gitignored dir and are fed to `svc install`.
+#
+# Root resolution mirrors the launchd convention that a drain's WorkingDirectory
+# is the MAIN checkout: --root defaults to the git main-worktree root even when
+# invoked from a linked worktree; --worktree overrides it with the current one.
+#
+# All git and filesystem side-effects sit behind the Git and System seams so the
+# rendering logic stays pure and unit-testable (see test/bin/plistgen_test.rb).
+
+require "yaml"
+require "fileutils"
+
+module Plistgen
+  module_function
+
+  DEFAULT_PREFIX = "com.sebjacobs"
+  DEFAULT_PATH = "/opt/homebrew/bin:/usr/bin:/bin:/usr/sbin:/sbin"
+  DEFAULT_INTERVAL = 300
+
+  # Derive a job's full spec from its short name plus per-job overrides, applying
+  # the naming convention (a "word-study" job runs scripts/word_study_tick.sh and
+  # logs to log/word_study_drain.log) so the manifest only carries exceptions.
+  # +defaults+ are the manifest-wide fallbacks; +prefix+ names the launchd label.
+  #
+  # A `suffix` (from the job or the manifest defaults) is appended to the name to
+  # form the label's short part only — so a repo whose agents are all "<x>-drain"
+  # sets `suffix: -drain` once and still names jobs by their bare base "<x>",
+  # keeping the script/log derivation clean.
+  def job_spec(name, overrides, defaults, prefix)
+    snake = name.tr("-", "_")
+    suffix = overrides["suffix"] || defaults["suffix"] || ""
+    {
+      "label" => "#{prefix}.#{name}#{suffix}",
+      "script" => overrides["script"] || "scripts/#{snake}_tick.sh",
+      "log" => overrides["log"] || "log/#{snake}_drain.log",
+      "interval" => overrides["interval"] || defaults["interval"] || DEFAULT_INTERVAL,
+      "path" => overrides["path"] || defaults["path"] || DEFAULT_PATH,
+      "env" => (defaults["env"] || {}).merge(overrides["env"] || {})
+    }
+  end
+
+  # Every job spec in a parsed manifest, in declaration order. Jobs is a map of
+  # short-name => overrides (an empty map means "all conventions apply").
+  def specs(manifest, prefix)
+    defaults = manifest["defaults"] || {}
+    (manifest["jobs"] || {}).map do |name, overrides|
+      job_spec(name, overrides || {}, defaults, prefix)
+    end
+  end
+
+  # The prefix a manifest declares, or the default.
+  def prefix_of(manifest) = manifest["prefix"] || DEFAULT_PREFIX
+
+  # Minimal XML text escaping for the values we interpolate (paths and labels).
+  def xml_escape(str)
+    str.to_s.gsub("&", "&amp;").gsub("<", "&lt;").gsub(">", "&gt;")
+  end
+
+  # A launchd EnvironmentVariables dict body: PATH first, then any extras in the
+  # order given. Returns the indented <key>/<string> lines (no wrapping <dict>).
+  def env_lines(path, env)
+    pairs = { "PATH" => path }.merge(env)
+    pairs.map do |key, value|
+      "    <key>#{xml_escape(key)}</key>\n    <string>#{xml_escape(value)}</string>"
+    end.join("\n")
+  end
+
+  # Render one job spec to a complete launchd plist XML string. +root+ is the
+  # absolute checkout root the script/log/WorkingDirectory paths resolve against.
+  def render(spec, root)
+    program = File.join(root, spec["script"])
+    log = File.join(root, spec["log"])
+    <<~PLIST
+      <?xml version="1.0" encoding="UTF-8"?>
+      <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN"
+        "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+      <plist version="1.0">
+      <dict>
+        <key>Label</key>
+        <string>#{xml_escape(spec['label'])}</string>
+
+        <key>ProgramArguments</key>
+        <array>
+          <string>#{xml_escape(program)}</string>
+        </array>
+
+        <key>WorkingDirectory</key>
+        <string>#{xml_escape(root)}</string>
+
+        <key>EnvironmentVariables</key>
+        <dict>
+      #{env_lines(spec['path'], spec['env'])}
+        </dict>
+
+        <key>StartInterval</key>
+        <integer>#{spec['interval'].to_i}</integer>
+
+        <key>RunAtLoad</key>
+        <true/>
+
+        <key>StandardOutPath</key>
+        <string>#{xml_escape(log)}</string>
+        <key>StandardErrorPath</key>
+        <string>#{xml_escape(log)}</string>
+
+        <key>ProcessType</key>
+        <string>Background</string>
+      </dict>
+      </plist>
+    PLIST
+  end
+
+  # The rendered plist's filename: "<label>.plist", matching svc's install
+  # contract ("<prefix>.<job>.plist").
+  def filename(spec) = "#{spec['label']}.plist"
+
+  # Real git calls, behind a seam so tests can fake them.
+  class Git
+    # The main worktree's root: the parent of the shared git dir. For a linked
+    # worktree `--git-common-dir` still points at the main checkout's .git, so
+    # its dirname is the main root regardless of where we're invoked.
+    def main_root(cwd)
+      common = capture("git", "-C", cwd, "rev-parse", "--path-format=absolute", "--git-common-dir")
+      return nil if common.nil? || common.empty?
+
+      File.dirname(common)
+    end
+
+    # The current worktree's root (the checkout we're standing in).
+    def worktree_root(cwd)
+      root = capture("git", "-C", cwd, "rev-parse", "--show-toplevel")
+      root.nil? || root.empty? ? nil : root
+    end
+
+    private
+
+    def capture(*args)
+      out = IO.popen(args, err: File::NULL, &:read)
+      $?.success? ? out.strip : nil
+    rescue SystemCallError
+      nil
+    end
+  end
+
+  # Real filesystem side-effects, behind a seam so tests can fake them.
+  class System
+    def read(path) = File.read(path)
+
+    def exist?(path) = File.exist?(path)
+
+    def write(path, content)
+      FileUtils.mkdir_p(File.dirname(path))
+      File.write(path, content)
+    end
+  end
+
+  class App
+    def initialize(git:, sys:, out:, err:, cwd:)
+      @git = git
+      @sys = sys
+      @out = out
+      @err = err
+      @cwd = cwd
+    end
+
+    def run(argv)
+      cmd, *rest = argv
+      case cmd
+      when nil, "render" then cmd_render(rest)
+      when "list" then cmd_list(rest)
+      when "help", "-h", "--help" then usage(0)
+      else usage
+      end
+    end
+
+    private
+
+    def cmd_render(argv)
+      opts, jobs = parse(argv)
+      return 1 unless opts
+
+      manifest, prefix = load_manifest(opts)
+      return 1 unless manifest
+
+      root = resolve_root(opts)
+      return 1 unless root
+
+      out_dir = opts[:out] || File.join(root, "scripts/launchd/generated")
+      specs = select(Plistgen.specs(manifest, prefix), jobs)
+      return 1 unless specs
+
+      specs.each do |spec|
+        path = File.join(out_dir, Plistgen.filename(spec))
+        @sys.write(path, Plistgen.render(spec, root))
+        @out.puts "plistgen: wrote #{path}"
+      end
+      @out.puts "plistgen: rendered #{specs.length} agent(s) with root #{root}"
+      0
+    end
+
+    def cmd_list(argv)
+      opts, = parse(argv)
+      return 1 unless opts
+
+      manifest, prefix = load_manifest(opts)
+      return 1 unless manifest
+
+      Plistgen.specs(manifest, prefix).each do |spec|
+        @out.printf("%-40s %s\n", spec["label"], spec["script"])
+      end
+      0
+    end
+
+    # Parse the shared flags, returning [opts_hash, positional_jobs] or
+    # [nil, nil] on a bad flag. Unknown non-flag args are the job filter.
+    def parse(argv)
+      opts = { worktree: false }
+      jobs = []
+      i = 0
+      while i < argv.length
+        arg = argv[i]
+        case arg
+        when "--root" then opts[:root] = argv[i += 1]
+        when "--worktree" then opts[:worktree] = true
+        when "--out" then opts[:out] = argv[i += 1]
+        when "--manifest" then opts[:manifest] = argv[i += 1]
+        else
+          if arg.start_with?("--")
+            error("Unknown flag: #{arg}")
+            return [nil, nil]
+          end
+          jobs << arg
+        end
+        i += 1
+      end
+      [opts, jobs]
+    end
+
+    # Resolve the checkout root the paths render against: an explicit --root wins;
+    # otherwise the current worktree with --worktree, else the main-worktree root.
+    def resolve_root(opts)
+      if opts[:root]
+        return File.expand_path(opts[:root])
+      end
+
+      root = opts[:worktree] ? @git.worktree_root(@cwd) : @git.main_root(@cwd)
+      return root if root
+
+      error("Not in a git repo (and no --root given) — can't resolve the checkout root")
+      nil
+    end
+
+    # Load and parse the manifest. Its path defaults to the resolved root's
+    # scripts/launchd/drains.yml unless --manifest overrides it. Returns
+    # [manifest_hash, prefix] or [nil, nil].
+    def load_manifest(opts)
+      path = opts[:manifest] || default_manifest_path(opts)
+      return [nil, nil] unless path
+
+      unless @sys.exist?(path)
+        error("No manifest at #{path} (pass --manifest)")
+        return [nil, nil]
+      end
+
+      manifest = YAML.safe_load(@sys.read(path)) || {}
+      [manifest, Plistgen.prefix_of(manifest)]
+    rescue Psych::SyntaxError => e
+      error("Malformed manifest #{path}: #{e.message}")
+      [nil, nil]
+    end
+
+    def default_manifest_path(opts)
+      root = resolve_root(opts)
+      root && File.join(root, "scripts/launchd/drains.yml")
+    end
+
+    # Filter specs to the named jobs (by short name or full label), or all of
+    # them when no names were given. Returns nil after erroring on an unknown job.
+    def select(specs, jobs)
+      return specs if jobs.empty?
+
+      by_name = {}
+      specs.each do |s|
+        by_name[s["label"]] = s
+        by_name[s["label"].split(".").last] = s
+      end
+
+      chosen = jobs.map do |job|
+        spec = by_name[job]
+        return error_nil("Unknown job: #{job}") unless spec
+
+        spec
+      end
+      chosen.uniq
+    end
+
+    def error_nil(message)
+      error(message)
+      nil
+    end
+
+    def error(message)
+      @err.puts message
+      1
+    end
+
+    def usage(code = 1)
+      @out.puts <<~USAGE
+        Usage: plistgen <render|list> [options] [job...]
+
+          render   Render each job's launchd plist into the output dir
+          list     List the jobs the manifest declares
+
+        Options:
+          --root <path>     Checkout root the script/log/WorkingDirectory paths
+                            resolve against (default: the git main-worktree root)
+          --worktree        Use the current worktree as the root instead of main
+          --out <dir>       Where to write plists (default: <root>/scripts/launchd/generated)
+          --manifest <file> Manifest path (default: <root>/scripts/launchd/drains.yml)
+
+        With no job names, every job in the manifest is rendered.
+      USAGE
+      code
+    end
+  end
+end
+
+if __FILE__ == $PROGRAM_NAME
+  app = Plistgen::App.new(
+    git: Plistgen::Git.new,
+    sys: Plistgen::System.new,
+    out: $stdout,
+    err: $stderr,
+    cwd: Dir.pwd
+  )
+  exit app.run(ARGV)
+end

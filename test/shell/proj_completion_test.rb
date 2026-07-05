@@ -69,7 +69,7 @@ class ProjCompletionTest < Minitest::Test
     by_tag = groups.to_h { |tag, _expl, cands| [tag, cands] }
 
     assert_equal %w[commands personal client opensource], groups.map(&:first)
-    assert_equal "ls show status mv archive init", by_tag["commands"]
+    assert_equal "cd ls show status mv archive init", by_tag["commands"]
     assert_equal "cadence otter", by_tag["personal"]
     assert_equal "acme/widget", by_tag["client"]
     assert_equal "ripgrep", by_tag["opensource"]

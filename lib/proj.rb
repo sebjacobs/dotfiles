@@ -42,7 +42,7 @@ module Proj
   # any divergence between this list and the completion's. The bare `.` and
   # `--list` forms are internal (current-root jump / cache warm), not offered as
   # completions, so they are deliberately absent.
-  SUBCOMMANDS = %w[ls show status mv archive init].freeze
+  SUBCOMMANDS = %w[cd ls show status mv archive init].freeze
 
   PROJ_ROOT = ENV.fetch("PROJ_ROOT", File.join(Dir.home, "Tech/Projects"))
 
@@ -82,6 +82,22 @@ module Proj
         exclude: GLOBAL_EXCLUDE.dup }
     end
     apply_nested_excludes(trees)
+  end
+
+  # Rewrite the manifest, renaming the `<dir>` token of the one line whose dir is
+  # +old_rel+ to +new_rel+, leaving its `depth=`/`type=` flags and the rest of
+  # the file byte-for-byte. Only the first whitespace-token (the dir) is touched,
+  # and only its trailing whitespace is consumed, so a line's alignment survives.
+  # Comments, blanks, and every other line pass through untouched. Kept pure
+  # (content in, content out) so the rename is unit-tested without a filesystem.
+  def rewrite_manifest_dir(content, old_rel, new_rel)
+    content.each_line.map do |line|
+      stripped = line.strip
+      next line if stripped.empty? || stripped.start_with?("#")
+      next line unless stripped.split(/\s+/).first == old_rel
+
+      line.sub(/(\A\s*)#{Regexp.escape(old_rel)}(\s|$)/) { "#{Regexp.last_match(1)}#{new_rel}#{Regexp.last_match(2)}" }
+    end.join
   end
 
   # Skip any subdir that is itself a declared category root: each tree excludes
@@ -362,7 +378,8 @@ module Proj
   class App
     def initialize(trees:, pwd:, out:, err:, cd:, cache:, paths: ->(_) {}, types: ->(_) {}, tags: ->(_) {},
                    starred: ->(_) {}, worktree: nil,
-                   sys: nil, git: nil, home: Dir.home, confirm: ->(_) { false }, jotter: ->(*) {})
+                   sys: nil, git: nil, home: Dir.home, confirm: ->(_) { false }, jotter: ->(*) {},
+                   manifest: File.join(Proj::PROJ_ROOT, Proj::MANIFEST_FILE))
       @trees = trees
       @pwd = pwd
       @out = out
@@ -379,6 +396,7 @@ module Proj
       @home = home
       @confirm = confirm
       @jotter = jotter
+      @manifest = manifest
     end
 
     def run(argv)
@@ -401,6 +419,7 @@ module Proj
       @starred.call(starred)
 
       return 0 if name == "--list"
+      return cmd_cd(argv.drop(1)) if name == "cd"
       return cmd_init(root) if name == "init"
       return cmd_ls(map, types, tags, descriptions, starred, argv.drop(1)) if name == "ls"
       return cmd_show(map, types, tags, descriptions, starred, argv.drop(1)) if name == "show"
@@ -453,6 +472,25 @@ module Proj
 
       error("proj: not inside a known project tree (#{@trees.map { |t| t[:dir] }.join(', ')})")
     end
+
+    # cd into a category's root directory — the tree a category's projects sit
+    # under, named by its type (or its dir's basename), so `proj cd personal`
+    # lands in the personal tree and `proj cd private` in `personal/PRIVATE`. The
+    # counterpart to `proj <name>` (a project) and `proj .` (the current project
+    # root): this jumps to a whole category. Reports the known set on a bad name.
+    # `cd` shadows any project literally named "cd" — an accepted edge, as with
+    # the other subcommands.
+    def cmd_cd(args)
+      category = args[0]
+      return error(CD_USAGE) if category.nil? || category.empty?
+
+      tree = @trees.find { |t| t[:type] == category } || @trees.find { |t| File.basename(t[:dir]) == category }
+      return error("proj cd: unknown category '#{category}' (known: #{type_order.join(', ')})") if tree.nil?
+
+      change_dir(tree[:dir])
+    end
+
+    CD_USAGE = "Usage: proj cd <category>"
 
     # List projects grouped by type, optionally narrowed by a type positional
     # and/or repeated --tag flags (a project must carry every requested tag).
@@ -573,7 +611,9 @@ module Proj
     # given. Confirms first; the state moves run only after the directory move
     # succeeds. `mv` shadows any project literally named "mv" — an accepted edge.
     def cmd_mv(map, args)
-      positionals, to = parse_mv_args(args)
+      positionals, to, category = parse_mv_args(args)
+      return cmd_mv_category(positionals) if category
+
       old = positionals[0]
       explicit_new = positionals[1]
       return error(MV_USAGE) if old.nil? || old.empty?
@@ -591,6 +631,75 @@ module Proj
 
       move_project(old_path, new_path,
                    "Move project '#{File.basename(old_path)}' -> '#{new_path}' (directory, Claude history, jotter logs)? [y/N] ")
+    end
+
+    # Rename a whole category (a manifest tree), not a project:
+    #
+    #   proj mv --category <old> <new>
+    #
+    # <old> names the category as `proj ls` shows it (its type, or its dir's
+    # basename); <new> is the new dir basename. The directory renames, every
+    # project (and worktree) beneath it has its Claude history migrated to the new
+    # path prefix, and the `.projroot` manifest line is rewritten to match — with
+    # a reminder to commit that (it lives in the dotfiles repo). Jotter is skipped:
+    # project basenames are unchanged, so their logs and stores are untouched.
+    # Confirms first; the migrations run only after the directory move succeeds.
+    def cmd_mv_category(positionals)
+      old = positionals[0]
+      new_name = positionals[1]
+      return error(MV_USAGE) if old.nil? || old.empty? || new_name.nil? || new_name.empty?
+      return error("proj mv: <new-name> must be a single path segment (no '/')") if new_name.include?("/")
+
+      tree = @trees.find { |t| t[:type] == old } || @trees.find { |t| File.basename(t[:dir]) == old }
+      return error("proj mv: unknown category '#{old}' (known: #{type_order.join(', ')})") if tree.nil?
+
+      old_dir = tree[:dir]
+      new_dir = File.join(File.dirname(old_dir), new_name)
+      return error("proj mv: '#{new_name}' already exists at #{new_dir}") if File.exist?(new_dir)
+
+      count = Proj.project_dirs(tree).length
+      prompt = "Rename category '#{old}' -> '#{new_name}' — move #{old_dir} to #{new_dir} " \
+               "(#{count} project(s): directory, Claude history, manifest)? [y/N] "
+      return 1 unless @confirm.call(prompt)
+
+      begin
+        @sys.move(old_dir, new_dir)
+      rescue StandardError => e
+        return error("proj: failed to move #{old_dir} -> #{new_dir} (#{e.message})")
+      end
+
+      migrate_category_history(tree, old_dir, new_dir)
+      rewrite_manifest(old_dir, new_dir)
+      change_dir(new_dir + @pwd[old_dir.length..]) if @pwd == old_dir || @pwd.start_with?("#{old_dir}/")
+      0
+    end
+
+    # Fan the per-project history migration across every project the category now
+    # holds (enumerated post-move from the new location, so worktrees moved along
+    # too), pairing each new path back to its old prefix. Reuses the same
+    # `migrate_claude_history` + `repair_worktrees` a single-project mv runs.
+    def migrate_category_history(tree, old_dir, new_dir)
+      Proj.project_dirs(tree.merge(dir: new_dir)).each do |new_project|
+        old_project = old_dir + new_project[new_dir.length..]
+        migrate_claude_history(old_project, new_project)
+        repair_worktrees(new_project)
+      end
+    end
+
+    # Rewrite the `.projroot` line whose dir is +old_dir+ to point at +new_dir+,
+    # so `load_trees` finds the renamed category. The manifest is relative to its
+    # own parent (PROJ_ROOT), so both dirs are reduced to that. No-op (and no
+    # reminder) when there's no manifest — a manifest-less checkout scans the
+    # renamed dir straight off. The file is git-tracked in the dotfiles repo, so
+    # we edit it and leave the commit to the user.
+    def rewrite_manifest(old_dir, new_dir)
+      return unless @sys.file?(@manifest)
+
+      root = File.dirname(@manifest)
+      old_rel = old_dir.sub("#{root}/", "")
+      new_rel = new_dir.sub("#{root}/", "")
+      @sys.write(@manifest, Proj.rewrite_manifest_dir(@sys.read(@manifest), old_rel, new_rel))
+      @out.puts "proj: updated #{@manifest} — commit this change in your dotfiles repo"
     end
 
     # Archive a project by moving it into the ARCHIVE folder beside it — the
@@ -645,15 +754,18 @@ module Proj
       0
     end
 
-    MV_USAGE = "Usage: proj mv <project> <new-name> | proj mv <project> [<new-name>] --to <category>"
+    MV_USAGE = "Usage: proj mv <project> <new-name> | proj mv <project> [<new-name>] --to <category> | " \
+               "proj mv --category <old> <new>"
 
-    # Split the mv argv into positionals and the optional --to value. `--to` (or
+    # Split the mv argv into positionals, the optional --to value, and whether
+    # --category (rename a whole category, not a project) was given. `--to` (or
     # `--to=cat`) names a destination category; a bare `--to` with no value comes
-    # back as "" so the caller can flag it. Returns [positionals, to] where to is
-    # nil when the flag is absent.
+    # back as "" so the caller can flag it. Returns [positionals, to, category?]
+    # where to is nil when the flag is absent.
     def parse_mv_args(args)
       positionals = []
       to = nil
+      category = false
       i = 0
       while i < args.length
         arg = args[i]
@@ -663,12 +775,15 @@ module Proj
         elsif arg.start_with?("--to=")
           to = arg.split("=", 2)[1]
           i += 1
+        elsif arg == "--category"
+          category = true
+          i += 1
         else
           positionals << arg
           i += 1
         end
       end
-      [positionals, to]
+      [positionals, to, category]
     end
 
     # Work out where the project should land. Without --to it's a same-parent
@@ -780,14 +895,16 @@ module Proj
       @out.puts <<~USAGE
         Usage: proj <name> [<worktree>]      cd into a project (2nd arg: a worktree under it)
                proj <client>/<name>          cd into a namespaced client project
-               proj <ls|show|status|mv|archive|init> [args]
+               proj <cd|ls|show|status|mv|archive|init> [args]
 
           <name> [<worktree>]  cd into a project; a 2nd arg cd's into a worktree under it (via gwt)
+          cd <category>        cd into a category's root directory (e.g. personal, private, client)
           ls [<type>] [--tag T...]  List projects grouped by type (with description + tags),
                                narrowed by type and/or tags
           show <project>       Show a project's path, description, tags, and last commit
           status               List git projects newest-commit-first, with branch and timestamp
           mv <project> <new-name> [--to <category>]  Rename/relocate a project, carrying its history
+          mv --category <old> <new>  Rename a whole category (dir + manifest), carrying history
           archive <project>    Move a project into its category's ARCHIVE folder, carrying its history
           init                 Scaffold a commented-out .proj (description + tags) at the project root
           .                    cd to the current project root

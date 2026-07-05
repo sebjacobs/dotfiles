@@ -5,6 +5,10 @@
 #                            tab-completion on the worktree name (delegates to gwt)
 #   proj <client>/<name>     cd into a namespaced client project
 #                            (e.g. `proj acme/widget-tracker`)
+#   proj cd <category>       cd into a category's root directory (the tree its
+#                            projects sit under), named by the category as it
+#                            appears in `proj ls` — e.g. `proj cd personal`,
+#                            `proj cd private`, `proj cd client`.
 #   proj ls [<type>] [--tag T...]
 #                            list projects grouped by type (the categories
 #                            declared in $PROJ_ROOT/.projroot, e.g. personal,
@@ -30,6 +34,13 @@
 #                            per-checkout history: Claude transcripts (project +
 #                            worktrees) and jotter logs (via `jotter mv`).
 #                            Confirms first. <new-name> is a single path segment.
+#   proj mv --category <old> <new>
+#                            rename a whole category (a .projroot tree): rename
+#                            its directory, migrate every project's Claude
+#                            history to the new path prefix, and rewrite the
+#                            manifest line (commit that in dotfiles yourself).
+#                            <old> is the category as `proj ls` shows it; <new>
+#                            is the new dir basename. Confirms first.
 #   proj archive <project>   move a project into its category's ARCHIVE folder
 #                            (kept out of every listing), carrying the same
 #                            per-checkout history mv does. Confirms first.

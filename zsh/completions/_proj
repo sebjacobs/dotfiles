@@ -90,12 +90,23 @@ _proj() {
     return
   fi
 
+  # `proj mv --category <old>`: complete category (type) names for the old slot;
+  # the new name is free text. Same cached vocabulary `proj cd`/`ls` use.
+  if [[ "${words[2]}" == mv && "${words[CURRENT-1]}" == --category ]]; then
+    local -a cnames
+    [[ -s "$PROJ_TYPES_FILE" ]] && cnames=("${(@f)$(cut -f2 "$PROJ_TYPES_FILE" | sort -u)}")
+    compadd -- $cnames
+    return
+  fi
+
   # `proj mv <project> <new-name>` / `proj show <project>`: complete the project
-  # in slot one; mv's new name is free text, so slot two offers nothing.
+  # in slot one; mv's new name is free text, so slot two offers nothing. mv also
+  # offers --category (rename a whole category rather than a project).
   if (( CURRENT == 3 )) && [[ "${words[2]}" == (mv|archive|show) ]]; then
     local -a matches
     matches=("${(@f)$(_proj_match_keys "${words[3]}")}")
     (( ${#matches} )) && compadd -- $matches
+    [[ "${words[2]}" == mv ]] && compadd -- --category
     return
   fi
 

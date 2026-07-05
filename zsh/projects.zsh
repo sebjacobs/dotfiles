@@ -34,6 +34,13 @@
 #                            per-checkout history: Claude transcripts (project +
 #                            worktrees) and jotter logs (via `jotter mv`).
 #                            Confirms first. <new-name> is a single path segment.
+#   proj mv --category <old> <new>
+#                            rename a whole category (a .projroot tree): rename
+#                            its directory, migrate every project's Claude
+#                            history to the new path prefix, and rewrite the
+#                            manifest line (commit that in dotfiles yourself).
+#                            <old> is the category as `proj ls` shows it; <new>
+#                            is the new dir basename. Confirms first.
 #   proj archive <project>   move a project into its category's ARCHIVE folder
 #                            (kept out of every listing), carrying the same
 #                            per-checkout history mv does. Confirms first.

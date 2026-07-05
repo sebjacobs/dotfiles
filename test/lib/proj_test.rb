@@ -235,6 +235,33 @@ class ProjPureTest < Minitest::Test
     assert_includes personal[:exclude], "PRIVATE"
     refute_includes trees.find { |t| t[:type] == "private" }[:exclude], "PRIVATE"
   end
+
+  def test_rewrite_manifest_dir_renames_the_matching_line
+    content = "personal\nopensource\n"
+    assert_equal "personal\nopen-source\n", Proj.rewrite_manifest_dir(content, "opensource", "open-source")
+  end
+
+  def test_rewrite_manifest_dir_preserves_the_flags_and_whitespace_verbatim
+    content = "client            depth=2\n"
+    assert_equal "clients            depth=2\n", Proj.rewrite_manifest_dir(content, "client", "clients")
+  end
+
+  def test_rewrite_manifest_dir_renames_a_nested_dir_leaving_others
+    content = "personal\npersonal/PRIVATE  type=private\nopensource\n"
+    rewritten = Proj.rewrite_manifest_dir(content, "personal/PRIVATE", "personal/SECRET")
+    assert_equal "personal\npersonal/SECRET  type=private\nopensource\n", rewritten
+  end
+
+  def test_rewrite_manifest_dir_leaves_comments_and_non_matches_untouched
+    content = "# opensource is public\npersonal\n"
+    assert_equal content, Proj.rewrite_manifest_dir(content, "opensource", "open-source")
+  end
+
+  def test_rewrite_manifest_dir_matches_only_the_dir_token_not_a_substring
+    content = "opensource-mirror\nopensource\n"
+    rewritten = Proj.rewrite_manifest_dir(content, "opensource", "open-source")
+    assert_equal "opensource-mirror\nopen-source\n", rewritten
+  end
 end
 
 class ProjLoadTreesTest < Minitest::Test
@@ -889,6 +916,8 @@ class ProjMvTest < Minitest::Test
     ]
     @projects = File.join(@home, ".claude", "projects")
     FileUtils.mkdir_p(@projects)
+    @manifest = File.join(@root, ".projroot")
+    File.write(@manifest, "personal\nclient  depth=2\nopensource\n")
     @jotter_calls = []
     @cd = []
     @out = StringIO.new
@@ -909,11 +938,12 @@ class ProjMvTest < Minitest::Test
     dir
   end
 
-  def app(confirm: true, git: nil)
+  def app(confirm: true, git: nil, pwd: @root)
     Proj::App.new(
-      trees: @trees, pwd: @root, out: @out, err: @err,
+      trees: @trees, pwd: pwd, out: @out, err: @err,
       cd: ->(p) { @cd << p }, cache: ->(_) {}, paths: ->(_) {}, types: ->(_) {}, tags: ->(_) {},
-      home: @home, confirm: ->(_) { confirm }, jotter: ->(o, n, from, p) { @jotter_calls << [o, n, from, p] }, git: git
+      home: @home, confirm: ->(_) { confirm }, jotter: ->(o, n, from, p) { @jotter_calls << [o, n, from, p] },
+      git: git, manifest: @manifest
     )
   end
 
@@ -1135,6 +1165,83 @@ class ProjMvTest < Minitest::Test
     inside.instance_variable_set(:@pwd, File.join(@proj, "lib"))
     inside.run(["archive", "cadence"])
     assert_equal [File.join(@personal, "ARCHIVE", "cadence", "/lib")], @cd
+  end
+
+  def test_mv_category_renames_the_directory
+    assert_equal 0, app.run(["mv", "--category", "opensource", "open-source"])
+    assert path_exists?(File.join(@root, "open-source"))
+    refute path_exists?(@opensource)
+  end
+
+  def test_mv_category_resolves_by_dir_basename
+    assert_equal 0, app.run(["mv", "--category", "client", "clients"])
+    assert path_exists?(File.join(@root, "clients", "acme", "widget"))
+    refute path_exists?(@client)
+  end
+
+  def test_mv_category_migrates_every_projects_claude_history
+    seed_history(@proj)
+    seed_history(File.join(@personal, "cadence-extra"))
+    app.run(["mv", "--category", "personal", "mine"])
+    assert path_exists?(File.join(@projects, enc(File.join(@root, "mine", "cadence")), "s.jsonl"))
+    assert path_exists?(File.join(@projects, enc(File.join(@root, "mine", "cadence-extra"))))
+    refute path_exists?(File.join(@projects, enc(@proj)))
+  end
+
+  def test_mv_category_migrates_namespaced_project_history
+    seed_history(@client_proj)
+    app.run(["mv", "--category", "client", "clients"])
+    assert path_exists?(File.join(@projects, enc(File.join(@root, "clients", "acme", "widget")), "s.jsonl"))
+    refute path_exists?(File.join(@projects, enc(@client_proj)))
+  end
+
+  def test_mv_category_rewrites_the_manifest_line
+    app.run(["mv", "--category", "opensource", "open-source"])
+    assert_equal "personal\nclient  depth=2\nopen-source\n", File.read(@manifest)
+  end
+
+  def test_mv_category_reminds_to_commit_the_manifest
+    app.run(["mv", "--category", "opensource", "open-source"])
+    assert_match(/updated #{Regexp.escape(@manifest)}.*commit this change/, @out.string)
+  end
+
+  def test_mv_category_leaves_jotter_untouched
+    FileUtils.mkdir_p(File.join(@proj, ".git"))
+    app.run(["mv", "--category", "personal", "mine"])
+    assert_empty @jotter_calls
+  end
+
+  def test_mv_category_declined_changes_nothing
+    assert_equal 1, app(confirm: false).run(["mv", "--category", "opensource", "open-source"])
+    assert path_exists?(@opensource)
+    assert_equal "personal\nclient  depth=2\nopensource\n", File.read(@manifest)
+  end
+
+  def test_mv_category_rejects_an_unknown_category
+    assert_equal 1, app.run(["mv", "--category", "nope", "new"])
+    assert_match(/unknown category 'nope'/, @err.string)
+  end
+
+  def test_mv_category_rejects_an_existing_target
+    FileUtils.mkdir_p(File.join(@root, "open-source"))
+    assert_equal 1, app.run(["mv", "--category", "opensource", "open-source"])
+    assert_match(/already exists/, @err.string)
+    assert path_exists?(@opensource)
+  end
+
+  def test_mv_category_rejects_a_slash_in_the_new_name
+    assert_equal 1, app.run(["mv", "--category", "opensource", "a/b"])
+    assert_match(/single path segment/, @err.string)
+  end
+
+  def test_mv_category_requires_both_names
+    assert_equal 1, app.run(["mv", "--category", "opensource"])
+    assert_match(/Usage: proj mv/, @err.string)
+  end
+
+  def test_mv_category_cds_when_standing_inside_the_renamed_tree
+    app(pwd: File.join(@proj, "lib")).run(["mv", "--category", "personal", "mine"])
+    assert_equal [File.join(@root, "mine", "cadence", "lib")], @cd
   end
 
   private

@@ -2,35 +2,23 @@
 # requires-python = ">=3.11"
 # dependencies = ["pillow"]
 # ///
-from PIL import Image, ImageDraw, ImageFont
+"""Regenerate this repo's wordmark (assets/logo-wordmark.png).
 
-BG = (245, 241, 232)
-INK = (42, 38, 35)
+Thin wrapper over the portable `project-logo` skill, invoked with the dotfiles
+mark and text. The composition logic and bundled DM Sans font live in
+.claude/skills/project-logo/ so any project can reuse them.
+"""
+import runpy
+import sys
+from pathlib import Path
 
-mark = Image.open("assets/logo.png").convert("RGB")
-mark_w, mark_h = mark.size
+REPO = Path(__file__).resolve().parent.parent
+SKILL_SCRIPT = REPO / ".claude" / "skills" / "project-logo" / "compose_wordmark.py"
 
-font_path = "../cadence/tmp/fonts/DMSans-Regular.ttf"
-font_size = 360
-font = ImageFont.truetype(font_path, font_size)
-
-text = "dotfiles"
-bbox = font.getbbox(text)
-text_w = bbox[2] - bbox[0]
-text_h = bbox[3] - bbox[1]
-
-gap = 40
-right_pad = 120
-canvas_w = mark_w + gap + text_w + right_pad
-canvas_h = mark_h
-
-canvas = Image.new("RGB", (canvas_w, canvas_h), BG)
-canvas.paste(mark, (0, 0))
-
-draw = ImageDraw.Draw(canvas)
-text_x = mark_w + gap - bbox[0]
-text_y = (canvas_h - text_h) // 2 - bbox[1]
-draw.text((text_x, text_y), text, font=font, fill=INK)
-
-canvas.save("assets/logo-wordmark.png")
-print(f"Saved: {canvas_w}x{canvas_h}")
+sys.argv = [
+    str(SKILL_SCRIPT),
+    "--mark", str(REPO / "assets" / "logo.png"),
+    "--text", "dotfiles",
+    "--output", str(REPO / "assets" / "logo-wordmark.png"),
+]
+runpy.run_path(str(SKILL_SCRIPT), run_name="__main__")

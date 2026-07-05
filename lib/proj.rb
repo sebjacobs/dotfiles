@@ -42,7 +42,7 @@ module Proj
   # any divergence between this list and the completion's. The bare `.` and
   # `--list` forms are internal (current-root jump / cache warm), not offered as
   # completions, so they are deliberately absent.
-  SUBCOMMANDS = %w[cd ls show status mv archive init].freeze
+  SUBCOMMANDS = %w[cd ls show status mv archive init star unstar].freeze
 
   PROJ_ROOT = ENV.fetch("PROJ_ROOT", File.join(Dir.home, "Tech/Projects"))
 
@@ -230,6 +230,49 @@ module Proj
   COLOR_RESET = "\e[0m"
 
   def colorize_starred(text) = "#{STARRED_COLOR}#{text}#{COLOR_RESET}"
+
+  # The `.proj` key that flags a starred favourite. `proj star`/`unstar` rewrite
+  # just this line, so the rest of the file — description, tags, comments — is
+  # left byte-for-byte.
+  STARRED_KEY = "starred"
+
+  # Whether +line+ declares the `starred` key, whether active (`starred: true`)
+  # or the commented template line (`# starred: true`). Any leading `#` and
+  # whitespace is stripped before the key is read, so `proj star` reuses
+  # (uncomments) an inert template line rather than appending a duplicate.
+  def starred_line?(line)
+    line.sub(/\A\s*#*\s*/, "").partition(":").first.strip == STARRED_KEY
+  end
+
+  # Return +content+ with its `starred` flag set to +flag+. Setting true rewrites
+  # the existing starred line — active or the commented template — to
+  # `starred: true`, or appends one when the key is absent. Setting false drops
+  # any active starred line, so the project reads unstarred (an absent key is not
+  # starred), leaving the commented template and every other line untouched.
+  # Idempotent: re-setting the state a project is already in returns +content+
+  # unchanged, so the caller can skip a needless write. Kept pure (content in,
+  # content out) so the rewrite is unit-tested without a filesystem.
+  def set_starred(content, flag)
+    lines = content.to_s.lines
+    active = lines.index { |line| starred_line?(line) && !line.strip.start_with?("#") }
+
+    unless flag
+      return content.to_s if active.nil?
+
+      lines.delete_at(active)
+      return lines.join
+    end
+
+    slot = active || lines.index { |line| starred_line?(line) }
+    if slot
+      lines[slot] = "starred: true\n"
+      return lines.join
+    end
+
+    base = content.to_s
+    base += "\n" unless base.empty? || base.end_with?("\n")
+    "#{base}starred: true\n"
+  end
 
   # Pull the most-recent branch and its commit time from a single
   # `git for-each-ref --sort=-committerdate --count=1` line (tab-separated
@@ -421,6 +464,8 @@ module Proj
       return 0 if name == "--list"
       return cmd_cd(argv.drop(1)) if name == "cd"
       return cmd_init(root) if name == "init"
+      return cmd_star(root, map, argv.drop(1), star: true) if name == "star"
+      return cmd_star(root, map, argv.drop(1), star: false) if name == "unstar"
       return cmd_ls(map, types, tags, descriptions, starred, argv.drop(1)) if name == "ls"
       return cmd_show(map, types, tags, descriptions, starred, argv.drop(1)) if name == "show"
       return cmd_status(map) if name == "status"
@@ -571,6 +616,48 @@ module Proj
       @sys.write(path, Proj::PROJ_TEMPLATE)
       @out.puts "proj: wrote #{path} — uncomment and edit to add a description and tags"
       0
+    end
+
+    # Set (star:true) or clear (star:false) a project's `starred` favourite flag
+    # by editing its `.proj`, so favouriting is a command rather than a hand-edit.
+    # Targets the named project (resolved fuzzily like `show`), or the current one
+    # when no name is given (like `init`). Creates a `.proj` when the project has
+    # none, otherwise rewrites just the starred line and leaves the rest untouched.
+    # A project already in the requested state is reported and left alone rather
+    # than rewritten, so no empty `.proj` is created by unstarring an unstarred
+    # project. `star`/`unstar` shadow any project literally named "star"/"unstar" —
+    # an accepted edge, as with the other subcommands.
+    def cmd_star(root, map, args, star:)
+      target = star_target(root, map, args)
+      return 1 if target.nil?
+
+      path = File.join(target, Proj::PROJ_FILE)
+      content = @sys.file?(path) ? @sys.read(path) : ""
+      updated = Proj.set_starred(content, star)
+      name = File.basename(target)
+      verb = star ? "starred" : "unstarred"
+
+      if updated == content
+        @out.puts "proj: #{name} already #{verb}"
+        return 0
+      end
+
+      @sys.write(path, updated)
+      @out.puts "proj: #{verb} #{name} (#{path})"
+      0
+    end
+
+    # The project `star`/`unstar` act on: the named project when one is given,
+    # else the current project root. Reports and returns nil when a name matches
+    # nothing (via resolve_project) or when there's no name and we sit outside any
+    # project tree, so the caller does nothing rather than guessing.
+    def star_target(root, map, args)
+      name = args[0]
+      return resolve_project(name, map) unless name.nil? || name.empty?
+      return root if root
+
+      error("proj star: not inside a known project tree (#{@trees.map { |t| t[:dir] }.join(', ')})")
+      nil
     end
 
     # List every git project newest-first by its most-recent commit, showing the
@@ -895,7 +982,7 @@ module Proj
       @out.puts <<~USAGE
         Usage: proj <name> [<worktree>]      cd into a project (2nd arg: a worktree under it)
                proj <client>/<name>          cd into a namespaced client project
-               proj <cd|ls|show|status|mv|archive|init> [args]
+               proj <cd|ls|show|status|mv|archive|init|star|unstar> [args]
 
           <name> [<worktree>]  cd into a project; a 2nd arg cd's into a worktree under it (via gwt)
           cd <category>        cd into a category's root directory (e.g. personal, private, client)
@@ -907,6 +994,8 @@ module Proj
           mv --category <old> <new>  Rename a whole category (dir + manifest), carrying history
           archive <project>    Move a project into its category's ARCHIVE folder, carrying its history
           init                 Scaffold a commented-out .proj (description + tags) at the project root
+          star [<project>]     Star a project as a favourite (yellow in ls) — current project if no name
+          unstar [<project>]   Clear a project's favourite star — current project if no name
           .                    cd to the current project root
           (no args)            Inside a project print its root, else list all
       USAGE

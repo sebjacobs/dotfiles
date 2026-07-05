@@ -163,6 +163,43 @@ class ProjPureTest < Minitest::Test
     assert_equal "\e[33m  cadence\e[0m", Proj.colorize_starred("  cadence")
   end
 
+  def test_set_starred_appends_the_flag_to_content_without_one
+    assert_equal "description: A tool\nstarred: true\n",
+                 Proj.set_starred("description: A tool\n", true)
+  end
+
+  def test_set_starred_adds_a_separating_newline_when_content_lacks_one
+    assert_equal "description: A tool\nstarred: true\n",
+                 Proj.set_starred("description: A tool", true)
+  end
+
+  def test_set_starred_on_empty_content_writes_just_the_flag
+    assert_equal "starred: true\n", Proj.set_starred("", true)
+  end
+
+  def test_set_starred_uncomments_the_template_line
+    content = "# tags: a b\n# starred: true\n"
+    assert_equal "# tags: a b\nstarred: true\n", Proj.set_starred(content, true)
+  end
+
+  def test_set_starred_normalises_an_existing_active_flag
+    assert_equal "starred: true\n", Proj.set_starred("starred: yes\n", true)
+  end
+
+  def test_set_starred_false_drops_an_active_flag_leaving_the_rest
+    assert_equal "tags: rust\n", Proj.set_starred("tags: rust\nstarred: true\n", false)
+  end
+
+  def test_set_starred_false_leaves_a_commented_template_untouched
+    content = "# starred: true\n"
+    assert_equal content, Proj.set_starred(content, false)
+  end
+
+  def test_set_starred_is_idempotent_for_the_current_state
+    assert_equal "starred: true\n", Proj.set_starred("starred: true\n", true)
+    assert_equal "tags: x\n", Proj.set_starred("tags: x\n", false)
+  end
+
   def test_parse_for_each_ref_takes_branch_and_time_from_the_top_line
     assert_equal ["main", 1782571757], Proj.parse_for_each_ref("main\t1782571757\n")
   end
@@ -802,6 +839,62 @@ class ProjAppTest < Minitest::Test
     app, _cd, _out, err = build_app(pwd: cadence)
     assert_equal 1, app.run(["init"])
     assert_includes err.string, "already exists"
+  end
+
+  def test_star_creates_a_proj_for_the_current_project
+    app, _cd, out = build_app(pwd: File.join(@personal, "cadence", "lib"))
+    assert_equal 0, app.run(["star"])
+    assert_equal "starred: true\n", File.read(File.join(@personal, "cadence", ".proj"))
+    assert_includes out.string, "starred cadence"
+  end
+
+  def test_star_a_named_project_from_outside_it
+    app, _cd, out = build_app(pwd: @root)
+    assert_equal 0, app.run(["star", "cadence"])
+    assert Proj.starred_for(File.read(File.join(@personal, "cadence", ".proj")))
+    assert_includes out.string, "starred cadence"
+  end
+
+  def test_star_leaves_existing_metadata_intact
+    cadence = File.join(@personal, "cadence")
+    File.write(File.join(cadence, ".proj"), "description: A tool\ntags: ruby\n")
+    app, = build_app(pwd: cadence)
+    assert_equal 0, app.run(["star"])
+    content = File.read(File.join(cadence, ".proj"))
+    assert_includes content, "description: A tool"
+    assert_includes content, "tags: ruby"
+    assert Proj.starred_for(content)
+  end
+
+  def test_unstar_clears_the_flag_but_keeps_the_file
+    cadence = File.join(@personal, "cadence")
+    File.write(File.join(cadence, ".proj"), "tags: ruby\nstarred: true\n")
+    app, _cd, out = build_app(pwd: cadence)
+    assert_equal 0, app.run(["unstar"])
+    content = File.read(File.join(cadence, ".proj"))
+    refute Proj.starred_for(content)
+    assert_includes content, "tags: ruby"
+    assert_includes out.string, "unstarred cadence"
+  end
+
+  def test_unstar_an_unstarred_project_makes_no_proj_file
+    cadence = File.join(@personal, "cadence")
+    app, _cd, out = build_app(pwd: cadence)
+    assert_equal 0, app.run(["unstar"])
+    refute File.exist?(File.join(cadence, ".proj"))
+    assert_includes out.string, "already unstarred"
+  end
+
+  def test_star_a_missing_project_fails
+    app, _cd, _out, err = build_app(pwd: @root)
+    assert_equal 1, app.run(["star", "zzz"])
+    assert_includes err.string, "No project matching: zzz"
+  end
+
+  def test_star_outside_a_tree_without_a_name_fails
+    app, _cd, _out, err = build_app(pwd: "/elsewhere")
+    assert_equal 1, app.run(["star"])
+    assert_includes err.string, "not inside a known project tree"
   end
 
   class FakeGit

@@ -99,10 +99,12 @@ _proj() {
     return
   fi
 
-  # `proj mv <project> <new-name>` / `proj show <project>`: complete the project
-  # in slot one; mv's new name is free text, so slot two offers nothing. mv also
-  # offers --category (rename a whole category rather than a project).
-  if (( CURRENT == 3 )) && [[ "${words[2]}" == (mv|archive|show) ]]; then
+  # `proj mv <project> <new-name>` / `proj show <project>` / `proj star
+  # [<project>]`: complete the project in slot one; mv's new name is free text, so
+  # slot two offers nothing. mv also offers --category (rename a whole category
+  # rather than a project). star/unstar's project arg is optional (defaulting to
+  # the current one), so completion still helps when a name is being typed.
+  if (( CURRENT == 3 )) && [[ "${words[2]}" == (mv|archive|show|star|unstar) ]]; then
     local -a matches
     matches=("${(@f)$(_proj_match_keys "${words[3]}")}")
     (( ${#matches} )) && compadd -- $matches
@@ -125,7 +127,7 @@ _proj() {
     # explanation supports both prompt escapes and embedded newlines, so the
     # spacing and colour live with the group they head. Commands wear one accent
     # (yellow), project types another (cyan), to tell the two kinds apart.
-    local -a _subcommands=(cd ls show status mv archive init)  # @subcommands
+    local -a _subcommands=(cd ls show status mv archive init star unstar)  # @subcommands
     compadd -J commands -X $'\n%B%F{yellow}commands%f%b' -- $_subcommands
 
     local -a matches

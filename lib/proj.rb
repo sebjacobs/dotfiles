@@ -42,7 +42,7 @@ module Proj
   # any divergence between this list and the completion's. The bare `.` and
   # `--list` forms are internal (current-root jump / cache warm), not offered as
   # completions, so they are deliberately absent.
-  SUBCOMMANDS = %w[cd ls show status mv archive init star unstar].freeze
+  SUBCOMMANDS = %w[cd ls show status branches mv archive init star unstar].freeze
 
   PROJ_ROOT = ENV.fetch("PROJ_ROOT", File.join(Dir.home, "Tech/Projects"))
 
@@ -305,6 +305,28 @@ module Proj
     format("%-28s %-24s (last: %s)", key, branch, time_str)
   end
 
+  # Parse a whole `git for-each-ref refs/heads` dump — one branch per line,
+  # tab-separated `HEAD<TAB>branch<TAB>unix`, where the HEAD field is `*` for the
+  # checked-out branch and blank otherwise (git's `%(HEAD)` marker). Returns
+  # {current:, branch:, time:} hashes in the dump's given order (git sorts them
+  # by committerdate), skipping malformed lines. Kept pure so `branches` is
+  # unit-tested without spawning git.
+  def parse_branches(output)
+    output.to_s.lines.filter_map do |raw|
+      head, branch, unix = raw.chomp.split("\t", 3)
+      next if branch.to_s.empty? || unix.to_s.empty?
+
+      { current: head == "*", branch: branch, time: unix.to_i }
+    end
+  end
+
+  # A `branches` row: a `* ` marker for the checked-out branch (two blanks
+  # otherwise), the branch name, then the timestamp in the same `(last: …)` shape
+  # `gwt status` and `proj status` use, so the three listings read alike.
+  def format_branch_row(current, branch, time_str)
+    format("%s%-30s (last: %s)", current ? "* " : "  ", branch, time_str)
+  end
+
   def read_proj(dir)
     path = File.join(dir, PROJ_FILE)
     File.file?(path) ? File.read(path) : ""
@@ -469,6 +491,7 @@ module Proj
       return cmd_ls(map, types, tags, descriptions, starred, argv.drop(1)) if name == "ls"
       return cmd_show(map, types, tags, descriptions, starred, argv.drop(1)) if name == "show"
       return cmd_status(map) if name == "status"
+      return cmd_branches(root) if name == "branches"
       return cmd_mv(map, argv.drop(1)) if name == "mv"
       return cmd_archive(map, argv.drop(1)) if name == "archive"
       return print_current_or_list(root, map, types, tags, descriptions, starred) if name.nil? || name.empty?
@@ -682,6 +705,33 @@ module Proj
 
       Proj.sort_recent(entries).each do |entry|
         @out.puts Proj.format_recent_row(entry[:key], entry[:branch], Proj.format_time(entry[:time]))
+      end
+      0
+    end
+
+    # `gwt status` for branches rather than worktrees: list the current project's
+    # local branches newest-commit-first, marking the checked-out one with `* `
+    # and stamping each with its last-commit time (the `(last: …)` shape `status`
+    # and `jotter ls` share). Where `gwt status` gives a row per worktree, this
+    # gives a row per branch — the "which branch was I last on?" view for a single
+    # repo. A single `for-each-ref` over refs/heads does the whole job: git sorts
+    # the dump by committerdate and `%(HEAD)` flags the checked-out branch, so no
+    # per-branch call is needed. Refuses outside a known project tree, and reports
+    # a non-git or commit-less project rather than printing an empty listing.
+    # `branches` shadows any project literally named "branches" — an accepted
+    # edge, as with `status`/`ls`/`mv`.
+    def cmd_branches(root)
+      return error("proj branches: not inside a known project tree (#{@trees.map { |t| t[:dir] }.join(', ')})") if root.nil?
+
+      out, ok = @git.capture("-C", root, "for-each-ref", "--sort=-committerdate", "refs/heads",
+                             "--format=%(HEAD)%09%(refname:short)%09%(committerdate:unix)")
+      return error("proj branches: not a git repository (#{root})") unless ok
+
+      branches = Proj.parse_branches(out)
+      return error("proj branches: no branches yet (#{root})") if branches.empty?
+
+      branches.each do |b|
+        @out.puts Proj.format_branch_row(b[:current], b[:branch], Proj.format_time(b[:time]))
       end
       0
     end
@@ -982,7 +1032,7 @@ module Proj
       @out.puts <<~USAGE
         Usage: proj <name> [<worktree>]      cd into a project (2nd arg: a worktree under it)
                proj <client>/<name>          cd into a namespaced client project
-               proj <cd|ls|show|status|mv|archive|init|star|unstar> [args]
+               proj <cd|ls|show|status|branches|mv|archive|init|star|unstar> [args]
 
           <name> [<worktree>]  cd into a project; a 2nd arg cd's into a worktree under it (via gwt)
           cd <category>        cd into a category's root directory (e.g. personal, private, client)
@@ -990,6 +1040,7 @@ module Proj
                                narrowed by type and/or tags
           show <project>       Show a project's path, description, tags, and last commit
           status               List git projects newest-commit-first, with branch and timestamp
+          branches             List the current project's local branches newest-commit-first (gwt status for branches)
           mv <project> <new-name> [--to <category>]  Rename/relocate a project, carrying its history
           mv --category <old> <new>  Rename a whole category (dir + manifest), carrying history
           archive <project>    Move a project into its category's ARCHIVE folder, carrying its history

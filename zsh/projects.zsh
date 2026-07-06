@@ -29,6 +29,10 @@
 #                            (across main + worktrees) carrying that commit, and
 #                            the timestamp (the `(last: …)` shape jotter ls uses).
 #                            The per-project equivalent is `gwt status`.
+#   proj branches            list the current project's local branches newest-first
+#                            by their most-recent commit, marking the checked-out
+#                            branch with `* ` and stamping each with its last-commit
+#                            time — `gwt status` for branches rather than worktrees.
 #   proj mv <project> <new-name>
 #                            rename a project's directory and carry its
 #                            per-checkout history: Claude transcripts (project +

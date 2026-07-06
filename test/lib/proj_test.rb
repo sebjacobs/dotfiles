@@ -229,6 +229,28 @@ class ProjPureTest < Minitest::Test
                  Proj.format_recent_row("cadence", "main", "2026-06-27 16:23")
   end
 
+  def test_parse_branches_reads_every_line_flagging_the_checked_out_one
+    dump = "*\tmain\t1782571757\n \tfeature\t1782509451\n"
+    assert_equal [
+      { current: true, branch: "main", time: 1782571757 },
+      { current: false, branch: "feature", time: 1782509451 }
+    ], Proj.parse_branches(dump)
+  end
+
+  def test_parse_branches_skips_malformed_lines_and_empty_input
+    assert_empty Proj.parse_branches("")
+    assert_empty Proj.parse_branches("\n")
+    assert_equal [{ current: false, branch: "main", time: 1782571757 }],
+                 Proj.parse_branches("garbage-no-tabs\n \tmain\t1782571757\n")
+  end
+
+  def test_format_branch_row_marks_the_current_branch_and_pads
+    assert_equal "* main                           (last: 2026-06-27 16:23)",
+                 Proj.format_branch_row(true, "main", "2026-06-27 16:23")
+    assert_equal "  feature                        (last: 2026-06-27 16:23)",
+                 Proj.format_branch_row(false, "feature", "2026-06-27 16:23")
+  end
+
   def test_format_time_renders_local_minute_precision
     ENV["TZ"] = "UTC"
     assert_equal "2026-06-28 04:09", Proj.format_time(1782619757)
@@ -746,6 +768,39 @@ class ProjAppTest < Minitest::Test
     assert_equal 0, app.run(["status"])
     assert_includes out.string, "cadence "
     refute_includes out.string, "cadence-extra"
+  end
+
+  def test_branches_lists_the_current_projects_branches_marking_the_checked_out_one
+    cadence = File.join(@personal, "cadence")
+    dump = "*\tmain\t1782571757\n \tfeature\t1782509451\n"
+    git = FakeGit.new(cadence => [dump, true])
+    app, _cd, out = build_app(pwd: cadence, git: git)
+    assert_equal 0, app.run(["branches"])
+    expected = [
+      Proj.format_branch_row(true, "main", Proj.format_time(1782571757)),
+      Proj.format_branch_row(false, "feature", Proj.format_time(1782509451))
+    ].join("\n") + "\n"
+    assert_equal expected, out.string
+  end
+
+  def test_branches_errors_outside_a_known_project_tree
+    app, _cd, _out, err = build_app(pwd: @root, git: FakeGit.new({}))
+    assert_equal 1, app.run(["branches"])
+    assert_includes err.string, "not inside a known project tree"
+  end
+
+  def test_branches_errors_on_a_non_git_project
+    cadence = File.join(@personal, "cadence")
+    app, _cd, _out, err = build_app(pwd: cadence, git: FakeGit.new(cadence => ["", false]))
+    assert_equal 1, app.run(["branches"])
+    assert_includes err.string, "not a git repository"
+  end
+
+  def test_branches_errors_on_a_commitless_repo
+    cadence = File.join(@personal, "cadence")
+    app, _cd, _out, err = build_app(pwd: cadence, git: FakeGit.new(cadence => ["", true]))
+    assert_equal 1, app.run(["branches"])
+    assert_includes err.string, "no branches yet"
   end
 
   def test_ls_shows_description_inline

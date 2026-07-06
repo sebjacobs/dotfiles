@@ -3,13 +3,13 @@
 # Completion for `proj` (zsh/projects.zsh — quick cd into projects).
 #
 # Reads the caches the `proj` wrapper writes on every run ($PROJ_CACHE_FILE and
-# friends, set in zsh/projects.zsh), so it never boots Ruby per keypress — a
+# friends, set in zsh/projects.zsh), so it never boots proj-bin per keypress — a
 # cold cache is warmed once with a single `--list` call. The subcommand list is
 # kept in sync with Proj::SUBCOMMANDS by the completion-drift smoke test
 # (test/shell/completion_drift_test.rb).
 
 # Echo the project path cached for an exact display-name, or nothing. The helper
-# writes the name->path map to $PROJ_PATHS_FILE on every run, so this stays Ruby-free.
+# writes the name->path map to $PROJ_PATHS_FILE on every run, so this stays boot-free.
 _proj_path_for() {
   local key="$1" k v
   [[ -s "$PROJ_PATHS_FILE" ]] || return
@@ -51,7 +51,7 @@ _proj_match_keys() {
   if (( ${#prefix} )); then print -rl -- $prefix; elif (( ${#substr} )); then print -rl -- $substr; fi
 }
 
-# Tab completion reads the cached name list rather than spawning Ruby per
+# Tab completion reads the cached name list rather than spawning proj-bin per
 # keypress. A cold cache is warmed once with a single `--list` call. The first
 # argument fuzzy-matches project names (so `wid` completes
 # `acme/widget-tracker`), grouped by type in the manifest's order (derived from
@@ -65,7 +65,7 @@ _proj() {
   # current without gating.
   if [[ ! -s "$PROJ_CACHE_FILE" || ! -s "$PROJ_PATHS_FILE" || ! -s "$PROJ_TYPES_FILE" || ! -s "$PROJ_TAGS_FILE" ]]; then
     PROJ_CACHE_FILE="$PROJ_CACHE_FILE" PROJ_PATHS_FILE="$PROJ_PATHS_FILE" PROJ_TYPES_FILE="$PROJ_TYPES_FILE" PROJ_TAGS_FILE="$PROJ_TAGS_FILE" PROJ_STARRED_FILE="$PROJ_STARRED_FILE" \
-      "$HOME/dotfiles/lib/proj.rb" --list >/dev/null 2>&1
+      "$HOME/.local/bin/proj-bin" --list >/dev/null 2>&1
   fi
 
   # `proj cd <category>`: complete the category (type) names, the same cached

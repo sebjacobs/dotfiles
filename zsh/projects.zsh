@@ -79,14 +79,15 @@ _proj_apply_star_colors() {
 }
 _proj_apply_star_colors
 
-# The logic lives in lib/proj.rb (Ruby, unit-tested). A subprocess cannot
-# change this shell's directory, so the helper writes the cd target to the file
-# named by $PROJ_CD_FILE and we cd there on return — the one thing the shell
-# must own. The helper also rewrites $PROJ_CACHE_FILE (the project name list) on
-# every run, so completion stays Ruby-free. Tab completion (reading those caches)
-# lives in the autoloaded zsh/completions/_proj, alongside the other CLIs'.
+# The logic is the proj-bin binary (a Go port of the old lib/proj.rb, in the
+# proj repo). A subprocess cannot change this shell's directory, so proj-bin
+# writes the cd target to the file named by $PROJ_CD_FILE and we cd there on
+# return — the one thing the shell must own. proj-bin also rewrites
+# $PROJ_CACHE_FILE (the project name list) on every run, so completion stays
+# boot-free. Tab completion (reading those caches) lives in the autoloaded
+# zsh/completions/_proj, alongside the other CLIs'.
 proj() {
-  local helper="$HOME/dotfiles/lib/proj.rb"
+  local helper="$HOME/.local/bin/proj-bin"
   local cd_file rc
   cd_file=$(mktemp "${TMPDIR:-/tmp}/proj-cd.XXXXXX")
 

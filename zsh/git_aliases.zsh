@@ -11,8 +11,16 @@ alias gfe="git fetch"
 alias gr="git reset"
 alias greb="git rebase"
 alias gm="git rebase main"
-alias grom="git rebase origin/main || git rebase origin/master"
-alias grim="git rebase -i origin/main --autosquash || git rebase -i origin/master --autosquash"
+_git_origin_default() {
+  git symbolic-ref --quiet --short refs/remotes/origin/HEAD 2>/dev/null && return
+  for ref in origin/main origin/master; do
+    git rev-parse --verify --quiet "$ref" >/dev/null && { echo "$ref"; return; }
+  done
+  echo "_git_origin_default: no origin/main or origin/master found" >&2
+  return 1
+}
+grom() { local b; b=$(_git_origin_default) || return; git rebase "$b" "$@"; }
+grim() { local b; b=$(_git_origin_default) || return; git rebase -i "$b" --autosquash "$@"; }
 alias gri="git rebase --autosquash -i"
 alias gl="git log --oneline --graph --decorate"
 alias gll='git log --pretty="%C(Yellow)%h (%C(Yellow)%ad) %C(Yellow)(%aN) %C(auto)%d %C(reset)%s" --date=short --graph'

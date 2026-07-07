@@ -118,6 +118,21 @@ do
   launchctl bootstrap "gui/$(id -u)" "$target" 2>/dev/null || true
 done
 
+# iTerm2 dynamic profiles: symlink every repo-managed profile JSON into iTerm's
+# DynamicProfiles folder so a fresh checkout brings the version-controlled
+# terminal profiles under iTerm's management. iTerm hot-reloads this folder, so
+# later edits (e.g. the display-aware font switch) apply without a restart.
+iterm_dp="$HOME/Library/Application Support/iTerm2/DynamicProfiles"
+if [ -d "$HOME/Library/Application Support/iTerm2" ]; then
+  mkdir -p "$iterm_dp"
+  for profile in "$DOTFILES_HOME"/iterm2/DynamicProfiles/*.json
+  do
+    [ -e "$profile" ] || continue
+    ln -snf "$profile" "$iterm_dp/$(basename "$profile")"
+  done
+  defaults write com.googlecode.iterm2 "Default Bookmark Guid" -string "SEB-MAIN-DYNAMIC-PROFILE"
+fi
+
 # SDKMAN runs compinit and a chpwd hook on every shell that sources sdkman-init.sh
 # — non-interactive ones included, since it's pulled in from .zshenv via
 # zsh/env.zsh. Defer its two auto_* flags to a pre-set value so env.zsh can force

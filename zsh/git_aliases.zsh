@@ -11,6 +11,7 @@ alias gfe="git fetch"
 alias gr="git reset"
 alias greb="git rebase"
 alias gm="git rebase main"
+alias gmi="git rebase -i main"
 _git_origin_default() {
   git symbolic-ref --quiet --short refs/remotes/origin/HEAD 2>/dev/null && return
   for ref in origin/main origin/master; do

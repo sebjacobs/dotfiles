@@ -48,10 +48,11 @@
 #   proj archive <project>   move a project into its category's ARCHIVE folder
 #                            (kept out of every listing), carrying the same
 #                            per-checkout history mv does. Confirms first.
+#   proj home                cd to the projects root ($PROJ_ROOT, ~/Tech/Projects)
 #   proj .                   cd to the current project root
 #   proj -                   cd to the previous directory (toggles, like `cd -`);
-#                            `proj cd -` is the same. First run / a vanished dir
-#                            errors rather than moving.
+#                            `proj cd -` is the same. Falls back to `proj home`
+#                            when nothing's recorded yet or the dir has vanished.
 #   proj                     inside a project print its root, else list all (`ls`)
 #
 # The searchable project trees are declared in the $PROJ_ROOT/.projroot

@@ -4,6 +4,10 @@ theme = "gruvbox"
 line-number = "relative"
 cursorline = true
 bufferline = "multiple"
+text-width = 80
+
+[editor.soft-wrap]
+enable = true
 
 [editor.cursor-shape]
 insert = "bar"
@@ -11,3 +15,6 @@ normal = "block"
 
 [editor.lsp]
 display-inlay-hints = true
+
+[keys.normal.g]
+q = ":reflow"

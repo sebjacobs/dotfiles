@@ -131,6 +131,41 @@ if [ -d "$HOME/Library/Application Support/iTerm2" ]; then
     ln -snf "$profile" "$iterm_dp/$(basename "$profile")"
   done
   defaults write com.googlecode.iterm2 "Default Bookmark Guid" -string "SEB-MAIN-DYNAMIC-PROFILE"
+
+  # iTerm global (non-profile) settings. Profiles are versioned as dynamic
+  # profiles, but these app-wide tweaks live only in the prefs plist, so
+  # capture them here as declarative `defaults write` lines. Applied on the
+  # next iTerm launch; quit iTerm before re-running setup or it may write its
+  # in-memory state back over these on quit.
+
+  # Custom mouse gestures: 3-finger swipe = prev/next tab (left/right) and
+  # window (up/down); middle-click pastes; ctrl-click opens the context menu.
+  defaults write com.googlecode.iterm2 PointerActions -dict \
+    'Gesture,ThreeFingerSwipeDown,,'  '{ Action = kPrevWindowPointerAction; }' \
+    'Gesture,ThreeFingerSwipeUp,,'    '{ Action = kNextWindowPointerAction; }' \
+    'Gesture,ThreeFingerSwipeLeft,,'  '{ Action = kPrevTabPointerAction; }' \
+    'Gesture,ThreeFingerSwipeRight,,' '{ Action = kNextTabPointerAction; }' \
+    'Button,1,1,,'                    '{ Action = kContextMenuPointerAction; }' \
+    'Button,2,1,,'                    '{ Action = kPasteFromClipboardPointerAction; }'
+
+  # Key handling: repeat on hold (vim-friendly), and no Esc feedback.
+  defaults write com.googlecode.iterm2 ApplePressAndHoldEnabled -bool false
+  defaults write com.googlecode.iterm2 HapticFeedbackForEsc -bool false
+  defaults write com.googlecode.iterm2 SoundForEsc -bool false
+  defaults write com.googlecode.iterm2 VisualIndicatorForEsc -bool false
+  defaults write com.googlecode.iterm2 PreventEscapeSequenceFromClearingHistory -bool false
+
+  # Behaviour + appearance.
+  defaults write com.googlecode.iterm2 AllowClipboardAccess -bool true
+  defaults write com.googlecode.iterm2 ShowFullScreenTabBar -bool false
+  defaults write com.googlecode.iterm2 "Print In Black And White" -bool true
+  defaults write com.googlecode.iterm2 PasteTabToStringTabStopSize -int 4
+
+  # AI integration (the API key itself lives in the keychain, not here).
+  defaults write com.googlecode.iterm2 EnableAPIServer -bool true
+  defaults write com.googlecode.iterm2 AITermAPI -int 2
+  defaults write com.googlecode.iterm2 AiModel -string 'gpt-5.5'
+  defaults write com.googlecode.iterm2 AitermURL -string 'https://api.openai.com/v1/responses'
 fi
 
 # SDKMAN runs compinit and a chpwd hook on every shell that sources sdkman-init.sh

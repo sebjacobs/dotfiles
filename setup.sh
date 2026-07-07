@@ -168,6 +168,12 @@ if [ -d "$HOME/Library/Application Support/iTerm2" ]; then
   defaults write com.googlecode.iterm2 AitermURL -string 'https://api.openai.com/v1/responses'
 fi
 
+# display-font: render the generated app configs (Zed settings, and later the
+# iTerm profile) from their tracked templates for the currently-connected
+# display. Seeds ~/.config/zed/settings.json — which is generated, not
+# symlinked — so a fresh checkout has a working Zed config at the right size.
+DOTFILES_HOME="$DOTFILES_HOME" "$DOTFILES_HOME/bin/display-font" || true
+
 # SDKMAN runs compinit and a chpwd hook on every shell that sources sdkman-init.sh
 # — non-interactive ones included, since it's pulled in from .zshenv via
 # zsh/env.zsh. Defer its two auto_* flags to a pre-set value so env.zsh can force

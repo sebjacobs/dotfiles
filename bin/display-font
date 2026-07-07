@@ -1,0 +1,48 @@
+#!/usr/bin/env zsh
+# display-font — size editor/terminal fonts from the connected display.
+#
+# The built-in Retina panel is the reference: BASE_SIZE is calibrated to feel
+# right there. An external monitor sits further away, so it gets a larger,
+# rounded size (BASE_SIZE * EXTERNAL_SCALE). There is no OS-level base font to
+# derive from, so we detect the display and render the values ourselves.
+#
+# Detection is clamshell-proof: only external displays report a ProductName in
+# ioreg (the built-in panel reports none), so any non-built-in ProductName means
+# an external is attached regardless of lid state.
+#
+# Renders each app's tracked template into its live (generated) config; Zed and
+# iTerm both hot-reload, so open windows resize without a restart.
+
+set -eu
+
+DOTFILES="${DOTFILES_HOME:-$HOME/dotfiles}"
+BASE_SIZE=16
+EXTERNAL_SCALE=1.5
+
+external_connected() {
+  ioreg -lw0 2>/dev/null \
+    | grep -oE '"ProductName"="[^"]*"' \
+    | grep -qviE 'color lcd|built-?in'
+}
+
+if [ "${DISPLAY_FONT_FORCE:-}" = built-in ]; then
+  size=$BASE_SIZE
+  context="built-in (forced)"
+elif [ "${DISPLAY_FONT_FORCE:-}" = external ] || external_connected; then
+  size=$(printf '%.0f' $(( BASE_SIZE * EXTERNAL_SCALE )))
+  context=external
+else
+  size=$BASE_SIZE
+  context=built-in
+fi
+
+# Zed: render template → generated settings.json (real file, never symlinked).
+zed_template="$DOTFILES/.config/zed/settings.base.jsonc"
+zed_out="$HOME/.config/zed/settings.json"
+if [ -f "$zed_template" ]; then
+  mkdir -p "$(dirname "$zed_out")"
+  [ -L "$zed_out" ] && rm -f "$zed_out"
+  sed "s/__FONT_SIZE__/$size/g" "$zed_template" > "$zed_out.tmp" && mv "$zed_out.tmp" "$zed_out"
+fi
+
+echo "display-font: $context display → ${size}px (zed)"

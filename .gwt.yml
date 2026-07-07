@@ -6,4 +6,4 @@
 # argv list; it may carry flags, and the command is checked on PATH before launch.
 #
 # Replicates the old `gwt zed` behaviour — `zed -n <target>` (open in a new window).
-editor: [zed, -n]
+editor: [zed]

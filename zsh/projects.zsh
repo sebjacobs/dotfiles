@@ -49,6 +49,9 @@
 #                            (kept out of every listing), carrying the same
 #                            per-checkout history mv does. Confirms first.
 #   proj .                   cd to the current project root
+#   proj -                   cd to the previous directory (toggles, like `cd -`);
+#                            `proj cd -` is the same. First run / a vanished dir
+#                            errors rather than moving.
 #   proj                     inside a project print its root, else list all (`ls`)
 #
 # The searchable project trees are declared in the $PROJ_ROOT/.projroot
@@ -59,6 +62,9 @@ PROJ_PATHS_FILE="${XDG_CACHE_HOME:-$HOME/.cache}/proj/paths"
 PROJ_TYPES_FILE="${XDG_CACHE_HOME:-$HOME/.cache}/proj/types"
 PROJ_TAGS_FILE="${XDG_CACHE_HOME:-$HOME/.cache}/proj/tags"
 PROJ_STARRED_FILE="${XDG_CACHE_HOME:-$HOME/.cache}/proj/starred"
+# The one file proj-bin both reads and writes: the directory it last left, so
+# `proj -` (and `proj cd -`) toggles back to it across separate invocations.
+PROJ_PREV_FILE="${XDG_CACHE_HOME:-$HOME/.cache}/proj/prev"
 
 # Paint starred (favourite) projects yellow in `proj <Tab>`. Completion colours
 # individual matches via the `list-colors` style, but that style is only honoured
@@ -91,7 +97,7 @@ proj() {
   local cd_file rc
   cd_file=$(mktemp "${TMPDIR:-/tmp}/proj-cd.XXXXXX")
 
-  PROJ_CD_FILE="$cd_file" PROJ_CACHE_FILE="$PROJ_CACHE_FILE" PROJ_PATHS_FILE="$PROJ_PATHS_FILE" PROJ_TYPES_FILE="$PROJ_TYPES_FILE" PROJ_TAGS_FILE="$PROJ_TAGS_FILE" PROJ_STARRED_FILE="$PROJ_STARRED_FILE" "$helper" "$@"
+  PROJ_CD_FILE="$cd_file" PROJ_CACHE_FILE="$PROJ_CACHE_FILE" PROJ_PATHS_FILE="$PROJ_PATHS_FILE" PROJ_TYPES_FILE="$PROJ_TYPES_FILE" PROJ_TAGS_FILE="$PROJ_TAGS_FILE" PROJ_STARRED_FILE="$PROJ_STARRED_FILE" PROJ_PREV_FILE="$PROJ_PREV_FILE" "$helper" "$@"
   rc=$?
 
   if [[ -s "$cd_file" ]]; then cd "$(<"$cd_file")"; fi

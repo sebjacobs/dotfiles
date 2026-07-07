@@ -118,18 +118,11 @@ do
   launchctl bootstrap "gui/$(id -u)" "$target" 2>/dev/null || true
 done
 
-# iTerm2 dynamic profiles: symlink every repo-managed profile JSON into iTerm's
-# DynamicProfiles folder so a fresh checkout brings the version-controlled
-# terminal profiles under iTerm's management. iTerm hot-reloads this folder, so
-# later edits (e.g. the display-aware font switch) apply without a restart.
-iterm_dp="$HOME/Library/Application Support/iTerm2/DynamicProfiles"
+# iTerm2: the display-font run below renders iterm2/seb.template.json into
+# iTerm's DynamicProfiles folder (generated, not symlinked, so the font size
+# isn't tracked). Point iTerm at that profile as the default; iTerm hot-reloads
+# the folder, so the render applies without a restart.
 if [ -d "$HOME/Library/Application Support/iTerm2" ]; then
-  mkdir -p "$iterm_dp"
-  for profile in "$DOTFILES_HOME"/iterm2/DynamicProfiles/*.json
-  do
-    [ -e "$profile" ] || continue
-    ln -snf "$profile" "$iterm_dp/$(basename "$profile")"
-  done
   defaults write com.googlecode.iterm2 "Default Bookmark Guid" -string "SEB-MAIN-DYNAMIC-PROFILE"
 
   # iTerm global (non-profile) settings. Profiles are versioned as dynamic
@@ -168,10 +161,10 @@ if [ -d "$HOME/Library/Application Support/iTerm2" ]; then
   defaults write com.googlecode.iterm2 AitermURL -string 'https://api.openai.com/v1/responses'
 fi
 
-# display-font: render the generated app configs (Zed settings, and later the
-# iTerm profile) from their tracked templates for the currently-connected
-# display. Seeds ~/.config/zed/settings.json — which is generated, not
-# symlinked — so a fresh checkout has a working Zed config at the right size.
+# display-font: render the generated app configs (Zed settings + iTerm profile)
+# from their tracked templates for the currently-connected display. Seeds
+# ~/.config/zed/settings.json and iTerm's dynamic profile — both generated, not
+# symlinked — so a fresh checkout has working configs at the right size.
 DOTFILES_HOME="$DOTFILES_HOME" "$DOTFILES_HOME/bin/display-font" || true
 
 # SDKMAN runs compinit and a chpwd hook on every shell that sources sdkman-init.sh

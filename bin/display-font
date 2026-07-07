@@ -45,4 +45,15 @@ if [ -f "$zed_template" ]; then
   sed "s/__FONT_SIZE__/$size/g" "$zed_template" > "$zed_out.tmp" && mv "$zed_out.tmp" "$zed_out"
 fi
 
-echo "display-font: $context display → ${size}px (zed)"
+# iTerm2: render template → generated dynamic profile (real file, never
+# symlinked). iTerm hot-reloads the DynamicProfiles folder, so open sessions
+# bound to this profile resize live.
+iterm_template="$DOTFILES/iterm2/seb.template.json"
+iterm_out="$HOME/Library/Application Support/iTerm2/DynamicProfiles/seb.json"
+if [ -f "$iterm_template" ] && [ -d "$HOME/Library/Application Support/iTerm2" ]; then
+  mkdir -p "$(dirname "$iterm_out")"
+  [ -L "$iterm_out" ] && rm -f "$iterm_out"
+  sed "s/__FONT_SIZE__/$size/g" "$iterm_template" > "$iterm_out.tmp" && mv "$iterm_out.tmp" "$iterm_out"
+fi
+
+echo "display-font: $context display → ${size}px (zed, iterm)"

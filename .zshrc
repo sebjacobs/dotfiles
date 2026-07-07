@@ -13,6 +13,7 @@ source $(brew --prefix)/share/zsh-syntax-highlighting/zsh-syntax-highlighting.zs
 # Per-directory ruby switching is wired by rpup's hook in env.zsh; direnv here.
 eval "$(direnv hook zsh)"
 
+source "$dotfiles/zsh/osc7.zsh"
 source "$dotfiles/zsh/aliases.zsh"
 source "$dotfiles/zsh/git_aliases.zsh"
 source "$dotfiles/zsh/gwt.zsh"

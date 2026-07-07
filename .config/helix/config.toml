@@ -5,6 +5,7 @@ line-number = "relative"
 cursorline = true
 bufferline = "multiple"
 text-width = 80
+mouse = true
 
 [editor.soft-wrap]
 enable = true
@@ -15,6 +16,16 @@ normal = "block"
 
 [editor.lsp]
 display-inlay-hints = true
+
+[keys.normal]
+y = "yank_to_clipboard"
+p = "paste_clipboard_after"
+P = "paste_clipboard_before"
+
+[keys.select]
+y = "yank_to_clipboard"
+p = "paste_clipboard_after"
+P = "paste_clipboard_before"
 
 [keys.normal.g]
 q = ":reflow"

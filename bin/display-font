@@ -36,24 +36,40 @@ else
   context=built-in
 fi
 
-# Zed: render template → generated settings.json (real file, never symlinked).
-zed_template="$DOTFILES/.config/zed/settings.base.jsonc"
-zed_out="$HOME/.config/zed/settings.json"
-if [ -f "$zed_template" ]; then
-  mkdir -p "$(dirname "$zed_out")"
-  [ -L "$zed_out" ] && rm -f "$zed_out"
-  sed "s/__FONT_SIZE__/$size/g" "$zed_template" > "$zed_out.tmp" && mv "$zed_out.tmp" "$zed_out"
+changed=0
+
+# Render a template to a generated (never-symlinked) target, but only rewrite
+# when the content actually changes. Idempotence keeps the display-font agent
+# from touching the files — and so from triggering needless hot-reloads — on
+# every poll; only a genuine size flip rewrites and resizes open windows.
+render() {
+  template="$1" out="$2"
+  [ -f "$template" ] || return 0
+  outdir="$(dirname "$out")"
+  mkdir -p "$outdir"
+  [ -L "$out" ] && rm -f "$out"
+  # Render to a temp OUTSIDE the target directory, then atomically move it in.
+  # iTerm reads every file in its DynamicProfiles folder, so a *.tmp left there
+  # — even briefly, and on every idempotent no-op poll — makes it choke on
+  # half-written JSON or a duplicate Guid. The parent dir is on the same
+  # filesystem, so the mv is a real atomic rename: iTerm only ever sees the
+  # finished file appear.
+  tmp="$outdir/../.display-font.$$.tmp"
+  sed "s/__FONT_SIZE__/$size/g" "$template" > "$tmp"
+  if [ -f "$out" ] && cmp -s "$tmp" "$out"; then
+    rm -f "$tmp"
+  else
+    mv "$tmp" "$out"
+    changed=1
+  fi
+}
+
+render "$DOTFILES/.config/zed/settings.base.jsonc" "$HOME/.config/zed/settings.json"
+
+if [ -d "$HOME/Library/Application Support/iTerm2" ]; then
+  render "$DOTFILES/iterm2/seb.template.json" \
+    "$HOME/Library/Application Support/iTerm2/DynamicProfiles/seb.json"
 fi
 
-# iTerm2: render template → generated dynamic profile (real file, never
-# symlinked). iTerm hot-reloads the DynamicProfiles folder, so open sessions
-# bound to this profile resize live.
-iterm_template="$DOTFILES/iterm2/seb.template.json"
-iterm_out="$HOME/Library/Application Support/iTerm2/DynamicProfiles/seb.json"
-if [ -f "$iterm_template" ] && [ -d "$HOME/Library/Application Support/iTerm2" ]; then
-  mkdir -p "$(dirname "$iterm_out")"
-  [ -L "$iterm_out" ] && rm -f "$iterm_out"
-  sed "s/__FONT_SIZE__/$size/g" "$iterm_template" > "$iterm_out.tmp" && mv "$iterm_out.tmp" "$iterm_out"
-fi
-
-echo "display-font: $context display → ${size}px (zed, iterm)"
+[ "$changed" -eq 1 ] && echo "display-font: $context display → ${size}px (zed, iterm)"
+exit 0

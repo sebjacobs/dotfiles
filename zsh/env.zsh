@@ -44,6 +44,11 @@ export PATH="/opt/homebrew/opt/postgresql@18/bin:$PATH"
 
 export OLLAMA_KEEP_ALIVE=-1
 
+# dox (github.com/sebjacobs/dox) defaults to the docker backend; opt this machine
+# into the experimental apple-container backend globally. A project .env can still
+# override per-project. Until dox grows a global config layer (see its docs/backlog.md).
+export DOX_BACKEND=container
+
 # Completion dirs must be on fpath before SDKMAN's init runs compinit (below) —
 # .zshrc loads only after .zshenv, so setting them there is too late and new
 # completions go undiscovered. The local site-functions dir holds completions

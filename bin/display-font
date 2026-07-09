@@ -14,10 +14,20 @@
 # iTerm both hot-reload, so open windows resize without a restart.
 
 set -eu
+setopt null_glob
 
 DOTFILES="${DOTFILES_HOME:-$HOME/dotfiles}"
 BASE_SIZE=16
 EXTERNAL_SCALE=1.5
+
+# Firefox's layout.css.devPixelsPerPx is an *absolute* scale, not a multiplier,
+# so it can't reuse EXTERNAL_SCALE — it needs a real per-display value calibrated
+# live in about:config (the pref applies with no restart). 2.2 nudges the Retina
+# built-in (auto ~2.0) up a touch; the external is a HiDPI panel that sits further
+# away, so 2.4 sizes it to feel right at that distance. An absolute below a
+# display's own auto shrinks the UI, so each value stays at or above its baseline.
+BUILTIN_DPPX=2.2
+EXTERNAL_DPPX=2.4
 
 external_connected() {
   ioreg -lw0 2>/dev/null \
@@ -25,14 +35,19 @@ external_connected() {
     | grep -qviE 'color lcd|built-?in'
 }
 
+# size (px) drives zed/iterm; dppx (Firefox's layout.css.devPixelsPerPx) is an
+# absolute per-display override, so each context carries its own calibrated value.
 if [ "${DISPLAY_FONT_FORCE:-}" = built-in ]; then
   size=$BASE_SIZE
+  dppx=$BUILTIN_DPPX
   context="built-in (forced)"
 elif [ "${DISPLAY_FONT_FORCE:-}" = external ] || external_connected; then
   size=$(printf '%.0f' $(( BASE_SIZE * EXTERNAL_SCALE )))
+  dppx=$EXTERNAL_DPPX
   context=external
 else
   size=$BASE_SIZE
+  dppx=$BUILTIN_DPPX
   context=built-in
 fi
 
@@ -55,7 +70,7 @@ render() {
   # filesystem, so the mv is a real atomic rename: iTerm only ever sees the
   # finished file appear.
   tmp="$outdir/../.display-font.$$.tmp"
-  sed "s/__FONT_SIZE__/$size/g" "$template" > "$tmp"
+  sed -e "s/__FONT_SIZE__/$size/g" -e "s/__DPPX__/$dppx/g" "$template" > "$tmp"
   if [ -f "$out" ] && cmp -s "$tmp" "$out"; then
     rm -f "$tmp"
   else
@@ -71,5 +86,12 @@ if [ -d "$HOME/Library/Application Support/iTerm2" ]; then
     "$HOME/Library/Application Support/iTerm2/DynamicProfiles/seb.json"
 fi
 
-[ "$changed" -eq 1 ] && echo "display-font: $context display → ${size}px (zed, iterm)"
+# Firefox reads user.js only at startup, so unlike zed/iterm it won't resize a
+# running window — the new scale lands on its next launch. Rendered into every
+# profile so whichever one is launched picks it up.
+for prof in "$HOME/Library/Application Support/Firefox/Profiles"/*/; do
+  render "$DOTFILES/firefox/user.template.js" "$prof/user.js"
+done
+
+[ "$changed" -eq 1 ] && echo "display-font: $context display → ${size}px (zed, iterm); firefox → ${dppx} devPixelsPerPx (next launch)"
 exit 0

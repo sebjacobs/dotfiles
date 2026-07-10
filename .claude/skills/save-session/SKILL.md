@@ -61,9 +61,17 @@ jotter write \
   --next "<next from preview>"
 ```
 
-### 4 — Cancel session timer — only if stepping away
+### 4 — Pause the timers — only if stepping away
 
-If the user is stepping away ("taking a break", "back in a bit", "pausing") **and** a session cron timer is running, cancel it with `CronDelete <job-id>`. **Do not** call `CronList` to fish for one — only cancel if you already know the job-id from this session. If the user is checkpointing to continue, leave the timer running.
+If the user is stepping away ("taking a break", "back in a bit", "pausing"), freeze the clock so `remaining` doesn't bleed away while they're gone:
+
+```bash
+sesh pause    # remaining freezes; the launchd alert is dropped
+```
+
+And if a session cron heartbeat is running, cancel it with `CronDelete <job-id>`. **Do not** call `CronList` to fish for one — only cancel if you already know the job-id from this session.
+
+On return, run `sesh resume` — the end slides later by the paused duration and the alert re-arms. If the user is checkpointing to continue (not stepping away), leave both timers running.
 
 ### 5 — Confirm
 

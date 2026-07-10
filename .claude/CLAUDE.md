@@ -39,7 +39,7 @@ Principles:
 - Ask about available time and hard stops before reading anything
 - Ask if the session should use ping-pong TDD mode — invoke `/pingpong` if yes
 - Propose **one concrete goal** — not a wish list
-- Set a cron timer so the session is paced automatically
+- Start the `sesh` timer for authoritative time, and set a cron heartbeat to pace check-ins
 - Cut off at **7PM** — flag it directly if the session is running late
 
 ## Session end routine
@@ -47,11 +47,20 @@ Principles:
 Run `/stop` at the end of every session — the `stop-session` skill has the full steps. For mid-session checkpoints or stepping away briefly, use `/save`; for a quick note without committing, use `/note`.
 
 Principles:
+- Stop the `sesh` timer and cancel the cron heartbeat so nothing fires after you walk away
 - Check the project's CLAUDE.md for any additional session-end requirements
 
 ## Working hours
 
 Cut-off is 7PM. If a session is running past 7PM, say so directly — don't let it slide quietly. Early starts are fine.
+
+## Session pacing — read the clock, don't guess
+
+**Never estimate elapsed or remaining session time from memory — read `sesh status --json`.** The agent has a persistent blind spot here (it once claimed "35 minutes in" ten minutes after a 9AM start); `sesh` is the authoritative on-disk clock that removes the guesswork. Any time you reason about how long is left, whether a hard stop is close, or whether it's past the 7PM cut-off, read the timer first. Branch on the `phase` field (`running → ending_soon → finished`) rather than recomputing from timestamps.
+
+`sesh` is a *pull* (you read it when awake); the cron heartbeat `/start` sets is the *push* that re-invokes you every 30 minutes. They are complementary — the heartbeat forces the check-in, `sesh` tells you the real time when you check. `sesh` also fires a macOS banner for the human near the end, and flips `alerted` in status for the agent.
+
+`/start`, `/save`, and `/stop` drive the timer (`start` / `pause` / `resume` / `stop`) — no manual timer management needed. See `~/.claude/docs/sesh.md` for the full command, flag, and status-field reference — read it before invoking `sesh` directly.
 
 ## Managing context
 

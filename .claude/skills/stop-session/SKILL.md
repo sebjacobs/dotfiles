@@ -1,6 +1,6 @@
 ---
 name: stop-session
-description: Run the end-of-session checklist — commit any dirty work, write a stop entry to the jotter log, cancel the session cron timer. Leaves a walk-away state. Use when the user says "/stop", "let's stop for today", "let's stop for the morning", "let's wrap up", "wrap up", "end this session", "let's call it", "that's enough for today", or the legacy "/finish".
+description: Run the end-of-session checklist — commit any dirty work, write a stop entry to the jotter log, stop the sesh timer and cancel the session cron heartbeat. Leaves a walk-away state. Use when the user says "/stop", "let's stop for today", "let's stop for the morning", "let's wrap up", "wrap up", "end this session", "let's call it", "that's enough for today", or the legacy "/finish".
 ---
 
 # Stop Session
@@ -63,10 +63,16 @@ jotter write --project "$PROJECT" --branch "$BRANCH" --type stop \
 
 Commits the data repo locally; the push is asynchronous, carried to the remote by the background timer (`jotter daemon`). Force it now with `jotter sync` if you need it pushed before walking away.
 
-### 4 — Cancel session timer
+### 4 — Stop the timers
 
-If this session set a cron timer (via `/start`), cancel it now with `CronDelete <job-id>`. **Do not** call `CronList` to fish for one — only cancel if you already know the job-id from this session.
+Stop the `sesh` timer so its end-of-session alert doesn't fire after you've walked away:
+
+```bash
+sesh stop
+```
+
+Then, if this session set a cron heartbeat (via `/start`), cancel it now with `CronDelete <job-id>`. **Do not** call `CronList` to fish for one — only cancel if you already know the job-id from this session.
 
 ### 5 — Sign-off
 
-> "Done at HH:MM. Tree clean, log written, timer cancelled. Safe to close the laptop."
+> "Done at HH:MM. Tree clean, log written, timers cleared. Safe to close the laptop."

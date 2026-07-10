@@ -135,19 +135,29 @@ Rules:
 
 ### 6 — Set the pacing
 
+**First, start the `sesh` timer** — the authoritative on-disk clock. This is the source of truth for elapsed/remaining time throughout the session; from here on, read it rather than guessing.
+
+```bash
+sesh start <duration> --lead 5m
+```
+
+Use the stated session duration (default `1h` if none given). `sesh` fires a macOS banner for the human at *end − lead* and flips `alerted` in `sesh status` for the agent. One timer per git worktree, so separate worktrees pace independently.
+
+**Then set the cron heartbeat** — the *push* that re-invokes the agent; `sesh` never wakes you on its own.
+
 **If the session is 30 minutes or shorter:** schedule a one-shot end warning instead of a recurring check-in — fire ~5 minutes before the end of the stated session duration:
 
 - `cron`: current time + (duration - 5 minutes), pinned to today's date
-- `prompt`: `Session almost up — time to reach a clean stopping point and run /stop.`
+- `prompt`: `Session almost up — run 'sesh status --json' to confirm, reach a clean stopping point, and run /stop.`
 - `recurring`: `false`
 
 **If the session is longer than 30 minutes:** schedule a recurring 30-minute check-in:
 
 - `cron`: `*/30 * * * *`
-- `prompt`: `30-minute check-in — how's progress? On track for the session goal? Any hard stop coming up? Also a good moment for a 5-min break if needed.`
+- `prompt`: `30-minute check-in — read 'sesh status --json' for authoritative time. How's progress against 'remaining'? On track for the goal? Any hard stop coming up? Also a good moment for a 5-min break if needed.`
 - `recurring`: `true`
 
-Confirm to the user that the timer is set, and note the job ID so it can be cancelled with CronDelete if plans change. Recurring cron jobs auto-expire after 3 days.
+Confirm to the user that the `sesh` timer and cron heartbeat are set, and note the job ID so the cron can be cancelled with CronDelete if plans change. Recurring cron jobs auto-expire after 3 days.
 
 If the session is running past **7PM**, say so directly:
 

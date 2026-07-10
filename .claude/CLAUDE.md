@@ -4,7 +4,7 @@
 
 > **Note:** The entire managed `~/.claude/` config lives in `~/dotfiles` — `CLAUDE.md`, `skills/`, `agents/`, `docs/`, `settings.json`, and `keybindings.json` are all symlinks into `~/dotfiles/.claude/`. Any new files added to these directories, and any edits, must be committed in the `~/dotfiles` git repo, not here.
 
-> **Catching up via jotter — always read the jotter log first.** Whenever a session continues, resumes, or picks up prior work ("let's continue", "carry on with X"), read the jotter log **before** reading code, running git log, or starting to act — it's the fastest way to recover what was last done and decided, and acting without it risks re-treading or contradicting recent work. Run `jotter search --project <name> --since <YYYY-MM-DD> 2>&1 | tail -150` (add `--branch <branch>` to scope to the current branch). Do **not** reach for `jotter ls`, raw `~/.claude/projects/*.jsonl` transcripts, or git log first — `jotter search` is the fastest path and the one that actually works. Full reference: `~/.claude/docs/jotter.md` — read it before invoking any other `jotter` subcommand.
+> **Catching up via jotter — always read the jotter log first.** Whenever a session continues, resumes, or picks up prior work ("let's continue", "carry on with X"), read the jotter log **before** reading code, running git log, or starting to act — it's the fastest way to recover what was last done and decided, and acting without it risks re-treading or contradicting recent work. (These same continue/resume phrases also trigger the **full** session start routine — see "Session start routine" below; reading the jotter log is step one of it, not a replacement for it.) Run `jotter search --project <name> --since <YYYY-MM-DD> 2>&1 | tail -150` (add `--branch <branch>` to scope to the current branch). Do **not** reach for `jotter ls`, raw `~/.claude/projects/*.jsonl` transcripts, or git log first — `jotter search` is the fastest path and the one that actually works. Full reference: `~/.claude/docs/jotter.md` — read it before invoking any other `jotter` subcommand.
 
 ## Evaluating global and project config changes
 
@@ -34,6 +34,8 @@ See `~/.claude/docs/jotter.md` for the full reference — storage layout, comman
 ## Session start routine
 
 Run `/start` at the beginning of every session — the `start-session` skill has the full steps.
+
+**"Continue" means start.** Treat "continue", "let's continue", "carry on", "resume", "pick up where we left off" (and similar) exactly like `/start` — run the **full** start routine, not just a jotter catch-up. Reading the jotter log (below) is step one *of* that routine, not a substitute for it: still ask about available time and hard stops, start the `sesh` timer, set the cron heartbeat, and propose one concrete goal. The only time to skip is a quick, already-scoped task where the goal is obvious.
 
 Principles:
 - Ask about available time and hard stops before reading anything

@@ -79,7 +79,7 @@ brew "yt-dlp"
 brew "zsh-autosuggestions"
 brew "zsh-syntax-highlighting"
 brew "hashicorp/tap/terraform"
-brew "homebrew-ffmpeg/ffmpeg/ffmpeg", args: ["with-fdk-aac"]
+brew "homebrew-ffmpeg/ffmpeg/ffmpeg", args:  ["with-fdk-aac", "with-zimg", "with-libvmaf", "with-libplacebo"]
 cask "1password"
 cask "alfred"
 cask "android-studio"

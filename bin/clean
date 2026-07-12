@@ -1,0 +1,80 @@
+#!/usr/bin/env bash
+# Reclaim system caches the way a "mac cleaner" menu-bar app does, using only
+# the tools macOS ships. Two jobs, run together or on their own:
+#
+#   ram  purge inactive memory and the filesystem cache (built-in `purge`)
+#   dns  flush the resolver cache — the fix for stale records after a VPN flip,
+#        a DNS change, or an /etc/hosts edit the system keeps ignoring
+#
+# All of it needs root, so this re-invokes itself once under sudo — a single
+# password prompt covers whichever jobs you asked for.
+#
+# Usage:
+#   clean            # everything (ram + dns)
+#   clean all        # same
+#   clean ram        # just free memory
+#   clean dns        # just flush DNS
+#   clean -q         # quiet — no output on success
+#
+# -q may sit before or after the subcommand.
+
+set -euo pipefail
+
+# Re-entry as root: do the privileged work for the requested job(s), nothing else.
+if [ "${1:-}" = "__root" ]; then
+  case "${2:-all}" in
+    ram|all) purge ;;
+  esac
+  case "${2:-all}" in
+    dns|all)
+      dscacheutil -flushcache
+      killall -HUP mDNSResponder
+      ;;
+  esac
+  exit 0
+fi
+
+quiet=false
+action=all
+for arg in "$@"; do
+  case "$arg" in
+    -q) quiet=true ;;
+    ram|dns|all) action="$arg" ;;
+    -h|--help) sed -n '2,17p' "$0" | cut -c3-; exit 0 ;;
+    *) echo "clean: unknown argument '$arg'" >&2; exit 1 ;;
+  esac
+done
+
+# Bytes of "available" memory = (free + inactive + speculative) pages * pagesize.
+# This mirrors what purge targets: inactive pages are reclaimable on demand.
+available_bytes() {
+  local pagesize free inactive spec
+  pagesize=$(vm_stat | awk '/page size of/ {print $8}')
+  free=$(vm_stat | awk '/Pages free/ {gsub("\\.","",$3); print $3}')
+  inactive=$(vm_stat | awk '/Pages inactive/ {gsub("\\.","",$3); print $3}')
+  spec=$(vm_stat | awk '/Pages speculative/ {gsub("\\.","",$3); print $3}')
+  echo $(( (free + inactive + spec) * pagesize ))
+}
+
+human() {
+  awk -v b="$1" 'BEGIN { printf "%.2f GB", b / 1073741824 }'
+}
+
+before=""
+if [ "$action" = ram ] || [ "$action" = all ]; then
+  before=$(available_bytes)
+  $quiet || echo "Available before: $(human "$before")"
+fi
+
+$quiet || echo "Cleaning ($action, needs sudo)..."
+sudo "$0" __root "$action"
+
+if [ -n "$before" ]; then
+  after=$(available_bytes)
+  $quiet || echo "Available after:  $(human "$after")"
+  $quiet || echo "Reclaimed:        $(human "$(( after - before ))")"
+fi
+
+if [ "$action" = dns ] || [ "$action" = all ]; then
+  $quiet || echo "DNS cache flushed."
+fi

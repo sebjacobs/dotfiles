@@ -1,9 +1,13 @@
 # ~/.gwt.yml — personal gwt config.
 #
-# Only the `editor:` key is read from the home ~/.gwt.yml (hooks live in a repo's
-# own .gwt.yml). It sets the editor `gwt edit` launches, taking precedence over $VISUAL
-# and $EDITOR. The value is either a string (split on whitespace) or an explicit
-# argv list; it may carry flags, and the command is checked on PATH before launch.
+# `editor:` is the editor `gwt edit` launches when opening a whole worktree (or
+# `root`, or a `--gem` source), taking precedence over $VISUAL and $EDITOR.
+# `file_editor:` is used instead when the target is a path *inside* a worktree
+# (`gwt edit <path>`, `gwt edit <name> <path>`), falling back to `editor:` when
+# unset. Each value is a string (split on whitespace) or an explicit argv list; it
+# may carry flags, and the command is checked on PATH before launch.
 #
-# Replicates the old `gwt zed` behaviour — `zed -n <target>` (open in a new window).
-editor: [zed]
+# `zed -n <target>` opens in a new window, so worktrees each get their own window;
+# a plain `zed <file>` drops the file into the window already open.
+editor: [zed, -n]
+file_editor: [zed]

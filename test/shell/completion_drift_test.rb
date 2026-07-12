@@ -17,19 +17,20 @@ require_relative "../test_helper"
 # `# @subcommands` line) does fail — that means the check itself is blind and
 # would silently pass on real drift.
 #
-# jotter and gwt are excluded on purpose: both are Go tools distributed via
-# Homebrew whose command surface lives in the binary, not a Ruby SUBCOMMANDS.
-# jotter's completion asks the binary at runtime (`jotter __complete`); gwt's
-# hand-kept `_gwt` now mirrors the Go tool (github.com/sebjacobs/gwt), not the
-# dormant `lib/gwt.rb` kept only as proj's engine — so neither has a Ruby source
-# in this repo to check against.
+# jotter, gwt and proj are excluded on purpose: all three are Go tools whose
+# command surface lives in the binary, not a Ruby SUBCOMMANDS, and whose zsh
+# completion is emitted by the binary and installed onto fpath (`jotter
+# __complete` at runtime; `gwt completion zsh` / `proj completion zsh` on
+# install). Their `_gwt`/`_proj` no longer live in this repo — the dormant
+# `lib/gwt.rb` (proj's worktree engine) and `lib/proj.rb` (kept only as a
+# rollback) are no longer their source of truth — so there's nothing here to
+# check them against.
 module CompletionDrift
   REPO_ROOT = File.expand_path("../..", __dir__)
 
   TOOLS = [
-    { name: "proj", source: "lib/proj.rb", completion: "zsh/completions/_proj" },
-    { name: "svc",  source: "bin/svc",     completion: "zsh/completions/_svc" },
-    { name: "dot",  source: "bin/dot",     completion: "zsh/completions/_dot" }
+    { name: "svc", source: "bin/svc", completion: "zsh/completions/_svc" },
+    { name: "dot", source: "bin/dot", completion: "zsh/completions/_dot" }
   ].freeze
 
   def self.read(relative_path)

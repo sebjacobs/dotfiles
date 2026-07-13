@@ -46,7 +46,6 @@
   "vim": {
     "use_system_clipboard": "on_yank",
     "use_smartcase_find": true,
-    "use_multiline_find": true,
   },
   "ui_font_size": __FONT_SIZE__,
   "buffer_font_size": __FONT_SIZE__,
@@ -81,6 +80,8 @@
     "**/tmp",
     "**/log",
     "**/app/assets/builds",
+    "**/build/reports",
+    "**/build/intermediates",
   ],
   "lsp": {
     "ruby-lsp": {

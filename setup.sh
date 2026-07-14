@@ -30,6 +30,39 @@ if ! command -v starship > /dev/null; then
   exit
 fi
 
+# Soft checks: dependencies installed manually (outside brew bundle / the hard
+# prerequisites above). They are not required for symlinking to succeed, so warn
+# and keep going rather than exit. Install commands live in CLAUDE.md's
+# "Manual steps after setup" section. Each test probes the artefact directly
+# (dir/file/binary) rather than a PATH command, since several are shell
+# functions or live under $HOME and aren't on a fresh sh's PATH.
+missing_manual=0
+warn_manual() {
+  # $1 = human hint (name + install command)
+  echo "  ⚠ missing: $1"
+  missing_manual=$((missing_manual + 1))
+}
+
+echo "checking manually-installed dependencies:"
+[ -x "$HOME/.cargo/bin/cargo" ] || command -v cargo > /dev/null \
+  || warn_manual "rust toolchain (curl https://sh.rustup.rs -sSf | sh)"
+[ -d "$HOME/.sdkman" ] \
+  || warn_manual "sdkman + java (see https://sdkman.io, then sdk install java 21.0.7-tem)"
+ls "$HOME"/.rubies/*/bin/ruby > /dev/null 2>&1 \
+  || warn_manual "a ruby build (ruby-install ruby 4.0.5 && rpup use ruby-4.0.5) — rpup needs one"
+[ -d "$HOME/Library/Android/sdk" ] \
+  || warn_manual "Android SDK (\$ANDROID_HOME) — install via Android Studio's SDK Manager"
+command -v claude > /dev/null \
+  || warn_manual "Claude Code CLI (npm install -g @anthropic-ai/claude-code)"
+[ -f "$HOME/.secrets.zsh" ] \
+  || warn_manual "~/.secrets.zsh (create from backup — never committed)"
+ls "$HOME"/.ssh/id_* > /dev/null 2>&1 \
+  || warn_manual "ssh key (ssh-keygen -t ed25519 -C \"<your-email>\")"
+
+if [ "$missing_manual" -eq 0 ]; then
+  echo "  all manual dependencies present"
+fi
+
 dirs=(
   ".bundle"
   ".claude"

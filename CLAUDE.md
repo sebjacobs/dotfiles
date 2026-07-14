@@ -78,7 +78,7 @@ cp /path/to/backup/.secrets.zsh ~/.secrets.zsh
 # export ANTHROPIC_API_KEY=...
 
 # SSH keys — generate or restore from backup
-ssh-keygen -t ed25519 -C "me@sebjacobs.com"
+ssh-keygen -t ed25519 -C "<your-email>"
 # then add to GitHub: https://github.com/settings/keys
 ```
 

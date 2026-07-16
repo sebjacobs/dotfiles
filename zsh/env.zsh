@@ -89,3 +89,5 @@ path=("$HOME/.cargo/bin" $path)
 # language-managed bins and macOS path_helper reordering in login shells.
 export PATH="$HOME/.local/bin:$PATH"
 export PATH="$HOME/bin:$PATH"
+
+export PATH="$HOME/Tech/Projects/open-source/depot_tools:$PATH"

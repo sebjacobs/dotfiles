@@ -74,3 +74,8 @@ worktree-tripwire:
   desc: Catch whatever recreates stray .claude/worktrees directories
   location: bin/worktree-tripwire
   repo: dotfiles
+
+zombie-kill:
+  desc: Pick off stray dev processes (gradle daemons, orphaned emulators)
+  location: bin/zombie-kill
+  repo: dotfiles

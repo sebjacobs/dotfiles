@@ -7,37 +7,7 @@ alias mig="bundle exec rails db:migrate"
 alias ffs="bundle install && npm install && bundle exec rails db:migrate"
 
 # processes
-ZOMBIE_PATTERN='\b(java|ruby|xcode|node|npm|gradle|python|uv|adb|emulator|qemu)\b'
-
-function _zombie_list() {
-  ps -axo pid=,ucomm=,args= \
-    | rg -i -- "$ZOMBIE_PATTERN" \
-    | awk -v self=$$ '$1 != self && $2 != "rg" && $2 != "fzf"'
-}
-
-alias zombie="_zombie_list"
-
-function zombie-kill() {
-  local -a targets survivors
-  targets=(${(f)"$(_zombie_list | fzf --multi --header='tab to select, enter to kill' | awk '{print $1}')"})
-
-  (( $#targets )) || { echo "nothing selected"; return 1 }
-
-  kill -TERM $targets 2>/dev/null
-  sleep 2
-
-  local pid
-  for pid in $targets; do
-    kill -0 $pid 2>/dev/null && survivors+=$pid
-  done
-
-  if (( $#survivors )); then
-    kill -KILL $survivors 2>/dev/null
-    echo "TERM: $#targets, escalated to KILL: ${(j:, :)survivors}"
-  else
-    echo "TERM: $#targets, all exited cleanly"
-  fi
-}
+alias zombie="zombie-kill -l"
 
 # python/django
 alias pyman="uv run python manage.py"

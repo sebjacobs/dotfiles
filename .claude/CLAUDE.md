@@ -172,7 +172,10 @@ Common commands:
 - `gwt rm [-f] <name>` — remove a worktree (fuzzy name; `-f` skips the prompt)
 - `gwt path [<name>]` — echo a worktree's absolute path (current if omitted)
 - `gwt root [-p]` — cd back to the main worktree root (`-p` echoes the path)
+- `gwt send <path> [--from <src>] [--to <dst>|all] [-f] [-y]` — copy one ad-hoc file or directory between worktrees (root → all with `--to all`)
 - `gwt sync [<name>|--all] [-f] [--hooks]` — re-merge root's `.worktreeinclude` into a worktree (the named one, every one with `--all`, or the current one); adds missing files and refreshes stale ones without deleting the worktree's own, `-f` makes root win on a conflict, `--hooks` re-runs the `post-add` hook
+
+**Distributing a change to the other worktrees: reach for `gwt send`, not `gwt sync`.** `send` copies the one path you name; `sync` re-merges everything `.worktreeinclude` covers, and those entries are usually whole directories, so one config edit drags every sibling file in that directory along with it. That's how a worktree's own state gets silently overwritten by root's. Use `sync` only when you actually want the full merge — a worktree that has drifted or missed files — and prefer `send` for the routine "I changed one file at root, push it out" case.
 
 The directory-changing subcommands (`add`, `cd`, `root`) rely on a shell wrapper, so from a non-interactive `Bash` call prefer the non-cd forms (`gwt path`, `gwt ls`, `gwt status`) and `cd "$(gwt path <name>)"` when you need to be inside one. Full reference and `.worktreeinclude` semantics live in the header of `zsh/gwt.zsh`.
 

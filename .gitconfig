@@ -22,6 +22,7 @@
 [alias]
   praise = blame
   pushf = push --force-with-lease
+  tidy = gc --prune=now --aggressive
 [github]
   user = sebjacobs
 [url "git@github.com:"]

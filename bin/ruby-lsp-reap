@@ -13,6 +13,13 @@
 # process, so anything still attached to an open Zed window is left alone —
 # safe to run ad-hoc or on a launchd timer.
 #
+# Killing is TERM first, then SIGKILL to whatever is still up after a grace
+# period. TERM alone was the original behaviour and it quietly under-delivered:
+# a wedged server — the exact kind most worth reaping — ignores it, so the run
+# reported "Killed" and the process lived on to be re-reported half an hour
+# later. Pids that needed forcing are called out separately, so a server that
+# habitually refuses TERM is visible rather than averaged into a success.
+#
 # Usage:
 #   ruby-lsp-reap        kill orphaned servers (no live Zed ancestor)
 #   ruby-lsp-reap -n     dry run: list what would be killed
@@ -22,6 +29,11 @@
 
 module RubyLspReap
   Proc_ = Struct.new(:pid, :ppid, :command)
+
+  # Seconds between TERM and the SIGKILL escalation. A ruby-lsp that has already
+  # lost its editor has nothing left to flush, so this only needs to cover a
+  # healthy interpreter unwinding — not a real shutdown.
+  GRACE = 2
 
   module_function
 
@@ -62,6 +74,27 @@ module RubyLspReap
   def targets(procs, self_pid, reap_all)
     found = candidates(procs, self_pid)
     reap_all ? found : found.reject { |p| zed_ancestor?(p.pid, procs) }
+  end
+
+  def alive?(pid)
+    Process.kill(0, pid)
+    true
+  rescue Errno::ESRCH
+    false
+  rescue Errno::EPERM
+    true
+  end
+
+  # Signal each pid, returning those that took it. A pid that died between the
+  # scan and the signal is expected, not exceptional.
+  def signal(pids, sig)
+    pids.select do |pid|
+      Process.kill(sig, pid)
+      true
+    rescue Errno::ESRCH, Errno::EPERM => e
+      warn "could not #{sig} #{pid}: #{e.message}"
+      false
+    end
   end
 end
 
@@ -106,13 +139,12 @@ if __FILE__ == $PROGRAM_NAME
     exit 0
   end
 
-  killed = targets.select do |p|
-    Process.kill("TERM", p.pid)
-    true
-  rescue Errno::ESRCH, Errno::EPERM => e
-    warn "could not kill #{p.pid}: #{e.message}"
-    false
-  end
+  termed = RubyLspReap.signal(targets.map(&:pid), "TERM")
+  sleep RubyLspReap::GRACE
 
-  puts "Killed: #{killed.map(&:pid).join(" ")}" unless killed.empty?
+  survivors = termed.select { |pid| RubyLspReap.alive?(pid) }
+  killed = RubyLspReap.signal(survivors, "KILL")
+
+  puts "TERM: #{termed.join(' ')}" unless termed.empty?
+  puts "Escalated to KILL: #{killed.join(' ')}" unless killed.empty?
 end

@@ -10,6 +10,16 @@ brewup:
   location: bin/brewup
   repo: dotfiles
 
+clean:
+  desc: Reclaim system caches — purge inactive memory, flush the DNS resolver
+  location: bin/clean
+  repo: dotfiles
+
+display-font:
+  desc: Size editor/terminal fonts from the connected display
+  location: bin/display-font
+  repo: dotfiles
+
 dox:
   desc: docker-compose + git-worktree isolation helper
   location: ~/.local/bin/dox
@@ -35,6 +45,11 @@ ollama-warm:
   location: bin/ollama-warm
   repo: dotfiles
 
+plistgen:
+  desc: Generate launchd plists for personal agents
+  location: bin/plistgen
+  repo: dotfiles
+
 proj:
   desc: Quick cd into personal, client, or open-source projects
   location: lib/proj.rb
@@ -54,3 +69,13 @@ tasks:
   desc: CLI for Google Tasks
   location: ~/.local/bin/tasks
   repo: tasks
+
+worktree-tripwire:
+  desc: Catch whatever recreates stray .claude/worktrees directories
+  location: bin/worktree-tripwire
+  repo: dotfiles
+
+zombie-kill:
+  desc: Pick off stray dev processes (gradle daemons, orphaned emulators)
+  location: bin/zombie-kill
+  repo: dotfiles

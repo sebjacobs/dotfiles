@@ -18,6 +18,7 @@ CLAUDE.local.md
 .secrets.zsh
 .secrets/*
 .env
+.env.bak
 .envrc
 .venv
 
@@ -65,8 +66,9 @@ config/database.yml
 public/sitemaps
 vendor/cache
 
-# Java / Gradle / Maven
+# Kotlin / Java / Gradle / Maven
 .gradle
+.kotlin
 target/
 
 # ctags
@@ -80,3 +82,5 @@ tmp/*
 !tmp/.gitkeep
 log/*
 !log/.gitkeep
+
+*.bak

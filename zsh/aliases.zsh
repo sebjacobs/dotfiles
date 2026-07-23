@@ -6,6 +6,9 @@ alias bu="bundle update"
 alias mig="bundle exec rails db:migrate"
 alias ffs="bundle install && npm install && bundle exec rails db:migrate"
 
+# processes
+alias zombie="zombie-kill -l"
+
 # python/django
 alias pyman="uv run python manage.py"
 alias pyt="uv run pytest"

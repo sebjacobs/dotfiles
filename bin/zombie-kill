@@ -1,0 +1,225 @@
+#!/usr/bin/env ruby
+# frozen_string_literal: true
+
+# zombie-kill — reap the dev processes that outlive the thing that spawned them.
+#
+# Gradle daemons, orphaned emulators, a node dev server whose terminal is long
+# gone: all still holding memory and ports. Listing them was easy; killing them
+# meant reading pids off the list and retyping them into `kill`, which is
+# exactly the transcription I get wrong when several are squatting at once.
+# This lists them, hands the list to fzf, and reaps whatever I select.
+#
+# Killing is TERM first, then SIGKILL to anything still breathing after a
+# grace period — SIGKILL alone strands lockfiles and sockets, TERM alone
+# silently leaves a process I explicitly asked to die still running. Pids that
+# needed forcing are reported, so a habitual TERM-ignorer is visible rather
+# than hidden behind a success message.
+#
+# Sibling to ruby-lsp-reap, deliberately kept separate: that one encodes real
+# orphan-detection (is there a live Zed ancestor?) and is safe on a launchd
+# timer. This one is blunt and human-driven — a picker, because the match is
+# broad enough that something you want is occasionally in the list.
+#
+# Each match is tagged `orphan` (reparented to launchd) or `attached`, and
+# orphans sort first, so the picker leads with what is most likely dead. The tag
+# only ranks the list — see LAUNCHD_PID for why it cannot safely filter it.
+#
+# Usage:
+#   zombie-kill        pick from the matches, then reap the selection
+#   zombie-kill -l     list every match, kill nothing
+#   zombie-kill -n     dry run: pick as normal, print instead of killing
+
+module ZombieKill
+  Proc_ = Struct.new(:pid, :ppid, :tty, :ucomm, :args)
+
+  # Runtimes worth hunting. Deliberately no vite/jest/puma/rails/webpack: they
+  # run *as* node or ruby, so the interpreter already catches them and the extra
+  # terms would only widen the false-positive surface.
+  #
+  # Matched against a process's NAME (its ucomm, or its executable's basename) —
+  # never its whole command line. Searching the args, as the original
+  # `ps aux | rg` version did, matches any process that merely mentions a term:
+  # Dropbox passes `--capture-python` and `-python-version:3.11.14`, so it
+  # showed up as prey. A name is the actual signal; an argument is hearsay.
+  #
+  # Trailing `[^a-z]|\z` rather than `\b` so a version suffix still matches
+  # (`python3.13`, `qemu-system-aarch64`) while a longer word does not
+  # (`nodemon`, `uvicorn`) — `\b` fails on the former, since `python3` has no
+  # boundary between the `n` and the `3`.
+  NAME_PATTERN = /\A(java|ruby|xcode|node|npm|gradle|python|uv|adb|emulator|qemu)([^a-z]|\z)/i
+
+  # Args are printed for context, not matched on. Dropbox's crashpad line runs
+  # to several thousand characters and would wreck the picker's layout.
+  ARGS_WIDTH = 120
+
+  # A process reparented to launchd has lost whatever spawned it. That is the
+  # one orphan signal available without knowing, per runtime, who the legitimate
+  # parent was — which is the check ruby-lsp-reap can make (is there a live Zed
+  # ancestor?) and this script deliberately cannot.
+  #
+  # It is a tag, not a filter, because it cannot tell an orphan from a daemon:
+  # a Gradle daemon detaches to ppid 1 on purpose and is the healthiest thing in
+  # the list. The controlling tty doesn't separate them either — closing a
+  # terminal destroys the pty, so the abandoned dev server and the never-attached
+  # daemon both read `??`. So the tag ranks the picker and the human still
+  # decides; promoting it to a filter would reap working daemons.
+  LAUNCHD_PID = 1
+
+  # Seconds between TERM and the SIGKILL escalation.
+  GRACE = 2
+
+  module_function
+
+  def parse_ps(output)
+    output.each_line.filter_map do |line|
+      pid, ppid, tty, ucomm, args = line.strip.split(/\s+/, 5)
+      next unless pid =~ /\A\d+\z/ && ppid =~ /\A\d+\z/ && tty && ucomm && args
+
+      Proc_.new(pid.to_i, ppid.to_i, tty, ucomm, args)
+    end
+  end
+
+  # Never offer up our own pipeline: this script runs as `ruby .../zombie-kill`
+  # and so matches PATTERN on \bruby\b, and fzf is our own child.
+  def own_machinery?(proc_)
+    proc_.args.include?("zombie-kill") || proc_.ucomm == "fzf"
+  end
+
+  # The names a process answers to: its ucomm, and its executable's basename.
+  # Both, because neither alone is enough — a Volta-shimmed language server has
+  # ucomm `volta-shim` but execs `/Users/x/.volta/bin/node`, while a plain
+  # daemon's ucomm is all we get.
+  def names(proc_)
+    [proc_.ucomm, File.basename(proc_.args.split(/\s+/, 2).first.to_s)]
+  end
+
+  def zombie?(proc_)
+    names(proc_).any? { |name| name =~ NAME_PATTERN }
+  end
+
+  def orphan?(proc_)
+    proc_.ppid == LAUNCHD_PID
+  end
+
+  def tag(proc_)
+    orphan?(proc_) ? "orphan" : "attached"
+  end
+
+  # Orphans first: they are the ones worth reaping, and burying them below a
+  # dozen attached processes is the transcription problem this script exists to
+  # remove, just moved into the picker.
+  def candidates(procs, self_pid)
+    procs.reject { |p| p.pid == self_pid || own_machinery?(p) }
+         .select { |p| zombie?(p) }
+         .sort_by { |p| [orphan?(p) ? 0 : 1, p.pid] }
+  end
+
+  def format_line(proc_)
+    args = proc_.args
+    args = "#{args[0, ARGS_WIDTH - 1]}…" if args.length > ARGS_WIDTH
+    format("%-8s %-7d %-6s %-16s %s", tag(proc_), proc_.pid, proc_.tty, proc_.ucomm, args)
+  end
+
+  # Pids from fzf's selection, read from the second column — the tag now leads
+  # each line. Tolerates the empty string fzf emits when the picker is aborted,
+  # which must mean "nothing", never "everything".
+  def selected_pids(fzf_output)
+    fzf_output.to_s.each_line.filter_map do |line|
+      pid = line.strip.split(/\s+/, 3)[1]
+      pid.to_i if pid =~ /\A\d+\z/
+    end
+  end
+
+  def alive?(pid)
+    Process.kill(0, pid)
+    true
+  rescue Errno::ESRCH
+    false
+  rescue Errno::EPERM
+    true
+  end
+
+  def signal(pids, sig)
+    pids.select do |pid|
+      Process.kill(sig, pid)
+      true
+    rescue Errno::ESRCH, Errno::EPERM => e
+      warn "could not #{sig} #{pid}: #{e.message}"
+      false
+    end
+  end
+
+  # The header's own Usage block, found rather than sliced by line number so
+  # editing the comment above can't silently empty out `-h`.
+  def usage(source = File.readlines(__FILE__))
+    source.drop_while { |line| !line.start_with?("# Usage:") }
+          .take_while { |line| line.start_with?("#") }
+          .map { |line| line.sub(/\A# ?/, "") }
+  end
+
+  def pick(lines)
+    IO.popen(["fzf", "--multi", "--header=tab to select, enter to kill"], "r+") do |io|
+      io.puts lines
+      io.close_write
+      io.read
+    end
+  rescue Errno::ENOENT
+    warn "zombie-kill: fzf not found — brew bundle, or use -l to list"
+    exit 127
+  end
+end
+
+if __FILE__ == $PROGRAM_NAME
+  list_only = ARGV.include?("-l")
+  dry_run = ARGV.include?("-n")
+
+  if (ARGV & %w[-h --help]).any?
+    puts ZombieKill.usage
+    exit 0
+  end
+
+  unknown = ARGV - %w[-l -n]
+  unless unknown.empty?
+    warn "unknown option: #{unknown.first}"
+    exit 2
+  end
+
+  procs = ZombieKill.parse_ps(`ps -axo pid=,ppid=,tty=,ucomm=,args=`)
+  found = ZombieKill.candidates(procs, Process.pid)
+
+  if found.empty?
+    puts "No stray dev processes found."
+    exit 0
+  end
+
+  lines = found.map { |p| ZombieKill.format_line(p) }
+
+  if list_only
+    puts lines
+    exit 0
+  end
+
+  targets = ZombieKill.selected_pids(ZombieKill.pick(lines))
+  if targets.empty?
+    puts "Nothing selected."
+    exit 1
+  end
+
+  if dry_run
+    puts "Would kill: #{targets.join(' ')}"
+    puts "(dry run — nothing killed)"
+    exit 0
+  end
+
+  termed = ZombieKill.signal(targets, "TERM")
+  sleep ZombieKill::GRACE
+
+  survivors = termed.select { |pid| ZombieKill.alive?(pid) }
+  killed = ZombieKill.signal(survivors, "KILL")
+
+  if killed.empty?
+    puts "TERM: #{termed.length}, all exited cleanly"
+  else
+    puts "TERM: #{termed.length}, escalated to KILL: #{killed.join(', ')}"
+  end
+end

@@ -18,6 +18,7 @@ CLAUDE.local.md
 .secrets.zsh
 .secrets/*
 .env
+.env.bak
 .envrc
 .venv
 
@@ -81,3 +82,5 @@ tmp/*
 !tmp/.gitkeep
 log/*
 !log/.gitkeep
+
+*.bak

@@ -81,7 +81,7 @@
     "**/.mypy_cache",
     "**/.pytest_cache",
     "**/.ruff_cache",
-    "**/.claude/worktrees",
+    ".claude/worktrees",
     "**/.bundle",
     "**/tmp",
     "**/log",

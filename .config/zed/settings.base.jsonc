@@ -60,6 +60,9 @@
   "search": {
     "include_ignored": true,
   },
+  "file_finder": {
+    "include_ignored": "all",
+  },
   "file_scan_exclusions": [
     "**/.git",
     "**/.ruby-lsp",

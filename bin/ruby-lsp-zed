@@ -1,0 +1,31 @@
+#!/bin/sh
+#
+# Launch ruby-lsp for Zed with the project's ruby activated.
+#
+# Zed's GUI process inherits launchd's PATH, not a login shell's, so rpup's zsh
+# hook never runs there. Without it Zed reports "Unable to find 'bundle' or
+# 'ruby-lsp' command" (no ~/.rubies or gem bin dir on PATH), and pointing it
+# straight at a gem shim is no better: the shim falls through to /usr/bin/ruby
+# and dies looking for the gem under system ruby 2.6.
+#
+# So re-create the activation from the project's .ruby-version — Zed runs a
+# language server with the worktree root as cwd — and let PATH resolution find
+# the gem's own executable. Projects with no .ruby-version fall through to
+# whatever ruby-lsp is already on PATH.
+#
+# Point Zed at it per-project (.zed/settings.json) or globally, using the
+# absolute path since ~/bin isn't on the GUI PATH either:
+#
+#   "lsp": { "ruby-lsp": { "binary": { "path": "/Users/<you>/bin/ruby-lsp-zed" } } }
+#
+# The gem has to be installed for whichever ruby gets activated:
+# `rpup use <version>` then `gem install ruby-lsp`.
+
+RPUP="${RPUP_BIN:-$HOME/go/bin/rpup}"
+VERSION_FILE="$PWD/.ruby-version"
+
+if [ -x "$RPUP" ] && [ -f "$VERSION_FILE" ]; then
+  eval "$("$RPUP" use "$(tr -d '[:space:]' < "$VERSION_FILE")")"
+fi
+
+exec ruby-lsp "$@"

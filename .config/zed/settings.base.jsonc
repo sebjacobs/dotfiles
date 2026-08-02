@@ -106,9 +106,33 @@
   "languages": {
     "Ruby": {
       "language_servers": ["ruby-lsp"],
+      "tab_size": 2,
+      "hard_tabs": false,
     },
     "HTML+ERB": {
       "language_servers": ["herb", "ruby-lsp"],
+      "tab_size": 2,
+      "hard_tabs": false,
+    },
+    "CSS": {
+      "tab_size": 2,
+      "hard_tabs": false,
+    },
+    "JavaScript": {
+      "tab_size": 2,
+      "hard_tabs": false,
+    },
+    "JSX": {
+      "tab_size": 2,
+      "hard_tabs": false,
+    },
+    "TypeScript": {
+      "tab_size": 2,
+      "hard_tabs": false,
+    },
+    "TSX": {
+      "tab_size": 2,
+      "hard_tabs": false,
     },
   },
 }

@@ -77,7 +77,6 @@
     "**/.settings",
     "**/.yarn",
     "**/node_modules",
-    "**/vendor",
     "**/.terraform",
     "**/.venv",
     "**/.venv*",

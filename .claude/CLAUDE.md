@@ -276,45 +276,62 @@ Always rebase the feature branch onto main before merging — ensures the histor
 - Never `git push --force` to main.
 
 **Feature branch PRs:**
-PR descriptions follow the same philosophy as commit messages — explain the *why*, not just the *what*, and **defer the per-change detail to the commit messages** rather than re-narrating the diff. The body orients the reviewer; the commits carry the specifics. Structure (use these exact `##` headings):
 
-1. **## Motivation** — lead with the *why*, kept high-level: a paragraph or two on the problem this solves or the capability it unlocks, the reasoning behind the approach, and the scope boundary (what this part deliberately does *not* do). Don't enumerate the changes here. Illustrate the problem with one concrete example rather than listing every instance of it — e.g. "a `setup_pagination` whose branches ran back-to-front" lands better than a full inventory of the tangles. For a stacked PR, open by naming the part it follows and linking it. If the PR is behaviour-preserving except for a deliberate change, call that exception out here — and note that it surfaces as a test edit rather than silent drift.
-2. **## Summary** — a short bullet list of the significant changes at a high level (not exhaustive, not file-by-file). Weave any gotchas, trade-offs, and "things to note" into the relevant bullet or a short following sentence rather than giving them their own heading. End with **"See individual commit messages for the details."** Fold references inline where they belong (every reference carries a URL or commit SHA; footnote style `[1]`/`[2]` when there are several). For a stacked PR, close with a line naming the base branch and a compare link to the part's own diff, plus the merge/rebase order. **Don't link to predecessor/draft PRs as predecessors** — but the part-N cross-links between live stacked PRs are the point, keep those.
-3. **## Questions/Feedback** — include by default. Specific questions for reviewers: naming calls, design decisions, judgement calls, anything you'd want a second opinion on. Better than a vague "thoughts?" — it directs attention where input is actually useful. Only skip if there is genuinely nothing to ask; when in doubt, surface at least one real question (e.g. "is the scope right?", "I went with X over Y because Z — agree?").
+**Read the repo before writing the template.** A repo with an established PR style wins over anything here — skim the last handful of *merged* PRs (`gh pr list --state merged --limit 15 --json number,body`) and mirror their headings, tone, and **length**. The template below is the default for a repo with no convention of its own, and it is also what a house style tends to converge on. Getting this wrong is easy and invisible: copying the format of one recent PR is a sample of one, and the rarest variant is as likely to be the one you land on as the common one.
 
-Do **not** add separate `Key changes`, `Gotchas`, `References`, or `Test plan` headings — that older six-heading template is retired. Their content folds into Motivation and Summary as above. Add a `## TODO` checklist only when there are remaining steps on the branch, so the PR tracks what's left.
+PR descriptions follow the same philosophy as commit messages — explain the *why*, not just the *what*, and **defer the per-change detail to the commit messages** rather than re-narrating the diff. The body orients the reviewer; the commits carry the specifics.
 
-Example (a stacked, behaviour-preserving refactor PR):
+**Keep it short.** A PR description that is longer than any recently merged one is a signal you are re-narrating the diff. Match the repo's range; when in doubt, aim for the middle of it, not the top.
+
+Structure — three sections, bold-with-underline headings:
+
+1. **Motivation** — lead with the *why*, kept high-level: a paragraph or two on the problem this solves or the capability it unlocks, and the reasoning behind the approach. Don't enumerate the changes here. Illustrate the problem with one concrete example rather than listing every instance of it. For a stacked or part-N PR, open by naming the part it follows and linking it. If the PR is behaviour-preserving except for a deliberate change, call that exception out here.
+2. **Summary** — a short bullet list of the significant changes at a high level (not exhaustive, not file-by-file). End with **"See individual commit messages for the details."** Fold references inline where they belong (every reference carries a URL or commit SHA). For a stacked PR, close with a line naming the base branch and a compare link, plus the merge/rebase order. **Don't link to predecessor/draft PRs as predecessors** — but part-N cross-links between live stacked PRs are the point, keep those.
+3. **Things to note** — gotchas, trade-offs, deliberate omissions, anything that would surprise a reviewer reading the diff cold. One idea per bullet. This is where scope boundaries and "what this deliberately does not do" live.
+
+**Questions for the reviewer go in Things to note, not their own heading** — phrased as the decision you took plus an invitation, e.g. "I went narrow rather than wide because X. Shout if you'd rather go wide." Still raise them: a judgement call left unflagged is a judgement call nobody reviews.
+
+Do **not** add separate `Key changes`, `Gotchas`, `References`, `Out of scope`, or `Test plan` headings. Skip a `TODO` checklist unless the branch genuinely has outstanding steps worth tracking in public — an empty-by-merge-time checklist is noise. If the project tracks work in an issue tracker, the task link goes on the first line, above everything.
+
+Example:
 
 ```markdown
-## Motivation
+https://app.asana.com/…/task/1214897942917678
 
-With [part 3](…/pull/687)'s characterization net in place, this part untangles
-`WidgetsController#index` — the slice's most tangled method. It read as one long
-procedure (e.g. a `setup_pagination` whose branches ran back-to-front), and the filtering
-feature still to come needs it readable first.
+**Motivation**
+============
 
-Every commit is behaviour-preserving and pinned by part 3's specs, **with one deliberate
-exception**: a repeat request now queries the cache once, not twice. That surfaces as a test edit
-(the part 3 spec flips from `.twice` to `.once`) rather than as silent drift.
+Part 1 (#795) introduced the unclaimed Installer profile. This branch uses it to import
+the network — 152 companies — as an umbrella scheme and its members, creating an
+unclaimed profile for each company that has never signed up.
 
-## Summary
+It is a one-off `rails runner` script rather than a rake task or a data migration.
+Dry-run is the default; `--apply` performs the import.
 
-- Extract the empty-results redirect into a `redirect_on_empty_filter` guard.
-- Untangle `setup_pagination` — nil-first ordering, named predicates, and rebuild cached
-  bounds instead of recomputing them.
-- Extract `rows_for(query)` and `row_html(record)` from the inline builder.
+**Summary**
+===========
+
+- Import the network as an unpublished umbrella scheme and its members. A company
+  already on the platform keeps everything it has — the import only adds the membership.
+- Move companies listed under a scheme-branded name onto their own name, and recredit
+  the hosts pointing at the old one.
+- Add `--mark-as-approved`, so an admin can approve the cohort in one go.
 
 See individual commit messages for the details.
 
-This is stacked on [part 3](…/pull/687) — its base is `feature/widget-list-p3`, so the diff
-here is only this part's commits ([compare](…/compare/feature/widget-list-p3...feature/widget-list-p4)).
-Merge after #687 lands (and rebase onto `main` at that point).
+**Things to note**
+===============
 
-## Questions/Feedback
+- Nothing is published or approved by default, because approving is the admin's
+  statement that a listing is fit to credit.
 
-- Do `sorted` / `within_page_bounds` / `redirect_on_empty_filter` read ok?
-- The query-once-not-twice flip is the only behaviour change — happy folding it in here?
+- The script is idempotent but does not re-apply edits. New CSV rows are picked up on a
+  re-run; a corrected description will not propagate to a profile an earlier run created.
+  That is deliberate — we can't distinguish a profile this script created from a real
+  installer's own listing.
+
+- Only hosts who named the network are adopted into the scheme. The wider reading asserts
+  something the host never said. Shout if you'd rather go wide.
 ```
 
 **Editing PR descriptions, issues, comments — fetch live state first, edit in place, never regenerate from a remembered template.** The user is often editing the same artifact concurrently in the GitHub UI. Regenerating the whole body from your last-known version silently stomps their edits. The right pattern is always: `gh pr view <n> --json body --jq .body > /tmp/body.md` → `Edit` only the line that needs changing → `gh pr edit <n> --body-file /tmp/body.md`. Applies equally to issue bodies, PR comments, anywhere a human and you might both write. If a small targeted edit isn't possible (e.g. major restructure), confirm with the user before pushing a full rewrite.

@@ -11,3 +11,4 @@
 # a plain `zed <file>` drops the file into the window already open.
 editor: [zed, -n]
 file_editor: [zed]
+worktree_limit: 3

@@ -215,6 +215,7 @@ When building any static HTML page, follow `~/.claude/docs/web_standards.md`. Ke
 - Is the first line a `<tag>: ` prefix (feat/fix/refactor/docs/chore/test/perf) followed by a short imperative summary of the *value*, not the implementation? (< 72 chars total)
 - Does the body *cover* all three (as prose, not headings): **Why** (motivation), **Benefit unlocked** (what this enables), **Trade-offs** (why this approach)?
 - Does the prose match the voice of the repo's recent commits? (skim them first)
+- Is it free of the phrases in `~/.claude/docs/writing_voice.md`? (terms that read as machine-written, each with the natural alternative beside it — check the subject line especially)
 - Are unrelated changes in separate commits?
 - Are relevant references included, and does each one have a URL or commit SHA? Naming a doc/issue/commit without a link is dead weight to a future reader.
 - Is the message being passed via HEREDOC?

@@ -110,6 +110,8 @@ The shape those rules ask for, briefly:
 - **Every reference carries a URL or commit SHA.** Naming a doc, issue or earlier commit without one is dead weight to a future reader.
 - End with the `Co-Authored-By:` trailer naming the actual model.
 
+**Run every subject and body past `~/.claude/docs/writing_voice.md` before writing it.** Rewording is exactly where a machine-written phrase gets baked into history permanently — "hold X to a constant number", "leverage", "streamline", "optimise" with no mechanism named. That doc lists them with the natural alternative beside each, and closes with the words that *look* like slop but are genuinely in use, so a reword doesn't strip them.
+
 **Ask when the motivation isn't recoverable.** A commit message invented from the diff is worse than the terse one it replaced — it reads authoritative and may be wrong. If the session log and the code don't tell you *why*, ask rather than guess.
 
 ## When not to bother

@@ -284,6 +284,8 @@ PR descriptions follow the same philosophy as commit messages — explain the *w
 
 **Keep it short.** A PR description that is longer than any recently merged one is a signal you are re-narrating the diff. Match the repo's range; when in doubt, aim for the middle of it, not the top.
 
+**Check the wording against `~/.claude/docs/writing_voice.md`** — the phrases that read as machine-written, each with the natural alternative beside it, plus the words that look like slop but are genuinely in use. A PR description is read by people who did not write the branch, so an off-key phrase is more noticeable here than anywhere else.
+
 Structure — three sections, bold-with-underline headings:
 
 1. **Motivation** — lead with the *why*, kept high-level: a paragraph or two on the problem this solves or the capability it unlocks, and the reasoning behind the approach. Don't enumerate the changes here. Illustrate the problem with one concrete example rather than listing every instance of it. For a stacked or part-N PR, open by naming the part it follows and linking it. If the PR is behaviour-preserving except for a deliberate change, call that exception out here.

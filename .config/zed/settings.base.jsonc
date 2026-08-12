@@ -87,6 +87,7 @@
     ".bundle",
     "**/tmp",
     "**/log",
+    "**/dist",
     "**/app/assets/builds",
     "**/build/reports",
     "**/build/intermediates",

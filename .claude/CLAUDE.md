@@ -138,6 +138,8 @@ See `~/.claude/docs/workspace.md` for the setup recipe (`.gitkeep` + `.gitignore
 
 Changes accumulate as dirty working tree state during a session. Do **not** commit mid-feature without checking. When a task is complete and there are uncommitted changes, propose commit groupings and wait for the user to confirm they make sense — then commit. Don't wait to be asked whether to commit; take the initiative to propose, then act after approval.
 
+**One "commit" approval covers everything proposed — finish the job in one go.** When the user says "commit" after a grouping has been proposed, commit *every* outstanding group in that turn (as separate commits where the grouping says so) without pausing to re-confirm, re-inspect, or report between groups. Any scoping question ("should the leftovers go in too?") belongs in the proposal, not after approval — if the user answers "commit" to a proposal that flagged optional extras, include them rather than drip-feeding another round-trip.
+
 **Five principles (the why behind the rules below):**
 
 1. **Atomic commits** — each commit has one reason to exist. If you can describe it with "and", split it. Atomic commits can be reverted independently, bisected to find regressions, and reviewed in isolation.

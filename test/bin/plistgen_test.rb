@@ -94,6 +94,57 @@ class PlistgenPureTest < Minitest::Test
     end
   end
 
+  def test_calendar_entries_are_the_cross_product_of_weekdays_and_times
+    entries = Plistgen.calendar_entries({ "weekdays" => [1, 2], "times" => ["08:00", "16:30"] })
+
+    assert_equal 4, entries.length
+    assert_equal({ "Weekday" => 1, "Hour" => 8, "Minute" => 0 }, entries.first)
+    assert_equal({ "Weekday" => 2, "Hour" => 16, "Minute" => 30 }, entries.last)
+  end
+
+  def test_calendar_entries_omit_weekday_when_none_given
+    entries = Plistgen.calendar_entries({ "times" => ["09:05"] })
+
+    assert_equal [{ "Hour" => 9, "Minute" => 5 }], entries
+  end
+
+  def test_render_emits_a_calendar_array_instead_of_an_interval
+    spec = Plistgen.job_spec("uk-refresh",
+                             { "calendar" => { "weekdays" => [1, 2, 3, 4, 5], "times" => ["08:00", "12:30", "16:30"] } },
+                             {}, "com.sebjacobs")
+    xml = Plistgen.render(spec, "/root")
+
+    assert_includes xml, "<key>StartCalendarInterval</key>"
+    refute_includes xml, "<key>StartInterval</key>"
+    assert_equal 15, xml.scan("<key>Weekday</key>").length
+  end
+
+  # A calendar job that fired at load would run at login and at wake — the times
+  # its schedule exists to exclude — whereas an interval drain wants a tick as
+  # soon as it is installed.
+  def test_render_runs_at_load_only_for_interval_jobs
+    calendar = Plistgen.job_spec("uk-refresh", { "calendar" => { "times" => ["08:00"] } }, {}, "com.sebjacobs")
+    interval = Plistgen.job_spec("word-study", {}, {}, "com.sebjacobs")
+
+    assert_includes Plistgen.render(calendar, "/root"), "<key>RunAtLoad</key>\n  <false/>"
+    assert_includes Plistgen.render(interval, "/root"), "<key>RunAtLoad</key>\n  <true/>"
+  end
+
+  def test_render_calendar_plist_is_valid_parseable_plist
+    skip "plutil unavailable" unless system("which plutil > /dev/null 2>&1")
+
+    spec = Plistgen.job_spec("uk-refresh",
+                             { "calendar" => { "weekdays" => [1, 5], "times" => ["08:00", "16:30"] } },
+                             {}, "com.sebjacobs")
+    require "tempfile"
+    Tempfile.create(["gen", ".plist"]) do |f|
+      f.write(Plistgen.render(spec, "/root"))
+      f.flush
+      assert system("plutil", "-lint", f.path, out: File::NULL, err: File::NULL),
+             "generated calendar plist should pass plutil -lint"
+    end
+  end
+
   def test_xml_escape_escapes_markup_chars
     assert_equal "a &amp; b &lt;c&gt;", Plistgen.xml_escape("a & b <c>")
   end

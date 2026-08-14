@@ -9,6 +9,11 @@
 # was previously copied into every plist, hardcoding an absolute checkout path
 # four times per file. When the repo was renamed those paths silently rotted.
 #
+# A job schedules one of two ways: `interval` seconds for a drain that polls for
+# work, or a `calendar` of weekdays and times for one that must run when
+# something external happens on a clock. See `plistgen help` for the manifest
+# shape.
+#
 # So the only committed artifact is the manifest (scripts/launchd/drains.yml);
 # the absolute paths are resolved at render time from --root and never live in
 # git. Rendered plists land in a gitignored dir and are fed to `svc install`.
@@ -46,6 +51,7 @@ module Plistgen
       "label" => "#{prefix}.#{name}#{suffix}",
       "script" => overrides["script"] || "scripts/#{snake}_tick.sh",
       "log" => overrides["log"] || "log/#{snake}_drain.log",
+      "calendar" => overrides["calendar"] || defaults["calendar"],
       "interval" => overrides["interval"] || defaults["interval"] || DEFAULT_INTERVAL,
       "path" => overrides["path"] || defaults["path"] || DEFAULT_PATH,
       "env" => (defaults["env"] || {}).merge(overrides["env"] || {})
@@ -78,6 +84,47 @@ module Plistgen
     end.join("\n")
   end
 
+  # Expand a compact calendar spec into launchd StartCalendarInterval entries:
+  # the cross product of its weekdays and times. An absent `weekdays` means every
+  # day, which is launchd's own reading of a missing Weekday key, so the entries
+  # collapse to one per time. Weekdays are launchd's numbering, Sunday == 0.
+  def calendar_entries(calendar)
+    times = Array(calendar["times"]).map do |time|
+      hour, minute = time.to_s.split(":", 2)
+      { "Hour" => hour.to_i, "Minute" => minute.to_i }
+    end
+    weekdays = Array(calendar["weekdays"])
+    return times if weekdays.empty?
+
+    weekdays.flat_map { |day| times.map { |time| { "Weekday" => day.to_i }.merge(time) } }
+  end
+
+  # One StartCalendarInterval entry as an indented launchd <dict>.
+  def calendar_dict(entry, indent)
+    pad = " " * indent
+    body = entry.map { |key, value| "#{pad}  <key>#{key}</key>\n#{pad}  <integer>#{value}</integer>" }
+    "#{pad}<dict>\n#{body.join("\n")}\n#{pad}</dict>"
+  end
+
+  # The scheduling half of a plist, indented to sit at the top level of its dict.
+  #
+  # RunAtLoad differs between the two deliberately. An interval drain wants a tick
+  # the moment it is installed, and its next one is only a period away regardless.
+  # A calendar job must not fire at load: it would run at login and wake, which are
+  # exactly the times its schedule was written to exclude.
+  def schedule_xml(spec)
+    entries = spec["calendar"] ? calendar_entries(spec["calendar"]) : []
+    if entries.empty?
+      trigger = ["  <key>StartInterval</key>", "  <integer>#{spec['interval'].to_i}</integer>"]
+      run_at_load = "  <true/>"
+    else
+      dicts = entries.map { |entry| calendar_dict(entry, 4) }
+      trigger = ["  <key>StartCalendarInterval</key>", "  <array>", *dicts, "  </array>"]
+      run_at_load = "  <false/>"
+    end
+    [*trigger, "", "  <key>RunAtLoad</key>", run_at_load].join("\n")
+  end
+
   # Render one job spec to a complete launchd plist XML string. +root+ is the
   # absolute checkout root the script/log/WorkingDirectory paths resolve against.
   def render(spec, root)
@@ -105,11 +152,7 @@ module Plistgen
       #{env_lines(spec['path'], spec['env'])}
         </dict>
 
-        <key>StartInterval</key>
-        <integer>#{spec['interval'].to_i}</integer>
-
-        <key>RunAtLoad</key>
-        <true/>
+      #{schedule_xml(spec)}
 
         <key>StandardOutPath</key>
         <string>#{xml_escape(log)}</string>
@@ -332,6 +375,17 @@ module Plistgen
           --manifest <file> Manifest path (default: <root>/scripts/launchd/drains.yml)
 
         With no job names, every job in the manifest is rendered.
+
+        A job ticks on `interval` seconds by default. Give it a `calendar` instead
+        to fire at fixed times, and it stays dormant between them:
+
+          jobs:
+            uk-refresh:
+              calendar:
+                weekdays: [1, 2, 3, 4, 5]   # launchd numbering, Sunday == 0
+                times: ["08:00", "12:30", "16:30"]
+
+        Omit `weekdays` for every day. A calendar job does not run at load.
       USAGE
       code
     end

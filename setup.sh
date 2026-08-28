@@ -194,10 +194,18 @@ if [ -d "$HOME/Library/Application Support/iTerm2" ]; then
   defaults write com.googlecode.iterm2 AitermURL -string 'https://api.openai.com/v1/responses'
 fi
 
-# display-font: render the generated app configs (Zed settings + iTerm profile)
-# from their tracked templates for the currently-connected display. Seeds
-# ~/.config/zed/settings.json and iTerm's dynamic profile — both generated, not
-# symlinked — so a fresh checkout has working configs at the right size.
+# Ghostty: everything else lives in ghostty/config.template (rendered by the
+# display-font run below). Key repeat on hold is the one setting that isn't a
+# config key — it's the AppKit-wide NSUserDefault, same as iTerm's above.
+if [ -d "/Applications/Ghostty.app" ]; then
+  defaults write com.mitchellh.ghostty ApplePressAndHoldEnabled -bool false
+fi
+
+# display-font: render the generated app configs (Zed settings, iTerm profile,
+# Ghostty config) from their tracked templates for the currently-connected
+# display. Seeds ~/.config/zed/settings.json, iTerm's dynamic profile and
+# ~/.config/ghostty/config — all generated, not symlinked — so a fresh checkout
+# has working configs at the right size.
 DOTFILES_HOME="$DOTFILES_HOME" "$DOTFILES_HOME/bin/display-font" || true
 
 # SDKMAN runs compinit and a chpwd hook on every shell that sources sdkman-init.sh

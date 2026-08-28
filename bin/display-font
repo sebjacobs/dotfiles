@@ -11,7 +11,8 @@
 # an external is attached regardless of lid state.
 #
 # Renders each app's tracked template into its live (generated) config; Zed and
-# iTerm both hot-reload, so open windows resize without a restart.
+# iTerm both hot-reload, so open windows resize without a restart. Ghostty does
+# not — see the note at its render below.
 
 set -eu
 setopt null_glob
@@ -86,6 +87,13 @@ if [ -d "$HOME/Library/Application Support/iTerm2" ]; then
     "$HOME/Library/Application Support/iTerm2/DynamicProfiles/seb.json"
 fi
 
+# Ghostty has no dynamic-profile folder and does not watch its config, so the
+# render lands but an open window keeps the old size until super+shift+,
+# (reload_config). Rendered anyway so every new window starts at the right size.
+if [ -d "/Applications/Ghostty.app" ]; then
+  render "$DOTFILES/ghostty/config.template" "$HOME/.config/ghostty/config"
+fi
+
 # Firefox reads user.js only at startup, so unlike zed/iterm it won't resize a
 # running window — the new scale lands on its next launch. Rendered into every
 # profile so whichever one is launched picks it up.
@@ -93,5 +101,5 @@ for prof in "$HOME/Library/Application Support/Firefox/Profiles"/*/; do
   render "$DOTFILES/firefox/user.template.js" "$prof/user.js"
 done
 
-[ "$changed" -eq 1 ] && echo "display-font: $context display → ${size}px (zed, iterm); firefox → ${dppx} devPixelsPerPx (next launch)"
+[ "$changed" -eq 1 ] && echo "display-font: $context display → ${size}px (zed, iterm, ghostty); firefox → ${dppx} devPixelsPerPx (next launch)"
 exit 0

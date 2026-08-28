@@ -1,0 +1,51 @@
+# Generated into ~/.config/ghostty/config by bin/display-font — edit this
+# template, not the target. Colours and geometry are ported from the iTerm
+# profile in iterm2/seb.template.json so the two are comparable side by side.
+#
+# Ghostty does not watch this file: after a display flip, press super+shift+,
+# (reload_config) to pick up the new font size in an open window.
+
+font-family = Monaco
+font-size = __FONT_SIZE__
+
+background = #000000
+foreground = #bbbbbb
+bold-color = #ffffff
+
+cursor-color = #bbbbbb
+cursor-text = #ffffff
+cursor-style-blink = false
+
+selection-background = #b5d5ff
+selection-foreground = #000000
+
+palette = 0=#000000
+palette = 1=#bb0000
+palette = 2=#00bb00
+palette = 3=#bbbb00
+palette = 4=#0000bb
+palette = 5=#bb00bb
+palette = 6=#00bbbb
+palette = 7=#bbbbbb
+palette = 8=#555555
+palette = 9=#ff5555
+palette = 10=#55ff55
+palette = 11=#ffff55
+palette = 12=#5555ff
+palette = 13=#ff55ff
+palette = 14=#55ffff
+palette = 15=#ffffff
+
+window-width = 80
+window-height = 25
+window-padding-x = 4
+window-padding-y = 4
+window-save-state = never
+
+# Ghostty allocates lazily up to this ceiling, so a large value costs nothing
+# until it is used. There is no unlimited setting yet, unlike iTerm.
+scrollback-limit = 500000000
+
+clipboard-read = allow
+confirm-close-surface = false
+bell-features = no-system,no-audio,attention,title,no-border

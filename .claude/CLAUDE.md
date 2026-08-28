@@ -354,6 +354,41 @@ See individual commit messages for the details.
 
 **Editing PR descriptions, issues, comments — fetch live state first, edit in place, never regenerate from a remembered template.** The user is often editing the same artifact concurrently in the GitHub UI. Regenerating the whole body from your last-known version silently stomps their edits. The right pattern is always: `gh pr view <n> --json body --jq .body > /tmp/body.md` → `Edit` only the line that needs changing → `gh pr edit <n> --body-file /tmp/body.md`. Applies equally to issue bodies, PR comments, anywhere a human and you might both write. If a small targeted edit isn't possible (e.g. major restructure), confirm with the user before pushing a full rewrite.
 
+**Screenshots in a PR description:**
+
+Screenshots earn their place when the change is visual — a before/after pair showing
+the broken state next to the fixed one does more than a paragraph. Three constraints,
+all learned the hard way:
+
+- **`gh` cannot attach images.** `--body-file` is text only, and the endpoint the web
+  UI posts to (`/upload/policies/assets`) is session-authenticated, so a token cannot
+  drive it. The working flow: ask the user to drag the files into a **comment** on the
+  PR and post it, read the `user-attachments` URLs back with
+  `gh pr view <n> --json body`, build them into the description, then the user deletes
+  the comment. The URLs survive the comment being deleted.
+
+- **On a private repo, `raw.githubusercontent.com` URLs do not render.** GitHub's camo
+  proxy fetches server-side without the viewer's credentials, so pushing images to a
+  side branch and linking them is a dead end — they show as broken images. Do not
+  reach for it.
+
+- **Downscale before uploading.** GitHub renders a dragged-in image at its intrinsic
+  size, and drag-and-drop inserts plain `![](url)` where you get no say. A desktop
+  capture at 2× DPR is enormous. Resize by the DPR factor first
+  (`sips --resampleWidth <css-px> shot.png`) — use `--resampleWidth`, not `-Z`, which
+  constrains the longest side and leaves inconsistent widths. Mobile-width captures are
+  fine as they are; tablet and up need it. Name the files with a zero-padded prefix
+  (`01-`, `02-`) so they upload in order.
+
+**Before any browser screenshot or visual check, ask the user to disable DarkReader.**
+On client projects the app usually ships no dark mode at all, so DarkReader is showing
+a machine inversion of a light-only design: it looks subtly broken, and it hides real
+problems with contrast and colour. It cannot be neutralised from the page — removing
+its injected style nodes triggers its MutationObserver and they come straight back —
+and toggling the extension is a change to the user's browser, not yours to make. So
+ask, and wait. Geometry (`scrollHeight`, layout measurements) is unaffected, but
+anything judged by eye is not.
+
 **Labels:** don't bother with PR labels — skip `gh label list` and create PRs without a label unless explicitly asked to add one.
 
 **When to skip a feature branch:**

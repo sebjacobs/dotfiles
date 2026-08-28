@@ -107,39 +107,27 @@
   "languages": {
     "Ruby": {
       "language_servers": ["ruby-lsp"],
-      "tab_size": 2,
-      "hard_tabs": false,
       "format_on_save": "on"
     },
     "HTML+ERB": {
       "language_servers": ["herb", "ruby-lsp"],
       "formatter": { "language_server": { "name": "herb" } },
-      "tab_size": 2,
-      "hard_tabs": false,
       "format_on_save": "on"
     },
     "CSS": {
-      "tab_size": 2,
       "formatter": { "language_server": { "name": "biome" } },
-      "hard_tabs": false,
       "format_on_save": "on"
     },
     "JavaScript": {
-      "tab_size": 2,
       "formatter": { "language_server": { "name": "biome" } },
-      "hard_tabs": false,
       "format_on_save": "on"
     },
     "TypeScript": {
-      "tab_size": 2,
       "formatter": { "language_server": { "name": "biome" } },
-      "hard_tabs": false,
       "format_on_save": "on"
     },
     "TSX": {
-      "tab_size": 2,
       "formatter": { "language_server": { "name": "biome" } },
-      "hard_tabs": false,
       "format_on_save": "on"
     },
   },

@@ -50,9 +50,8 @@
       "Read(~/.aws/**)",
       "Read(~/.ssh/**)"
     ],
-    "defaultMode": "default"
+    "defaultMode": "auto"
   },
-  "model": "Opus",
   "hooks": {
     "UserPromptSubmit": [
       {
@@ -84,11 +83,50 @@
     }
   },
   "effortLevel": "medium",
+  "tui": "fullscreen",
   "skipWorkflowUsageWarning": true,
   "theme": "dark-daltonized",
   "inputNeededNotifEnabled": true,
   "agentPushNotifEnabled": true,
   "skipAutoPermissionPrompt": true,
-  "voiceEnabled": true,
-  "tui": "fullscreen"
+  "autoMode": {
+    "allow": [
+      "$defaults",
+      "Bash(uv run:*) in stock-fetch — routine script execution per project convention",
+      "Bash(sqlite3 data/uk/*.db \"PRAGMA integrity_check;\") — routine pre-backup integrity check per documented backup procedure",
+      "Bash(just check:*), Bash(just test:*), Bash(just fix:*), Bash(just lint:*), Bash(just typecheck:*) — declared justfile recipes, routine dev loop"
+    ],
+    "soft_deny": [
+      "$defaults",
+      "Bash(sqlite3 data/uk/*.db .backup*) and similar direct writes to production DBs outside the documented backup script — confirm before overwriting backups",
+      "Bash(git worktree add:*), Bash(git worktree remove:*) — CLAUDE.md mandates the gwt wrapper instead of raw git worktree commands"
+    ],
+    "environment": [
+      "### Org-wide",
+      "**Organization**: None configured",
+      "**Cloud provider(s)**: Cloudflare (Workers, via wrangler.toml — worker `2026-stock-research`, deployed on push to any branch)",
+      "**Repository visibility**: Private (sebjacobs/stock-fetch, confirmed via gh)",
+      "**Internal sharing / snippet hosting**: None configured — treat public paste/gist services as outside the trust boundary",
+      "**Secrets management**: `.env` (gitignored, symlinked from ~/Tech/Projects/personal/stock-fetch-data-store), `secrets/` directory (gitignored) — API keys for Anthropic, OpenAI, Companies House, OpenDART, Google Sheets (Paul Scott), Substack",
+      "**Default / protected branches**: `main` is default; no classic branch protection listed and rulesets not queryable — do not assume main is unprotected, treat pushes to main with the same caution as if protected",
+      "**CI/CD deploy targets**: Cloudflare Worker `2026-stock-research` (via Cloudflare GitHub integration, auto-deploys every branch push); production URL https://2026-stock-research.sebjacobs88.workers.dev updates on push to main",
+      "**Network posture**: None configured — note Korea ingest workflow requires VPN egress (probed via ipinfo.io) for scripts/kr-data-refresh",
+      "**Source control**: sebjacobs/stock-fetch (github.com:sebjacobs/stock-fetch.git) and its remote only",
+      "**Trusted internal domains**: None configured",
+      "**Trusted cloud buckets**: None configured",
+      "**Key internal services**: ir-portal.shareideas.uk (Paul Scott SCVR ratings source, referer-restricted key), paulypilot.substack.com (podcast feed), opendart.fss.or.kr (Korea FSS filings API), developer.company-information.service.gov.uk (Companies House API)",
+      "**Internal package registry**: None configured",
+      "**Sensitive data locations & audiences**: `.env` and `secrets/` (API keys/credentials); `data/uk/stocks.db`, `data/uk/market_data.db`, `data/korea/stocks.db` and their `backups/` (financial research data, portfolio/P&L data including a named family member's ('mum's') portfolio criteria) — personal/business-sensitive, keep to this project's owner only",
+      "**Data retention / declassification**: None configured",
+      "**Sensitive remote targets**: any namespace/host/container with `prod` or `production` as a whole word/segment (none observed in this repo's config)",
+      "**Protected deployment namespaces / environments**: None configured — fall back to the Sensitive remote targets heuristic; note the Cloudflare Worker has no separate staging/prod namespace split observed",
+      "**Protected IaC scopes**: IAM, RBAC, networking, quota, and node-pool resources; anything tagged `prod`/`production` as a whole word or segment",
+      "### User-specific",
+      "**Primary use of Claude Code**: software development (personal investment research platform, UK/Korea small-cap stock research)",
+      "**Trusted repo**: sebjacobs/stock-fetch (github.com:sebjacobs/stock-fetch.git), private — confidential material (research data, personal portfolio criteria) is fine here; secrets/credentials are still never cleared into the repo by virtue of visibility",
+      "**Org-specific CLIs**: `gwt` (git worktree helper, ~/dotfiles), `sesh` (session timer), `svc` (launchd service wrapper), `jotter` (session notes CLI), `just` (task runner for this repo's justfile), `uv` (Python toolchain, mandatory over pip)",
+      "**routine under this repo's `scripts/`, `db/`, `docs/` prefixes**: uv, sqlite3, jotter, perl, sesh, svc, ruby usage is routine tooling for this project per CLAUDE.md and observed frequency"
+    ]
+  },
+  "voiceEnabled": true
 }

@@ -6,6 +6,7 @@ CLAUDE.local.md
 .claude/settings.local.json
 .claude/skills/android-cli/
 .claude/worktrees
+.zed
 
 .local/*
 
@@ -42,7 +43,6 @@ CLAUDE.local.md
 # Editors & IDEs
 .idea
 .vscode
-.zed
 *.swp
 
 # Node / Yarn

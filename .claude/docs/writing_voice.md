@@ -32,7 +32,7 @@ history — that is the real source of truth, and it beats this table.
 | **Handle X gracefully** | Say what actually happens: *Keep the children when the parent is deleted* | "Gracefully" is where the behaviour should be. |
 | **In order to** | *to* | Three words for one. |
 | **Under the hood** | Just describe it | Never appears. |
-| **Seamless / effortless / powerful / elegant / battle-tested / production-ready / future-proof** | Drop the adjective | Zero occurrences across the whole corpus. If the thing is good, the diff shows it. |
+| **Seamless / effortless / powerful / elegant / battle-tested / production-ready / future-proof** | Remove the adjective | Zero occurrences across the whole corpus. If the thing is good, the diff shows it. |
 | **Delve into** | *Look at* · *Read* | Never appears. |
 | **Out of the box / best practice / at scale / going forward** | Say the specific thing | Filler that survives deletion untouched. |
 | **Significantly / dramatically / greatly faster** | Give the number, or say nothing | One occurrence of "significantly" in six months. If it matters, measure it. |
@@ -40,6 +40,8 @@ history — that is the real source of truth, and it beats this table.
 | **Single source of truth / first-class / guard rail** | Describe the mechanism | Consultant vocabulary. |
 | **This commit / this PR does X** | Write about the system, not the patch: *The controller now preloads…* | The message is already attached to the commit. |
 | **Simply / just / obviously** | Delete | If it were obvious it wouldn't need the message. |
+| **Drop X** | *Remove X* | I say remove when something comes out. Precedent: *Fix the account settings page and remove unused Devise junk*. "Drop" belongs to SQL and to dropping a feature, not to deleting code. |
+| **Smoking gun** | Say what the evidence is: *The memory sits at the cap for the whole run* | Detective-story register, and it overstates a single data point. Never appears in my writing. |
 
 ## Subject-line verbs I actually use
 
@@ -49,7 +51,7 @@ usually because the verb is not one of these:
 > Add · Remove · Make · Give · Use · Extract · Name · Move · Allow · Let ·
 > Split · Keep · Stop · Skip · Seed · Normalize · Document · Show · Record ·
 > Pin · Cover · Characterize · Validate · Simplify · Replace · Rename · Order ·
-> Match · Hide · Guard · Enforce · Drop · Restore
+> Match · Hide · Guard · Enforce · Restore
 
 Two patterns worth copying directly:
 

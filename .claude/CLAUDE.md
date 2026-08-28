@@ -291,7 +291,7 @@ PR descriptions follow the same philosophy as commit messages — explain the *w
 Structure — three sections, bold-with-underline headings:
 
 1. **Motivation** — lead with the *why*, kept high-level: a paragraph or two on the problem this solves or the capability it unlocks, and the reasoning behind the approach. Don't enumerate the changes here. Illustrate the problem with one concrete example rather than listing every instance of it. For a stacked or part-N PR, open by naming the part it follows and linking it. If the PR is behaviour-preserving except for a deliberate change, call that exception out here.
-2. **Summary** — a short bullet list of the significant changes at a high level (not exhaustive, not file-by-file). End with **"See individual commit messages for the details."** Fold references inline where they belong (every reference carries a URL or commit SHA). For a stacked PR, close with a line naming the base branch and a compare link, plus the merge/rebase order. **Don't link to predecessor/draft PRs as predecessors** — but part-N cross-links between live stacked PRs are the point, keep those.
+2. **Summary** — open with **one or two sentences of plain English on the impact**, before any bullet: what is actually different now, in terms a reader who did not write the branch would care about. Not a restatement of the title, not an inventory of the parts — the effect. E.g. *"System tests no longer touch the network. The browser gets every third-party file from disk instead of from someone else's CDN, which halves the suite's runtime and takes an outage or a slow response off the list of things that can turn a build red."* The bullets say what was built; this says what it buys, and it is the part a reviewer skimming the list of open PRs actually reads. Then a short bullet list of the significant changes at a high level (not exhaustive, not file-by-file). End with **"See individual commit messages for the details."** Fold references inline where they belong (every reference carries a URL or commit SHA). For a stacked PR, close with a line naming the base branch and a compare link, plus the merge/rebase order. **Don't link to predecessor/draft PRs as predecessors** — but part-N cross-links between live stacked PRs are the point, keep those.
 3. **Things to note** — gotchas, trade-offs, deliberate omissions, anything that would surprise a reviewer reading the diff cold. One idea per bullet. This is where scope boundaries and "what this deliberately does not do" live.
 
 **Questions for the reviewer go in Things to note, not their own heading** — phrased as the decision you took plus an invitation, e.g. "I went narrow rather than wide because X. Shout if you'd rather go wide." Still raise them: a judgement call left unflagged is a judgement call nobody reviews.
@@ -315,6 +315,9 @@ Dry-run is the default; `--apply` performs the import.
 
 **Summary**
 ===========
+
+Every company in the network now has a profile on the platform, so a homeowner
+searching for an installer finds them whether or not they ever signed up.
 
 - Import the network as an unpublished umbrella scheme and its members. A company
   already on the platform keeps everything it has — the import only adds the membership.

@@ -18,7 +18,7 @@ set -eu
 setopt null_glob
 
 DOTFILES="${DOTFILES_HOME:-$HOME/dotfiles}"
-BASE_SIZE=16
+BASE_SIZE=20
 EXTERNAL_SCALE=1.5
 
 # Firefox's layout.css.devPixelsPerPx is an *absolute* scale, not a multiplier,

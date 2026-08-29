@@ -36,8 +36,8 @@ palette = 13=#ff55ff
 palette = 14=#55ffff
 palette = 15=#ffffff
 
-window-width = 80
-window-height = 25
+window-width = 100
+window-height = 28
 window-padding-x = 4
 window-padding-y = 4
 window-save-state = never

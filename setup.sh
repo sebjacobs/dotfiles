@@ -203,6 +203,21 @@ if [ -d "/Applications/Ghostty.app" ]; then
   defaults write com.mitchellh.ghostty ApplePressAndHoldEnabled -bool false
 fi
 
+# Alfred: symlink every tracked workflow into Alfred's workflow folder, so a
+# fresh checkout gets them without a manual .alfredworkflow import and edits made
+# in Alfred's own editor land straight back in the repo. Alfred loads any
+# directory under workflows/ that holds an info.plist; imported ones are named
+# user.workflow.<uuid>, so the tracked directory name is reused after that prefix
+# to keep the link readable against Alfred's own opaque ones.
+alfred_workflows="$HOME/Library/Application Support/Alfred/Alfred.alfredpreferences/workflows"
+if [ -d "$alfred_workflows" ]; then
+  for workflow in "$DOTFILES_HOME"/alfred/workflows/*/
+  do
+    [ -e "$workflow/info.plist" ] || continue
+    ln -snf "${workflow%/}" "$alfred_workflows/user.workflow.$(basename "$workflow")"
+  done
+fi
+
 # display-font: render the generated app configs (Zed settings, iTerm profile,
 # Ghostty config) from their tracked templates for the currently-connected
 # display. Seeds ~/.config/zed/settings.json, iTerm's dynamic profile and

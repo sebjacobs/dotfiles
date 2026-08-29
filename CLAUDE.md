@@ -41,6 +41,7 @@ brew bundle         # Installs all packages including ruby-install, starship, zs
   - `skills/` — auto-discovered slash commands available in all projects
   - `agents/` — named subagents invokable via the Agent tool
   - `docs/` — longer reference material (not auto-loaded; CLAUDE.md points to these by path)
+- `alfred/workflows/` — Alfred workflows → symlinked into Alfred's own `workflows/` folder, so edits made in Alfred's editor land back in the repo
 - `bin/` — shell utilities → symlinked into `~/bin/`
 - `Brewfile` — full tool inventory (Homebrew formulae, casks, Go/Rust/Python/NPM packages)
 

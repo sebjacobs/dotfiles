@@ -20,6 +20,11 @@ display-font:
   location: bin/display-font
   repo: dotfiles
 
+docker-prune:
+  desc: Reclaim Docker disk — stopped containers, dangling images, build cache
+  location: bin/docker-prune
+  repo: dotfiles
+
 dox:
   desc: docker-compose + git-worktree isolation helper
   location: ~/.local/bin/dox

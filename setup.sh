@@ -69,6 +69,7 @@ dirs=(
   ".config/dot"
   ".config/opencode"
   ".config/helix"
+  ".colima/_templates"
   "Library/LaunchAgents"
 )
 
@@ -104,6 +105,7 @@ files=(
   ".config/opencode/package-lock.json"
   ".config/opencode/bun.lock"
   ".config/helix/config.toml"
+  ".colima/_templates/default.yaml"
 )
 
 for file in "${files[@]}"

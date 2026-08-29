@@ -1,0 +1,32 @@
+#!/usr/bin/env sh
+
+# Reclaim Docker disk: stopped containers, dangling images, unused networks and
+# build cache. Safe to run interactively or from the launchd timer
+# (com.sebjacobs.docker-prune) — sourcing brew shellenv first means it works in
+# launchd's bare PATH-less environment, the same trick brewup uses.
+#
+# Named volumes and tagged images are deliberately left alone. Volumes hold dev
+# database data for projects that simply aren't running when the timer fires,
+# and re-pulling a tagged image costs more than the space it occupies. Build
+# cache is the thing that actually grows without bound, and it rebuilds itself.
+#
+# Docker here runs on colima, so the daemon is down more often than it is up.
+# That is the normal case, not a failure: exit quietly rather than logging a
+# connection error every week.
+
+eval "$(/opt/homebrew/bin/brew shellenv)"
+
+echo "=== docker-prune $(date '+%Y-%m-%d %H:%M:%S') ==="
+
+if ! command -v docker > /dev/null; then
+  echo "docker not installed — nothing to do"
+  exit 0
+fi
+
+if ! docker info > /dev/null 2>&1; then
+  echo "docker daemon not running (colima down) — nothing to do"
+  exit 0
+fi
+
+docker system df
+docker system prune --force

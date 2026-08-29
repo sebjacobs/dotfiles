@@ -1,0 +1,37 @@
+# Colima's template for new instances (~/.colima/_templates/default.yaml).
+#
+# Colima applies this when it *creates* a VM, so it only ever affects the next
+# `colima start --profile <name>`; an existing instance keeps whatever its own
+# ~/.colima/<profile>/colima.yaml says. Editing this file will not resize a
+# running VM.
+#
+# Distilled from the asf profile rather than copied from it: colima writes a
+# fully-commented 300-line file where four lines are actually mine and the rest
+# restate its own defaults. Two settings from that file are deliberately absent
+# — `hostname`, which is profile-derived and would name every future instance
+# colima-asf, and the pinned k3s version, which colima generates as whatever was
+# latest on the day the profile was made.
+
+cpu: 6
+
+# The VM is where every container build runs, so it gets enough headroom to hold
+# a Rails app, its Postgres, and a bundle install without swapping. Tune down if
+# a machine with less RAM ever reads this.
+memory: 18
+
+disk: 100
+
+runtime: docker
+
+# Apple's virtualization framework, not qemu — noticeably faster, and the
+# precondition for both rosetta and virtiofs below. Cannot be changed after the
+# VM is created.
+vmType: vz
+mountType: virtiofs
+
+# Run amd64 images on Apple silicon at native-ish speed, which matters for the
+# third-party images that still ship x86_64-only.
+rosetta: true
+
+kubernetes:
+  enabled: false

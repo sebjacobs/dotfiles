@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Claude Code statusLine script
-# Mirrors the default Starship prompt: folder, git branch, model, context usage
+# Mirrors the default Starship prompt: gwt slot, folder, git branch, model, context usage
 
 input=$(cat)
 
@@ -16,8 +16,24 @@ if [ -n "$cwd" ] && git -C "$cwd" rev-parse --git-dir >/dev/null 2>&1; then
            || git -C "$cwd" -c gc.auto=0 rev-parse --short HEAD 2>/dev/null)
 fi
 
+# gwt slot number, matching the starship prompt's worktree_slot module: shown
+# only inside a linked worktree, where the git-dir and git-common-dir diverge.
+# At the root the number is always 0, so the guard buys a quieter line and one
+# fewer process spawned per render.
+slot=""
+if [ -n "$cwd" ] \
+   && [ "$(git -C "$cwd" rev-parse --git-dir 2>/dev/null)" \
+        != "$(git -C "$cwd" rev-parse --git-common-dir 2>/dev/null)" ]; then
+  slot=$(cd "$cwd" && "$HOME/.local/bin/gwt-bin" slot 2>/dev/null)
+fi
+
 # Build output
 out=""
+
+# Slot (bold yellow), if inside a worktree
+if [ -n "$slot" ]; then
+  printf "\033[1;33m[%s]\033[0m " "$slot"
+fi
 
 # Folder (cyan)
 printf "\033[36m%s\033[0m" "$folder"

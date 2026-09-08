@@ -145,6 +145,38 @@ class PlistgenPureTest < Minitest::Test
     end
   end
 
+  # A service has no trigger: launchd starts it at load and restarts it on exit,
+  # and the throttle is what stops a program that dies on startup from spinning.
+  def test_render_keepalive_job_has_no_trigger_and_restarts_on_exit
+    spec = Plistgen.job_spec("web", { "keepalive" => true, "script" => "scripts/web_serve.sh" }, {}, "com.sebjacobs")
+    xml = Plistgen.render(spec, "/root")
+
+    assert_includes xml, "<key>RunAtLoad</key>\n  <true/>"
+    assert_includes xml, "<key>KeepAlive</key>\n  <true/>"
+    assert_includes xml, "<key>ThrottleInterval</key>\n  <integer>10</integer>"
+    assert_includes xml, "<string>/root/scripts/web_serve.sh</string>"
+    refute_includes xml, "<key>StartInterval</key>"
+    refute_includes xml, "<key>StartCalendarInterval</key>"
+  end
+
+  def test_render_keepalive_plist_is_valid_parseable_plist
+    skip "plutil unavailable" unless system("which plutil > /dev/null 2>&1")
+
+    spec = Plistgen.job_spec("web", { "keepalive" => true }, {}, "com.sebjacobs")
+    require "tempfile"
+    Tempfile.create(["gen", ".plist"]) do |f|
+      f.write(Plistgen.render(spec, "/root"))
+      f.flush
+      assert system("plutil", "-lint", f.path, out: File::NULL, err: File::NULL),
+             "generated keepalive plist should pass plutil -lint"
+    end
+  end
+
+  def test_scheduled_jobs_do_not_keep_alive
+    interval = Plistgen.job_spec("word-study", {}, {}, "com.sebjacobs")
+    refute_includes Plistgen.render(interval, "/root"), "<key>KeepAlive</key>"
+  end
+
   def test_xml_escape_escapes_markup_chars
     assert_equal "a &amp; b &lt;c&gt;", Plistgen.xml_escape("a & b <c>")
   end

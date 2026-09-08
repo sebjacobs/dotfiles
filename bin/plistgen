@@ -11,8 +11,9 @@
 #
 # A job schedules one of two ways: `interval` seconds for a drain that polls for
 # work, or a `calendar` of weekdays and times for one that must run when
-# something external happens on a clock. See `plistgen help` for the manifest
-# shape.
+# something external happens on a clock. A job marked `keepalive` is a service
+# instead: no trigger, started at load and restarted whenever it exits. See
+# `plistgen help` for the manifest shape.
 #
 # So the only committed artifact is the manifest (scripts/launchd/drains.yml);
 # the absolute paths are resolved at render time from --root and never live in
@@ -34,6 +35,7 @@ module Plistgen
   DEFAULT_PREFIX = "com.sebjacobs"
   DEFAULT_PATH = "/opt/homebrew/bin:/usr/bin:/bin:/usr/sbin:/sbin"
   DEFAULT_INTERVAL = 300
+  KEEPALIVE_THROTTLE_SECONDS = 10
 
   # Derive a job's full spec from its short name plus per-job overrides, applying
   # the naming convention (a "word-study" job runs scripts/word_study_tick.sh and
@@ -52,6 +54,7 @@ module Plistgen
       "script" => overrides["script"] || "scripts/#{snake}_tick.sh",
       "log" => overrides["log"] || "log/#{snake}_drain.log",
       "calendar" => overrides["calendar"] || defaults["calendar"],
+      "keepalive" => overrides.fetch("keepalive", defaults["keepalive"] || false),
       "interval" => overrides["interval"] || defaults["interval"] || DEFAULT_INTERVAL,
       "path" => overrides["path"] || defaults["path"] || DEFAULT_PATH,
       "env" => (defaults["env"] || {}).merge(overrides["env"] || {})
@@ -108,11 +111,16 @@ module Plistgen
 
   # The scheduling half of a plist, indented to sit at the top level of its dict.
   #
-  # RunAtLoad differs between the two deliberately. An interval drain wants a tick
-  # the moment it is installed, and its next one is only a period away regardless.
-  # A calendar job must not fire at load: it would run at login and wake, which are
-  # exactly the times its schedule was written to exclude.
+  # RunAtLoad differs between the kinds deliberately. An interval drain wants a
+  # tick the moment it is installed, and its next one is only a period away
+  # regardless. A calendar job must not fire at load: it would run at login and
+  # wake, which are exactly the times its schedule was written to exclude. A
+  # keepalive service has no trigger at all — launchd starts it at load and
+  # restarts it whenever it exits, with ThrottleInterval as the floor between
+  # restarts so a program that dies on startup does not spin.
   def schedule_xml(spec)
+    return keepalive_xml if spec["keepalive"]
+
     entries = spec["calendar"] ? calendar_entries(spec["calendar"]) : []
     if entries.empty?
       trigger = ["  <key>StartInterval</key>", "  <integer>#{spec['interval'].to_i}</integer>"]
@@ -123,6 +131,14 @@ module Plistgen
       run_at_load = "  <false/>"
     end
     [*trigger, "", "  <key>RunAtLoad</key>", run_at_load].join("\n")
+  end
+
+  def keepalive_xml
+    [
+      "  <key>RunAtLoad</key>", "  <true/>", "",
+      "  <key>KeepAlive</key>", "  <true/>", "",
+      "  <key>ThrottleInterval</key>", "  <integer>#{KEEPALIVE_THROTTLE_SECONDS}</integer>"
+    ].join("\n")
   end
 
   # Render one job spec to a complete launchd plist XML string. +root+ is the
@@ -386,6 +402,9 @@ module Plistgen
                 times: ["08:00", "12:30", "16:30"]
 
         Omit `weekdays` for every day. A calendar job does not run at load.
+
+        A `keepalive: true` job is a service rather than a schedule: launchd starts
+        it at load and restarts it whenever it exits.
       USAGE
       code
     end

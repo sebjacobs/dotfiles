@@ -91,3 +91,7 @@ export PATH="$HOME/.local/bin:$PATH"
 export PATH="$HOME/bin:$PATH"
 
 export PATH="$HOME/Tech/Projects/open-source/depot_tools:$PATH"
+
+# The home server's helper scripts: slopz, deploy, push-media. Appended so
+# nothing there can shadow a personal shim.
+path+=("$HOME/Tech/Projects/personal/slopz-box/bin")

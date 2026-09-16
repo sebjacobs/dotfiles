@@ -128,5 +128,6 @@
       "**routine under this repo's `scripts/`, `db/`, `docs/` prefixes**: uv, sqlite3, jotter, perl, sesh, svc, ruby usage is routine tooling for this project per CLAUDE.md and observed frequency"
     ]
   },
-  "voiceEnabled": true
+  "voiceEnabled": true,
+  "remoteControlAtStartup": true
 }

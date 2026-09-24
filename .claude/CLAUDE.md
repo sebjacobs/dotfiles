@@ -136,6 +136,8 @@ See `~/.claude/docs/workspace.md` for the setup recipe (`.gitkeep` + `.gitignore
 
 ## Git workflow
 
+**Personal projects: Forgejo is the main remote, GitHub is the backup.** In a personal repo `origin` points at the self-hosted Forgejo and the remote named `gh` points at GitHub, which is only a mirror. Push, open PRs and merge on `origin`. Never open a GitHub PR for a personal project, and don't reach for `gh pr …` just because a `gh` remote exists. Check `git remote -v` before any push or PR. The `gh pr` commands in the rest of this section apply to repos whose `origin` is GitHub, such as work and client repos.
+
 Changes accumulate as dirty working tree state during a session. Do **not** commit mid-feature without checking. When a task is complete and there are uncommitted changes, propose commit groupings and wait for the user to confirm they make sense — then commit. Don't wait to be asked whether to commit; take the initiative to propose, then act after approval.
 
 **One "commit" approval covers everything proposed — finish the job in one go.** When the user says "commit" after a grouping has been proposed, commit *every* outstanding group in that turn (as separate commits where the grouping says so) without pausing to re-confirm, re-inspect, or report between groups. Any scoping question ("should the leftovers go in too?") belongs in the proposal, not after approval — if the user answers "commit" to a proposal that flagged optional extras, include them rather than drip-feeding another round-trip.

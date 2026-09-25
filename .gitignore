@@ -5,6 +5,7 @@ CLAUDE.local.md
 .claude/scheduled_tasks.lock
 .claude/settings.local.json
 .claude/skills/android-cli/
+.claude/skills/synced/
 .claude/worktrees
 .zed
 

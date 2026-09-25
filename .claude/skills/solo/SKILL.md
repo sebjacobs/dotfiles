@@ -1,12 +1,27 @@
 ---
 name: solo
-description: Solo mode — the agent works a task or task list through to completion without checking in, ignores the 7PM cut-off, and reports every decision and problem in one batch at the end. Use when the user says "/solo", "solo mode", "run with it", "don't check in", "just get it done", "work through this list", or picks solo at /start.
+description: Solo mode (the default session mode) — after a one-off spec/plan sign-off, the agent works a task or task list through to completion without checking in, ignores the 7PM cut-off, and reports every decision and problem in one batch at the end. Use when the user says "/solo", "solo mode", "run with it", "don't check in", "just get it done", "work through this list", or picks solo at /start.
 allowed-tools: Read, Write, Edit, Bash, Glob, Grep, Agent, Skill
 ---
 
 # Solo Mode
 
 You are now in solo mode. The user is not sitting with you — they have handed over a task or a list of tasks and gone to do something else. Optimise for finishing the work, not for keeping them informed as you go.
+
+## Before you start — the spec/plan check
+
+This is the one conversation of the session, so get it right before the user walks away. Read enough of the code to plan properly, then present, for each task:
+
+- **Spec** — what "done" means, as acceptance criteria you'll turn into tests
+- **Plan** — the approach and the rough order of steps, including where you'll commit
+- **Assumptions** — every judgement call you can already see, stated so the user can overrule it now
+- **Gated actions** — anything you expect to stop at (push, merge, deletion) so there are no surprises in the report
+
+Keep it short — a few lines per task, not a design doc. Ask any genuine questions here, all at once, in the same message.
+
+Wait for sign-off. Fold in any corrections, then start. If the user has already said they're leaving, still post the check and wait — no code on an unsigned plan. Spend the wait on read-only groundwork (reading code, reproducing a bug) so the work starts warm. Don't re-present the plan unless the corrections changed it substantially. After sign-off, the spec is the contract: work to it, and if reality forces a deviation, make the call, note it, and carry on — don't come back to ask.
+
+If the user has already handed over a spec and plan (a ticket, a written brief, an agreed plan from earlier), play it back in a line or two per task and confirm, rather than writing a new one.
 
 ## The contract
 

@@ -33,11 +33,11 @@ See `~/.claude/docs/jotter.md` for the full reference — storage layout, comman
 
 ## Session modes
 
-Every session runs in one of three modes. `/start` asks which; default to **classic** if nothing is said.
+Every session runs in one of three modes. `/start` asks which; default to **solo** if nothing is said.
 
-- **Classic** — the default. Collaborative: check in as you go, surface problems when you hit them, one goal for the session.
+- **Solo** — the default. The user hands over a task or task list and leaves. Invoke `/solo`. It opens with a **spec/plan check**: before any code, write a short spec and plan for each task — acceptance criteria, approach, the assumptions you're already making — and get one sign-off. That check is the last question you ask. After it, persevere through problems, assume rather than ask, finish the unblocked work, and report every decision and problem in **one batch at the end**. The 7PM cut-off does not apply and the cron heartbeat becomes a progress log rather than a check-in.
+- **Classic** — collaborative: check in as you go, surface problems when you hit them, one goal for the session.
 - **Pairing** — TDD ping-pong. Invoke `/pingpong`; spec together, then alternate test-writing and implementing.
-- **Solo** — the user hands over a task or task list and leaves. Invoke `/solo`. Persevere through problems, assume rather than ask, finish the unblocked work, and report every decision and problem in **one batch at the end**. The 7PM cut-off does not apply and the cron heartbeat becomes a progress log rather than a check-in.
 
 Solo mode's one exception: irreversible and outward-facing actions (`git push`, merges, deletions, anything leaving the machine) still stop for explicit approval. Work right up to that line, then carry on with everything else and surface the gated action in the final report.
 
@@ -49,8 +49,8 @@ Run `/start` at the beginning of every session — the `start-session` skill has
 
 Principles:
 - Ask about available time and hard stops before reading anything
-- Ask which mode the session runs in — classic, pairing (`/pingpong`), or solo (`/solo`)
-- Propose **one concrete goal** — not a wish list (in solo mode, a task list instead)
+- Ask which mode the session runs in — solo (`/solo`, the default), classic, or pairing (`/pingpong`)
+- Propose **one concrete goal** — not a wish list (in solo mode, a task list, each with its spec and plan)
 - Start the `sesh` timer for authoritative time, and set a cron heartbeat to pace check-ins
 - Cut off at **7PM** — flag it directly if the session is running late (classic and pairing only)
 

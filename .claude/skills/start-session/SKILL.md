@@ -43,17 +43,17 @@ Wait for their answer. If they say recover, invoke `/recover` before continuing 
 
 Before reading anything else, ask:
 
-> "How much time do we have, and any hard stops? Already have a goal in mind? And which mode — classic, pairing, or solo? Or skip?"
+> "How much time do we have, and any hard stops? Already have a goal in mind? And which mode — solo (the default), classic, or pairing? Or skip?"
 
 Wait for the answer. Use it to calibrate everything that follows — a 30-minute session gets one small task, a 2-hour session can tackle the next sprint item.
 
-If the user already has a goal in mind, skip the time-budget calibration and cron pacing — go straight to step 2 for context restoration, then work toward their stated goal.
+If the user already has a goal in mind, skip the time-budget calibration and the goal proposal — go straight to step 2 for context restoration, then work toward their stated goal. The `sesh` timer and heartbeat in step 6 still run.
 
-**Mode** — default to classic if they don't say. The three:
+**Mode** — default to solo if they don't say. The three:
 
+- **Solo** — the user hands over the work and leaves. Invoke `/solo` and follow it; it overrides the pacing in step 6 and the 7PM cut-off, and its spec/plan check replaces the single-goal proposal in step 5.
 - **Classic** — the routine as written here. Collaborative, check in as you go.
 - **Pairing** — TDD ping-pong. Invoke `/pingpong` and follow it.
-- **Solo** — the user hands over the work and leaves. Invoke `/solo` and follow it; it overrides the pacing in step 6 and the 7PM cut-off.
 
 **If the user mentions a hard stop at a specific time** (e.g. "lunch at 1pm", "run at 2:30"), schedule a one-shot warning 15 minutes before using CronCreate:
 
@@ -137,7 +137,7 @@ Rules:
 - If the top Next item is too large for the available time, scope it down to a deliverable sub-task, or suggest a smaller quick win instead and flag that the big item needs a dedicated session.
 - If there's a hard stop mid-session, flag it now: "We'll hit your [time] stop about halfway through — we should aim to reach a clean stopping point by then."
 
-**In solo mode** the goal is a task list rather than one goal, since the user isn't there to pick up the next thing. Propose the list, confirm it once, then work it without further check-ins.
+**In solo mode** the goal is a task list rather than one goal, since the user isn't there to pick up the next thing. Run the `/solo` spec/plan check here: a short spec and plan per task, presented once for sign-off. Don't start work until the user has signed it off, and don't ask anything after that.
 
 ---
 

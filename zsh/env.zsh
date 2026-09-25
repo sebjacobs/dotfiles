@@ -7,7 +7,7 @@ source ~/dotfiles/zsh/00_brew.zsh
 # tools and coreutils resolve; typeset -U dedupes and appending keeps Homebrew first.
 path+=(/usr/bin /bin /usr/sbin /sbin)
 
-export DYLD_LIBRARY_PATH="/opt/homebrew/lib"
+export DYLD_FALLBACK_LIBRARY_PATH="/opt/homebrew/lib:/usr/local/lib:/usr/lib"
 
 export EDITOR='hx'
 export VISUAL='zed --wait'

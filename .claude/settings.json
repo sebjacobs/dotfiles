@@ -16,6 +16,7 @@
       "Bash(gh pr create *)",
       "Bash(gh pr diff *)",
       "Bash(gh pr edit *)",
+      "Bash(gh pr merge *)",
       "Bash(gh pr list *)",
       "Bash(gh pr ready *)",
       "Bash(gh pr reopen *)",
@@ -52,6 +53,7 @@
     ],
     "defaultMode": "auto"
   },
+  "model": "opus",
   "hooks": {
     "UserPromptSubmit": [
       {
@@ -86,6 +88,7 @@
   "tui": "fullscreen",
   "skipWorkflowUsageWarning": true,
   "theme": "dark-daltonized",
+  "remoteControlAtStartup": true,
   "inputNeededNotifEnabled": true,
   "agentPushNotifEnabled": true,
   "skipAutoPermissionPrompt": true,
@@ -128,6 +131,5 @@
       "**routine under this repo's `scripts/`, `db/`, `docs/` prefixes**: uv, sqlite3, jotter, perl, sesh, svc, ruby usage is routine tooling for this project per CLAUDE.md and observed frequency"
     ]
   },
-  "voiceEnabled": true,
-  "remoteControlAtStartup": true
+  "voiceEnabled": true
 }

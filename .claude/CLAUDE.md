@@ -138,6 +138,15 @@ See `~/.claude/docs/workspace.md` for the setup recipe (`.gitkeep` + `.gitignore
 
 **Personal projects: Forgejo is the main remote, GitHub is the backup.** In a personal repo `origin` points at the self-hosted Forgejo and the remote named `gh` points at GitHub, which is only a mirror. Push, open PRs and merge on `origin`. Never open a GitHub PR for a personal project, and don't reach for `gh pr …` just because a `gh` remote exists. Check `git remote -v` before any push or PR. The `gh pr` commands in the rest of this section apply to repos whose `origin` is GitHub, such as work and client repos.
 
+**On Forgejo, use `fgj` in place of `gh`.** It's installed and logged in, and it reads the repo from `origin`, so `fgj pr list`, `fgj issue view 12` and the rest work the way `gh` does. The flags are not all the same, so don't carry `gh` habits across blind:
+
+- `fgj pr create` has no `--body-file` — pass `--title "…" --body "$(cat body.md)"`. `fgj pr edit` does take `-F/--body-file`.
+- Merge with `fgj pr merge <n> --merge-method rebase` (single commit) or `--merge-method merge` (several), not `--rebase`/`--merge`.
+- `--json` takes no field list and there is no `--jq`; pipe to `jq` instead, e.g. `fgj pr view <n> --json | jq -r .body`.
+- For anything without a command, `fgj api repos/<owner>/<repo>/…` makes an authenticated call. It does not fill in owner and repo for you.
+
+Check `fgj <cmd> --help` before using a flag you haven't seen work here. Never fall back to `curl` with a pasted token.
+
 Changes accumulate as dirty working tree state during a session. Do **not** commit mid-feature without checking. When a task is complete and there are uncommitted changes, propose commit groupings and wait for the user to confirm they make sense — then commit. Don't wait to be asked whether to commit; take the initiative to propose, then act after approval.
 
 **One "commit" approval covers everything proposed — finish the job in one go.** When the user says "commit" after a grouping has been proposed, commit *every* outstanding group in that turn (as separate commits where the grouping says so) without pausing to re-confirm, re-inspect, or report between groups. Any scoping question ("should the leftovers go in too?") belongs in the proposal, not after approval — if the user answers "commit" to a proposal that flagged optional extras, include them rather than drip-feeding another round-trip.

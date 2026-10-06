@@ -210,6 +210,16 @@ Always use `uv` for Python projects — never `pip`, `pip3`, or bare `python3`.
 
 See `~/.claude/docs/python_tooling.md` for the full reference.
 
+## Task runner — use a Rakefile
+
+A project's repeatable tasks (test, build, install, uninstall) go in a `Rakefile` at the repo root, **whatever the project's language** — Python, Rust and Swift alike. Not a justfile, Makefile, or `package.json` scripts. One runner everywhere means `rake -T` always answers "what can I run here?". Rake ships with Ruby, so a plain Rakefile needs no Gemfile.
+
+- Give every public task a `desc` so it shows in `rake -T`; point `task default:` at the everyday task (usually `test` or `build`).
+- Shell out with `sh`; do file work with Rake's FileUtils helpers (`mkdir_p`, `ln_sf`, `rm_f`, `cp_r`).
+- Install by symlinking under `PREFIX` (default `~/.local`) and always pair `install` with an `uninstall` that removes exactly what it created.
+
+An existing project that already uses another runner keeps it unless asked to migrate.
+
 ## Web standards
 
 When building any static HTML page, follow `~/.claude/docs/web_standards.md`. Key points:

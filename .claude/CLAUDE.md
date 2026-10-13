@@ -4,6 +4,8 @@
 
 > **Note:** The managed `~/.claude/` config comes from two repos. `CLAUDE.md`, `settings.json` and `keybindings.json` are symlinks into the public `~/dotfiles/.claude/`. `skills/`, `agents/` and `docs/` are real directories holding one symlink per entry, linked by `claude-link` from `~/dotfiles/.claude/` and from the private `~/dotfiles-private/claude/`. Never create a file directly in `~/.claude/`: add it to the right repo, commit it there, and run `claude-link`. Anything that names a real project, client, host or private path belongs in `~/dotfiles-private`; everything else in `~/dotfiles`.
 
+Private additions to these conventions, when that repo is cloned: @~/dotfiles-private/claude/CLAUDE.md
+
 > **Catching up via jotter — always read the jotter log first.** Whenever a session continues, resumes, or picks up prior work ("let's continue", "carry on with X"), read the jotter log **before** reading code, running git log, or starting to act — it's the fastest way to recover what was last done and decided, and acting without it risks re-treading or contradicting recent work. (These same continue/resume phrases also trigger the **full** session start routine — see "Session start routine" below; reading the jotter log is step one of it, not a replacement for it.) Run `jotter search --project <name> --since <YYYY-MM-DD> 2>&1 | tail -150` (add `--branch <branch>` to scope to the current branch). Do **not** reach for `jotter ls`, raw `~/.claude/projects/*.jsonl` transcripts, or git log first — `jotter search` is the fastest path and the one that actually works. Full reference: `~/.claude/docs/jotter.md` — read it before invoking any other `jotter` subcommand.
 
 ## Evaluating global and project config changes
@@ -170,7 +172,7 @@ See `~/.claude/docs/git_practices.md` for the full reference — FutureLearn eng
 - Internal URLs, API endpoints, or credentials
 - Anything that would reveal information you wouldn't post publicly
 
-When referencing a pattern or example, describe it generically (e.g. "any repo with a `wrangler.toml`") rather than naming a specific project.
+When referencing a pattern or example, describe it generically (e.g. "any repo with a `wrangler.toml`") rather than naming a specific project. When the specific name is what makes it useful, put it in `~/dotfiles-private` instead — its `claude/CLAUDE.md` for a rule or example, `claude/docs/` or `claude/skills/` for anything longer.
 
 ---
 
@@ -228,7 +230,7 @@ When building any static HTML page, follow `~/.claude/docs/web_standards.md`. Ke
 - **Accessibility (non-negotiable):** WCAG AA contrast minimum, visible focus styles (`focus-visible`), `<nav aria-label>` for navigation, `lang="en"`, no `user-scalable=no`
 - **Dark mode:** always — use CSS custom properties so it's one `@media` block
 - **No frameworks:** plain HTML + CSS only; no React/Vue/Tailwind on read-only content pages
-- **Reference implementations:** any personal project with a `wrangler.toml` and `public/` directory in `~/Tech/Projects/personal/current/` — read the CSS there first
+- **Reference implementations:** any personal project with a `wrangler.toml` and `public/` directory (the private conventions name which) — read the CSS there first
 
 **Before you commit — checklist:**
 > Re-read this before staging anything.
@@ -332,45 +334,42 @@ Do **not** add separate `Key changes`, `Gotchas`, `References`, `Out of scope`, 
 Example:
 
 ```markdown
-https://app.asana.com/…/task/1214897942917678
+https://tracker.example.com/task/1234
 
 **Motivation**
 ============
 
-Part 1 (#795) introduced the unclaimed Installer profile. This branch uses it to import
-the network — 152 companies — as an umbrella scheme and its members, creating an
-unclaimed profile for each company that has never signed up.
+Part 1 (#41) taught the client to read the API's ETag headers. This branch uses them
+to cache responses on disk, so a repeated `list` no longer goes back to the server for
+data it already has.
 
-It is a one-off `rails runner` script rather than a rake task or a data migration.
-Dry-run is the default; `--apply` performs the import.
+The cache lives under `$XDG_CACHE_HOME` rather than beside the config, so clearing it
+never touches settings. It is on by default; `--no-cache` skips it for a single call.
 
 **Summary**
 ===========
 
-**Every company in the network now has a profile on the platform, so a homeowner
-searching for an installer finds them whether or not they ever signed up.**
+**Running the same command twice no longer waits on the network the second time, and
+the CLI keeps working on a flaky connection for anything it has already seen.**
 
-- Import the network as an unpublished umbrella scheme and its members. A company
-  already on the platform keeps everything it has — the import only adds the membership.
-- Move companies listed under a scheme-branded name onto their own name, and recredit
-  the hosts pointing at the old one.
-- Add `--mark-as-approved`, so an admin can approve the cohort in one go.
+- Store each response with its ETag and send `If-None-Match` next time. A `304`
+  serves the stored copy.
+- Fall back to the cached copy, with a warning, when the server can't be reached.
+- Add `cache clear`, so a user can start fresh without hunting for the directory.
 
 See individual commit messages for the details.
 
 **Things to note**
 ===============
 
-- Nothing is published or approved by default, because approving is the admin's
-  statement that a listing is fit to credit.
+- Nothing expires on a timer. The server decides what is stale through the ETag, which
+  avoids picking one TTL that is wrong for every endpoint.
 
-- The script is idempotent but does not re-apply edits. New CSV rows are picked up on a
-  re-run; a corrected description will not propagate to a profile an earlier run created.
-  That is deliberate — we can't distinguish a profile this script created from a real
-  installer's own listing.
+- Writes are never cached or replayed. Queuing them offline means resolving conflicts,
+  and that is a separate piece of work.
 
-- Only hosts who named the network are adopted into the scheme. The wider reading asserts
-  something the host never said. Shout if you'd rather go wide.
+- The fallback serves stale data rather than failing. Every command today is read-only,
+  so I went that way. Shout if you'd rather it fail loudly.
 ```
 
 **Editing PR descriptions, issues, comments — fetch live state first, edit in place, never regenerate from a remembered template.** The user is often editing the same artifact concurrently in the GitHub UI. Regenerating the whole body from your last-known version silently stomps their edits. The right pattern is always: `gh pr view <n> --json body --jq .body > /tmp/body.md` → `Edit` only the line that needs changing → `gh pr edit <n> --body-file /tmp/body.md`. Applies equally to issue bodies, PR comments, anywhere a human and you might both write. If a small targeted edit isn't possible (e.g. major restructure), confirm with the user before pushing a full rewrite.

@@ -4,7 +4,7 @@ House style for any static HTML pages built across personal projects.
 
 ## Reference implementation
 
-The canonical examples live in the `public/` directories of personal projects that use this stack. Check `~/Tech/Projects/personal/current/` for repos with a `wrangler.toml` and a `public/` directory — those are built to this standard. When in doubt, read the CSS from an existing project first.
+The canonical examples live in the `public/` directories of personal projects that use this stack. Look for repos with a `wrangler.toml` and a `public/` directory — those are built to this standard, and the private conventions name the current ones. When in doubt, read the CSS from an existing project first.
 
 ---
 

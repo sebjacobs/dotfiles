@@ -6,7 +6,7 @@
 
 Hi! This is my personal Claude Code config — the settings, instructions, and slash commands that shape how Dennis and I work together across every project.
 
-It's a symlinked folder: the real home is `~/dotfiles/.claude/`, which Claude Code sees as `~/.claude/` on my machine.
+It's linked into `~/.claude/` on my machine, alongside a few private skills and docs from a separate repo that `bin/claude-link` mixes in.
 
 ## The interesting bits
 

@@ -36,11 +36,19 @@ brew bundle         # Installs all packages including ruby-install, starship, zs
 **Managed locations:**
 - `./` — dotfiles (`.gitconfig`, `.editorconfig`, etc.) → symlinked to `$HOME`
 - `zsh/` — shell environment, PATH, aliases, git shortcuts → sourced directly from `~/.zshrc`
-- `.claude/` — Claude Code settings, keybindings, and global Claude config → symlinked to `~/.claude/`:
+- `.claude/` — Claude Code settings, keybindings, and global Claude config → linked into `~/.claude/`:
   - `CLAUDE.md` — always loaded at session start; principles and rules, kept concise
   - `skills/` — auto-discovered slash commands available in all projects
   - `agents/` — named subagents invokable via the Agent tool
   - `docs/` — longer reference material (not auto-loaded; CLAUDE.md points to these by path)
+
+## Private half — `~/dotfiles-private`
+
+Anything that can't be public lives in a separate private repo, `dotfiles-private` (Forgejo, cloned next to this one and linked to `~/dotfiles-private` by its `rake link`). It holds `claude/CLAUDE.md` (imported from the global `CLAUDE.md`), `claude/skills|docs|agents/`, and `ssh/config` (pulled in by `.ssh/config`'s `Include`).
+
+`~/.claude/skills`, `docs` and `agents` are real directories, not symlinks. `bin/claude-link` fills them with one symlink per entry from both repos; a private entry with the same name as a public one wins, and links whose source has gone are pruned. `setup.sh` runs it, and it works without the private repo. **Re-run `claude-link` after adding or removing a skill, doc or agent in either repo** — a new entry isn't visible to Claude Code until it's linked.
+
+Never name a private entry from this repo — not in `.gitignore`, not in docs. The two repos only meet at `~/dotfiles-private`.
 - `alfred/workflows/` — Alfred workflows → symlinked into Alfred's own `workflows/` folder, so edits made in Alfred's editor land back in the repo
 - `bin/` — shell utilities → symlinked into `~/bin/`
 - `Brewfile` — full tool inventory (Homebrew formulae, casks, Go/Rust/Python/NPM packages)

@@ -1,0 +1,49 @@
+#!/usr/bin/env sh
+
+# Link every skill, doc and agent into ~/.claude one entry at a time, from this
+# repo and, when it's cloned, from ~/dotfiles-private. Per-entry links let both
+# repos feed the same directories without either knowing what the other holds.
+# Re-run after adding or removing an entry; links whose source has gone are
+# pruned.
+
+DOTFILES_HOME="${DOTFILES_HOME:-$HOME/dotfiles}"
+PRIVATE_HOME="${DOTFILES_PRIVATE_HOME:-$HOME/dotfiles-private}"
+CLAUDE_HOME="${CLAUDE_HOME:-$HOME/.claude}"
+
+link_entries() {
+  source_dir="$1"
+  target_dir="$2"
+  shadow_dir="$3"
+  [ -d "$source_dir" ] || return 0
+  for entry in "$source_dir"/*; do
+    [ -e "$entry" ] || continue
+    name="$(basename "$entry")"
+    [ "$name" = synced ] && continue
+    if [ -n "$shadow_dir" ] && [ -e "$shadow_dir/$name" ]; then
+      echo "private $name overrides the public one"
+      continue
+    fi
+    target="$target_dir/$name"
+    if [ -e "$target" ] && [ ! -L "$target" ]; then
+      echo "skipping $target (not a symlink)"
+      continue
+    fi
+    ln -snf "$entry" "$target"
+  done
+}
+
+if [ ! -d "$PRIVATE_HOME" ]; then
+  echo "no $PRIVATE_HOME, linking public entries only"
+fi
+
+for kind in skills docs agents; do
+  dir="$CLAUDE_HOME/$kind"
+  if [ -L "$dir" ]; then
+    rm "$dir"
+    echo "replaced the $dir symlink with a directory"
+  fi
+  mkdir -p "$dir"
+  find "$dir" -maxdepth 1 -type l ! -exec test -e {} \; -exec rm {} \; -print | sed 's/^/pruned /'
+  link_entries "$PRIVATE_HOME/claude/$kind" "$dir"
+  link_entries "$DOTFILES_HOME/.claude/$kind" "$dir" "$PRIVATE_HOME/claude/$kind"
+done

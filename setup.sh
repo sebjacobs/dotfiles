@@ -95,9 +95,6 @@ files=(
   ".claude/settings.json"
   ".claude/statusline.sh"
   ".claude/keybindings.json"
-  ".claude/skills"
-  ".claude/agents"
-  ".claude/docs"
   ".config/starship.toml"
   ".config/dot/tools.yml"
   ".config/opencode/opencode.json"
@@ -128,6 +125,10 @@ do
   target="$HOME/bin/$file"
   ln -snf $source $target
 done
+
+# Claude Code skills, docs and agents: linked one entry at a time so the
+# private repo (~/dotfiles-private) can add its own alongside these.
+DOTFILES_HOME="$DOTFILES_HOME" "$DOTFILES_HOME/bin/claude-link"
 
 # proj manifest: declares which dirs under $PROJ_ROOT are project categories
 # (see lib/proj.rb). Symlinked into $PROJ_ROOT (default ~/Tech/Projects) so a

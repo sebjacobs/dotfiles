@@ -69,6 +69,7 @@ dirs=(
   ".config/dot"
   ".config/opencode"
   ".config/helix"
+  ".config/marimo"
   ".colima/_templates"
   "Library/LaunchAgents"
 )
@@ -102,6 +103,7 @@ files=(
   ".config/opencode/package-lock.json"
   ".config/opencode/bun.lock"
   ".config/helix/config.toml"
+  ".config/marimo/marimo.toml"
   ".colima/_templates/default.yaml"
 )
 

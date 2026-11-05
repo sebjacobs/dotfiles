@@ -5,6 +5,7 @@
       "Bash(date)",
       "Bash(date *)",
       "Bash(ffprobe *)",
+      "Bash(fgj pr merge *)",
       "Bash(gh api *)",
       "Bash(gh auth status)",
       "Bash(gh browse *)",

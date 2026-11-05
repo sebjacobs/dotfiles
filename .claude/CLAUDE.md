@@ -23,6 +23,19 @@ Before merging a change to CLAUDE.md, `~/.claude/docs/`, or a project skill, run
 
 See `~/.claude/docs/eval_config_changes.md` for the full rubric, agent prompt templates, and a worked example.
 
+## Be proactive — don't ask permission for routine steps
+
+**Act on the obvious next step; don't stop to ask about it.** Asking "should I commit?", "shall I run the tests?", "want me to fix that too?" or "OK to create a branch?" costs the user a round-trip for a question whose answer is almost always yes. When the next step is routine, reversible and local, do it and say what you did in the report.
+
+Just do these without asking:
+
+- Commit finished work on a feature branch, grouped by the rules in the Git workflow section, then list the commits in your report. Branch first if you are on `main` and the change isn't trivial.
+- Run tests, linters and builds; fix the failures your change caused.
+- Fix small, related problems you notice along the way (typos, a broken link, a test you just broke), and mention them.
+- Pick the conventional default when a choice has one, and state the assumption.
+
+Still stop and ask for anything **irreversible or outward-facing**: `git push`, merging to `main`, opening or editing a PR or issue, deleting files or branches you didn't create, force-pushes, history rewrites on a shared branch, and anything that sends something off the machine. Ask, too, when the motivation is unclear and the answer would change what you build. A real decision deserves a question. Routine steps don't.
+
 ## Session logging
 
 Session notes live in a private data repo via `jotter`, not in project repos. Skills handle it: `/start`, `/save`, `/stop`, `/note` call `jotter` — no manual session note management needed.
@@ -149,7 +162,7 @@ See `~/.claude/docs/workspace.md` for the setup recipe (`.gitkeep` + `.gitignore
 
 Check `fgj <cmd> --help` before using a flag you haven't seen work here. Never fall back to `curl` with a pasted token.
 
-Changes accumulate as dirty working tree state during a session. Do **not** commit mid-feature without checking. When a task is complete and there are uncommitted changes, propose commit groupings and wait for the user to confirm they make sense — then commit. Don't wait to be asked whether to commit; take the initiative to propose, then act after approval.
+Changes accumulate as dirty working tree state during a session. When a task is complete and there are uncommitted changes, **commit them yourself** in sensible atomic groups, then list the commits in your report. Don't ask first (see "Be proactive" above). Commits are local and easy to revise, so the user can ask for a regroup or a reword afterwards. Leave unrelated dirty files that were there before you started out of your commits, and mention them.
 
 **One "commit" approval covers everything proposed — finish the job in one go.** When the user says "commit" after a grouping has been proposed, commit *every* outstanding group in that turn (as separate commits where the grouping says so) without pausing to re-confirm, re-inspect, or report between groups. Any scoping question ("should the leftovers go in too?") belongs in the proposal, not after approval — if the user answers "commit" to a proposal that flagged optional extras, include them rather than drip-feeding another round-trip.
 
@@ -234,7 +247,7 @@ When building any static HTML page, follow `~/.claude/docs/web_standards.md`. Ke
 
 **Before you commit — checklist:**
 > Re-read this before staging anything.
-- Has the user confirmed they're happy with the feature? Never commit automatically.
+- Is the work finished and the tests green? Commit it without asking; don't commit a half-done step.
 - Is this the smallest unit of change that delivers value on its own? (atomic — could it be reverted independently without breaking anything?)
 - Does each commit have exactly one reason to change? (Single Responsibility Principle — if you can describe it with "and", split it)
 - Is the first line a `<tag>: ` prefix (feat/fix/refactor/docs/chore/test/perf) followed by a short imperative summary of the *value*, not the implementation? (< 72 chars total)
@@ -298,8 +311,8 @@ git rebase --onto <rebased-lower-tip> <old-lower-tip> <branch> --reset-author-da
 1. **Always start on a feature branch** — never work directly on main, even for small changes. Create a branch before writing any code: `git checkout -b feature/<name>`
 2. Run `git status` and `git diff --stat` to survey all dirty changes
 3. Show the full diff — not just the stat — so the user can review every line before anything is merged. For branches with many files, diff file-by-file or skip all-addition new files (they have no "what changed") and diff only modified files: `git diff main...<branch> -- file1 file2`
-4. Propose a grouping to the user and wait for approval
-5. Stage and commit each group sequentially
+4. Pick a grouping. No need to wait for approval
+5. Stage and commit each group sequentially, then list the commits in your report
 6. **Never merge or raise a PR until the user explicitly says to** — propose it, then wait
 7. **After merging — preserve the branch's context with `/handover`.** Once a feature branch is merged and about to be deleted, run `/handover` to distil its session log into a single handover entry on `main` so the branch's history and decisions survive its removal. Then delete the merged branch (and its worktree, via `gwt rm`). This applies to local-only merges too, not just `gh pr merge`.
 

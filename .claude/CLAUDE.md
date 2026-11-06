@@ -1,434 +1,130 @@
 # Claude global conventions
 
-> **MANDATORY FIRST ACTION (applies to subagents too):** before answering or calling any other tool, you **must** Read `./CLAUDE.local.md` if it exists at the root of the current working directory. This is not optional and is not skippable for "trivial" tasks. `CLAUDE.local.md` contains per-checkout overrides that take precedence over the project `CLAUDE.md` and this global file. If the file does not exist, proceed normally. If it exists, its instructions override any conflicting guidance — including defaults derived from your user-context (e.g. how to address the user).
+> **MANDATORY FIRST ACTION (applies to subagents too):** before answering or calling any other tool, Read `./CLAUDE.local.md` if it exists at the root of the current working directory — even for trivial tasks. It holds per-checkout overrides that win over the project `CLAUDE.md`, this file, and defaults from your user-context (e.g. how to address the user).
 
-> **Note:** The managed `~/.claude/` config comes from two repos. `CLAUDE.md`, `settings.json` and `keybindings.json` are symlinks into the public `~/dotfiles/.claude/`. `skills/`, `agents/` and `docs/` are real directories holding one symlink per entry, linked by `claude-link` from `~/dotfiles/.claude/` and from the private `~/dotfiles-private/claude/`. Never create a file directly in `~/.claude/`: add it to the right repo, commit it there, and run `claude-link`. Anything that names a real project, client, host or private path belongs in `~/dotfiles-private`; everything else in `~/dotfiles`.
+> **Where this config lives:** `CLAUDE.md`, `settings.json` and `keybindings.json` in `~/.claude/` are symlinks into the public `~/dotfiles/.claude/`. `skills/`, `agents/` and `docs/` are real directories of per-entry symlinks, filled by `claude-link` from `~/dotfiles/.claude/` and the private `~/dotfiles-private/claude/`. Never create a file directly in `~/.claude/`: add it to the right repo, commit it, and run `claude-link`. Anything naming a real project, client, host or private path goes in `~/dotfiles-private`; everything else in `~/dotfiles`.
 
 Private additions to these conventions, when that repo is cloned: @~/dotfiles-private/claude/CLAUDE.md
 
-> **Catching up via jotter — always read the jotter log first.** Whenever a session continues, resumes, or picks up prior work ("let's continue", "carry on with X"), read the jotter log **before** reading code, running git log, or starting to act — it's the fastest way to recover what was last done and decided, and acting without it risks re-treading or contradicting recent work. (These same continue/resume phrases also trigger the **full** session start routine — see "Session start routine" below; reading the jotter log is step one of it, not a replacement for it.) Run `jotter search --project <name> --since <YYYY-MM-DD> 2>&1 | tail -150` (add `--branch <branch>` to scope to the current branch). Do **not** reach for `jotter ls`, raw `~/.claude/projects/*.jsonl` transcripts, or git log first — `jotter search` is the fastest path and the one that actually works. Full reference: `~/.claude/docs/jotter.md` — read it before invoking any other `jotter` subcommand.
-
-## Evaluating global and project config changes
-
-Before merging a change to CLAUDE.md, `~/.claude/docs/`, or a project skill, run a quick A/B eval to verify it improves agent responses rather than just adding noise.
-
-**Triggers:** new CLAUDE.md section, new docs file, significant rewrite, content removal, moving content from project → global, extracting a workflow into a skill, or creating/updating an agent definition.
-
-**Pattern:**
-1. Write a representative test question that directly exercises the changed content
-2. Spawn two parallel subagents — Setup A reads only the old files, Setup B reads the new setup
-3. Ask both the same question; launch in parallel
-4. Run an Opus eval agent scoring both on: **Completeness, Accuracy, Actionability, Gaps acknowledged** (0–3 each)
-5. Merge if Setup B scores +2 or more; investigate if neutral or negative
-
-See `~/.claude/docs/eval_config_changes.md` for the full rubric, agent prompt templates, and a worked example.
+**Read the `~/.claude/docs/X.md` a section points to before using that tool.** Don't guess flags from memory or fall back to `--help` after a failed guess.
 
 ## Be proactive — don't ask permission for routine steps
 
-**Act on the obvious next step; don't stop to ask about it.** Asking "should I commit?", "shall I run the tests?", "want me to fix that too?" or "OK to create a branch?" costs the user a round-trip for a question whose answer is almost always yes. When the next step is routine, reversible and local, do it and say what you did in the report.
+When the next step is routine, reversible and local, do it and say what you did in the report. Asking "should I commit?" or "shall I run the tests?" costs a round-trip for an answer that is almost always yes. Just:
 
-Just do these without asking:
-
-- Commit finished work on a feature branch, grouped by the rules in the Git workflow section, then list the commits in your report. Branch first if you are on `main` and the change isn't trivial.
+- Commit finished work (see Git below). Branch first if you are on `main` and the change isn't trivial.
 - Run tests, linters and builds; fix the failures your change caused.
-- Fix small, related problems you notice along the way (typos, a broken link, a test you just broke), and mention them.
+- Fix small related problems you notice (a typo, a broken link, a test you just broke), and mention them.
 - Pick the conventional default when a choice has one, and state the assumption.
 
-Still stop and ask for anything **irreversible or outward-facing**: `git push`, merging to `main`, opening or editing a PR or issue, deleting files or branches you didn't create, force-pushes, history rewrites on a shared branch, and anything that sends something off the machine. Ask, too, when the motivation is unclear and the answer would change what you build. A real decision deserves a question. Routine steps don't.
+Stop and ask for anything **irreversible or outward-facing**: `git push`, merging to `main`, opening or editing a PR or issue, deleting files or branches you didn't create, force-pushes, history rewrites on a shared branch, anything that leaves the machine. Ask, too, when the motivation is unclear and the answer would change what you build.
 
-## Session logging
+## Sessions
 
-Session notes live in a private data repo via `jotter`, not in project repos. Skills handle it: `/start`, `/save`, `/stop`, `/note` call `jotter` — no manual session note management needed.
+**Start:** run `/start` (the `start-session` skill). **"Continue" means start:** "continue", "carry on", "resume", "pick up where we left off" run the full routine, not just a log catch-up. Skip it only for a quick, already-scoped task. The routine:
 
-For retrospective queries ("what did we do yesterday?"), reach for `jotter ls` / `jotter search` (both support `--since`/`--until`) before diving into Claude Code's raw transcripts (`~/.claude/projects/*.jsonl`).
+- Read the jotter log first, before code or `git log`: `jotter search --project <name> --since <YYYY-MM-DD> 2>&1 | tail -150` (add `--branch <branch>` to narrow). Not `jotter ls`, raw `~/.claude/projects/*.jsonl` transcripts or `git log`.
+- Ask about available time and hard stops, and which mode to run in.
+- Propose **one concrete goal** (in solo mode, a task list, each with its spec and plan).
+- Start the `sesh` timer and set the 30-minute cron heartbeat.
 
-**Before invoking `jotter` directly from the shell, read `~/.claude/docs/jotter.md` for the exact subcommand and flag forms — don't guess from memory.** The CLI uses `jotter write` (not `add`), requires `--project`, `--branch`, `--type`, `--content`, and the doc has copy-pasteable one-liners. Same rule applies to any tool this file points at a `~/.claude/docs/X.md` reference for: read the doc first, don't fall back to `--help` after a failed guess.
+**Modes** — default to solo if nothing is said:
 
-See `~/.claude/docs/jotter.md` for the full reference — storage layout, commands, git integration, and retrospective query patterns with examples.
+- **Solo** (`/solo`) — the user hands over a task list and leaves. Before any code, write a short spec and plan per task (acceptance criteria, approach, assumptions) and get one sign-off. That is the last question. Then persevere, assume rather than ask, and report every decision and problem in one batch at the end. Irreversible and outward-facing actions still wait for approval: work up to that line and surface them in the report. No 7PM cut-off; the heartbeat is a progress log.
+- **Classic** — collaborative: check in as you go, one goal for the session.
+- **Pairing** (`/pingpong`) — TDD ping-pong: spec together, then alternate writing tests and implementing.
 
-## Session modes
+**Working hours:** cut-off is 7PM in classic and pairing. If a session runs past it, say so directly.
 
-Every session runs in one of three modes. `/start` asks which; default to **solo** if nothing is said.
+**Read the clock, don't guess.** Never estimate elapsed or remaining time from memory — read `sesh status --json` and branch on `phase` (`running → ending_soon → finished`). The heartbeat re-invokes you; `sesh` tells you the real time when it does. `/start`, `/save` and `/stop` drive the timer. Reference: `~/.claude/docs/sesh.md`.
 
-- **Solo** — the default. The user hands over a task or task list and leaves. Invoke `/solo`. It opens with a **spec/plan check**: before any code, write a short spec and plan for each task — acceptance criteria, approach, the assumptions you're already making — and get one sign-off. That check is the last question you ask. After it, persevere through problems, assume rather than ask, finish the unblocked work, and report every decision and problem in **one batch at the end**. The 7PM cut-off does not apply and the cron heartbeat becomes a progress log rather than a check-in.
-- **Classic** — collaborative: check in as you go, surface problems when you hit them, one goal for the session.
-- **Pairing** — TDD ping-pong. Invoke `/pingpong`; spec together, then alternate test-writing and implementing.
+**Logging:** session notes live in a private data repo via `jotter`; `/start`, `/save`, `/stop` and `/note` write them. For "what did we do yesterday?", use `jotter ls` / `jotter search` (`--since`/`--until`) before raw transcripts. The CLI is `jotter write` (not `add`) and needs `--project`, `--branch`, `--type`, `--content`. Reference: `~/.claude/docs/jotter.md`.
 
-Solo mode's one exception: irreversible and outward-facing actions (`git push`, merges, deletions, anything leaving the machine) still stop for explicit approval. Work right up to that line, then carry on with everything else and surface the gated action in the final report.
+**End:** run `/stop` (`stop-session`) — it stops `sesh` and cancels the heartbeat. `/save` for a mid-session checkpoint, `/note` for a quick note. Check the project's CLAUDE.md for extra end-of-session steps.
 
-## Session start routine
+## Context and subagents
 
-Run `/start` at the beginning of every session — the `start-session` skill has the full steps.
+- **Use `/clear` liberally** when a thread is done; `/start` restores context from the log.
+- **Subagents** for exploratory work that would bloat the main context. **Background Bash** for parallel compute on existing files.
+- Route by cost: **Haiku** for mechanical work, **Sonnet** by default, **Opus** for high-stakes reasoning. Reference: `~/.claude/docs/subagents.md`.
+- **Waiting on a background process:** poll on a `ScheduleWakeup` timer (~270s) rather than file monitors or task output files, which are unreliable. Verify completion by checking the output itself.
 
-**"Continue" means start.** Treat "continue", "let's continue", "carry on", "resume", "pick up where we left off" (and similar) exactly like `/start` — run the **full** start routine, not just a jotter catch-up. Reading the jotter log (below) is step one *of* that routine, not a substitute for it: still ask about available time and hard stops, start the `sesh` timer, set the cron heartbeat, and propose one concrete goal. The only time to skip is a quick, already-scoped task where the goal is obvious.
+**Suggest Claude Code features.** The user is learning Claude Code. When a feature would help, mention it briefly: repetition after tool use → hooks; the same change across many files → `/batch` or partitioned subagents; uncertain approach → `/plan`; a long-running task → `/loop`; a repeatable pipeline → an agent file; a constraint Claude keeps forgetting → CLAUDE.md. Check with the `claude-code-guide` subagent if unsure what exists.
 
-Principles:
-- Ask about available time and hard stops before reading anything
-- Ask which mode the session runs in — solo (`/solo`, the default), classic, or pairing (`/pingpong`)
-- Propose **one concrete goal** — not a wish list (in solo mode, a task list, each with its spec and plan)
-- Start the `sesh` timer for authoritative time, and set a cron heartbeat to pace check-ins
-- Cut off at **7PM** — flag it directly if the session is running late (classic and pairing only)
+## Evaluating config changes
 
-## Session end routine
-
-Run `/stop` at the end of every session — the `stop-session` skill has the full steps. For mid-session checkpoints or stepping away briefly, use `/save`; for a quick note without committing, use `/note`.
-
-Principles:
-- Stop the `sesh` timer and cancel the cron heartbeat so nothing fires after you walk away
-- Check the project's CLAUDE.md for any additional session-end requirements
-
-## Working hours
-
-Cut-off is 7PM. If a session is running past 7PM, say so directly — don't let it slide quietly. Early starts are fine.
-
-**Solo mode is exempt** — no cut-off, no time flagging, no wrap-up prompts. The work runs until it's done.
-
-## Session pacing — read the clock, don't guess
-
-**Never estimate elapsed or remaining session time from memory — read `sesh status --json`.** The agent has a persistent blind spot here (it once claimed "35 minutes in" ten minutes after a 9AM start); `sesh` is the authoritative on-disk clock that removes the guesswork. Any time you reason about how long is left, whether a hard stop is close, or whether it's past the 7PM cut-off, read the timer first. Branch on the `phase` field (`running → ending_soon → finished`) rather than recomputing from timestamps.
-
-`sesh` is a *pull* (you read it when awake); the cron heartbeat `/start` sets is the *push* that re-invokes you every 30 minutes. They are complementary — the heartbeat forces the check-in, `sesh` tells you the real time when you check. `sesh` also fires a macOS banner for the human near the end, and flips `alerted` in status for the agent.
-
-`/start`, `/save`, and `/stop` drive the timer (`start` / `pause` / `resume` / `stop`) — no manual timer management needed. See `~/.claude/docs/sesh.md` for the full command, flag, and status-field reference — read it before invoking `sesh` directly.
-
-## Managing context
-
-**Use `/clear` liberally.** Context is the scarcest resource in a session — clearing it when a thread is done keeps later work sharp. Session logs make `/clear` cheap: `/start` restores context from the data repo automatically.
-
-Within a session, the main levers for keeping context lean:
-
-- **`/clear`** — reset when a thread concludes or goes stale
-- **Subagents for exploratory work** — browsing, reading many files, running scripts; the subagent absorbs the cost and returns a summary, leaving the main context clean
-- **Background Bash for parallel compute** — chunked processing, batch jobs; simpler than subagents, inherits approved permissions
-
-## Subagents and parallelisation
-
-**Subagents for research + build; background Bash for parallel compute.** Use a subagent when a task has many exploratory steps that would bloat the main context. Use background `Bash` for parallel compute on existing files. Route by cost: **Haiku** for mechanical execution, **Sonnet** default, **Opus** for high-stakes reasoning.
-
-See `~/.claude/docs/subagents.md` for the full reference — background permission gotcha, agent-vs-skill table, partitioning pattern, and the model routing rubric.
-
-## Polling vs monitoring for long-running tasks
-
-When waiting for a background process (download, build, test run) to complete before taking a follow-up action, **prefer polling on a ScheduleWakeup timer** over file monitors or watching background task output files. File monitors pick up stale changes unreliably, and background task output files are often empty or unbuffered until the process exits — neither gives a clean signal. A timer every ~270s is reliable and cheap. Always verify completion directly (check the output, inspect the artefact) rather than trusting the signal source.
-
-## Proactively suggest Claude Code features
-
-You are working with a user who is actively learning Claude Code. When you notice a pattern that a Claude Code feature could improve — repetitive manual steps, bulk file changes, risky PRs, long-running polls, complex decisions — mention it briefly without derailing the task.
-
-If you're unsure what's currently available, use the `claude-code-guide` subagent to look it up before suggesting. Don't guess or cite stale knowledge.
-
-Common patterns: manual repetition after tool use → hooks; same change across many files → `/batch` or partitioned subagents; uncertain approach → `/plan`; long-running task to monitor → `/loop`; repeatable self-contained pipeline → agent file; recurring constraint Claude keeps forgetting → belongs in CLAUDE.md; high-volume mechanical work → Haiku subagent; high-stakes reasoning → Opus.
+Before merging a new or rewritten CLAUDE.md section, doc, skill or agent — or removing or moving one — run a quick A/B eval: two parallel subagents answer the same representative question, one with the old files and one with the new, then an Opus agent scores both 0–3 on completeness, accuracy, actionability and gaps acknowledged. Merge if the new setup scores +2 or more. Rubric and prompt templates: `~/.claude/docs/eval_config_changes.md`.
 
 ## Code comments — don't write them
 
-**The code, the commit message, and the tests should explain everything between them. Default to zero inline comments.** Intent has three durable homes: naming and structure say *what* the code does; the commit message says *why* (motivation, trade-offs, what was rejected), where it's durable and reviewable; the tests say *what the behaviour should be*. A comment that restates any of the three is noise that rots out of sync with the code.
+Default to zero inline comments, in every language and file, tests and config included. Naming and structure say *what*, the commit message says *why*, the tests say *what the behaviour should be*; a comment restating any of them rots. In tests, a test that needs a comment wants a better name or an extracted helper.
 
-This applies to every language and every file, including tests and config. Do not narrate constants, methods, or steps "to be helpful" — a comment on `RESULTS_SESSION_KEY = :foo` or above a self-evident method is exactly the kind to drop.
-
-In tests, the test name and the assertions are where intent lives — not a comment above them. A descriptive test name states the behaviour being verified, and a clear assertion shows the expected outcome; a comment that restates either ("# checks the user is redirected" above a redirect assertion) is the same rot. If a test needs a comment to explain what it covers, rename it; if it needs one to explain a setup step, extract a well-named helper or fixture. The escape hatch is the same — a non-obvious external constraint in the arrange step may earn one line.
-
-Only write a comment when the reasoning genuinely cannot live in the code *or* the commit message — a non-obvious external constraint, a deliberate footgun, a workaround for a specific upstream bug (link it). Even then: one line, and prefer to first ask whether a better name or a tiny extracted method would remove the need. When in doubt, leave it out and put the explanation in the commit body.
+Comment only what can't live in the code or the commit: a non-obvious external constraint, a deliberate footgun, a workaround for an upstream bug (link it). One line, and first ask whether a better name would remove the need.
 
 ## Incremental delivery
 
-Break work into the smallest steps that can each be validated independently. Draft the artefact first, then wire it in, then remove what it replaces — separate steps, not one. This applies to code, docs, config changes, and refactors equally. Each step should leave the system in a working state and produce a diff you can read and reason about in isolation.
+- **Smallest validated steps.** Draft the artefact, then wire it in, then remove what it replaces — separate steps, each leaving the system working with a diff you can reason about alone. Applies to code, docs, config and refactors.
+- **Spec before code.** Agree a short spec; derive the tests and the implementation from it.
+- **Write tests as you go**, alongside the code: a test written first says what the code should do.
+- **Keep the branch green.** A temporarily skipped test is marked `skip`/`xfail` with a reason, never silently ignored.
+- Spikes skip the tests, but are timeboxed and written up before the real implementation.
 
-The git principles below (atomic commits, single-purpose branches) are the downstream expression of this — small steps make atomic commits natural rather than effortful.
+## Git
 
-**Spec before code.** Before starting a feature, write a short spec and agree on it. From the agreed spec, derive both the tests (acceptance criteria) and the implementation. This keeps features focused and avoids scope drift — you can't drift from a boundary you've already drawn.
+**Remotes.** In personal projects `origin` is the self-hosted Forgejo and the `gh` remote is only a GitHub mirror: push, raise PRs and merge on `origin`, using `fgj` rather than `gh`. Work and client repos have GitHub as `origin`. Check `git remote -v` before any push or PR.
 
-**Write tests as you go.** Tests define what "done" means for each step. Write them alongside the code, not after. A test written after the fact describes what the code does; a test written first describes what it should do — that's a meaningful difference when requirements are still being settled.
+**Invoke the skill before acting** — the rules live there so they're read at the moment they apply:
 
-**Keep the branch green.** Don't let failing tests accumulate. A red branch means you can't tell whether a new failure is from your current change or a previous one. If a test must be temporarily skipped, mark it explicitly (`skip`/`xfail`) with a reason — never silently ignore it.
+- before any `git commit` → `/commit` (grouping, message format, checklist)
+- before raising or editing a PR, issue or PR comment → `/pull-request` (template, editing in place, screenshots, `fgj` flags)
+- before any merge into main → `/merge-branch` (checklist, rebase, strategy, `/handover`)
+- rewording, squashing or splitting existing commits → `/revise-commits`
 
-Exception: spikes and proof-of-concept work are exploration, not delivery — skip the test overhead, but timebox the spike and write up what was learned before starting the real implementation.
+**Always on:**
 
-## Workspace hygiene — prefer project-local scratch dirs
+- Work on a feature branch, `feature/<name>`. Typos, doc tweaks and one-line config changes can go straight to `main`; when in doubt, ask.
+- Commit finished work yourself in atomic groups and list the commits in your report. When the user says "commit" to a proposed grouping, commit all of it in that turn.
+- Keep branches single-purpose: land independently useful changes separately, and early.
+- Never push, raise a PR or merge until the user says so.
 
-For temporary files and log output, use a **project-local directory** (`./tmp/`, `./log/`) rather than `/tmp`, `$TMPDIR`, or the user's home dir. Only use system temp dirs for genuinely ephemeral single-invocation fixtures — anything you might want to inspect afterward belongs in-tree.
+**Before every push:**
 
-See `~/.claude/docs/workspace.md` for the setup recipe (`.gitkeep` + `.gitignore` pattern).
+- `git log origin/<branch>..HEAD --oneline` — `git push` sends *every* ahead-commit; confirm each one should ship.
+- Nothing starting `WIP`, `fixup!`, `squash!`, `tmp` or `DO NOT MERGE:` goes to main.
+- Unexpected ahead-commits on main (e.g. from an earlier session): stop and ask.
+- Never force-push main.
 
-## Git workflow
-
-**Personal projects: Forgejo is the main remote, GitHub is the backup.** In a personal repo `origin` points at the self-hosted Forgejo and the remote named `gh` points at GitHub, which is only a mirror. Push, open PRs and merge on `origin`. Never open a GitHub PR for a personal project, and don't reach for `gh pr …` just because a `gh` remote exists. Check `git remote -v` before any push or PR. The `gh pr` commands in the rest of this section apply to repos whose `origin` is GitHub, such as work and client repos.
-
-**On Forgejo, use `fgj` in place of `gh`.** It's installed and logged in, and it reads the repo from `origin`, so `fgj pr list`, `fgj issue view 12` and the rest work the way `gh` does. The flags are not all the same, so don't carry `gh` habits across blind:
-
-- `fgj pr create` has no `--body-file` — pass `--title "…" --body "$(cat body.md)"`. `fgj pr edit` does take `-F/--body-file`.
-- Merge with `fgj pr merge <n> --merge-method rebase` (single commit) or `--merge-method merge` (several), not `--rebase`/`--merge`.
-- `--json` takes no field list and there is no `--jq`; pipe to `jq` instead, e.g. `fgj pr view <n> --json | jq -r .body`.
-- For anything without a command, `fgj api repos/<owner>/<repo>/…` makes an authenticated call. It does not fill in owner and repo for you.
-
-Check `fgj <cmd> --help` before using a flag you haven't seen work here. Never fall back to `curl` with a pasted token.
-
-Changes accumulate as dirty working tree state during a session. When a task is complete and there are uncommitted changes, **commit them yourself** in sensible atomic groups, then list the commits in your report. Don't ask first (see "Be proactive" above). Commits are local and easy to revise, so the user can ask for a regroup or a reword afterwards. Leave unrelated dirty files that were there before you started out of your commits, and mention them.
-
-**One "commit" approval covers everything proposed — finish the job in one go.** When the user says "commit" after a grouping has been proposed, commit *every* outstanding group in that turn (as separate commits where the grouping says so) without pausing to re-confirm, re-inspect, or report between groups. Any scoping question ("should the leftovers go in too?") belongs in the proposal, not after approval — if the user answers "commit" to a proposal that flagged optional extras, include them rather than drip-feeding another round-trip.
-
-**Five principles (the why behind the rules below):**
-
-1. **Atomic commits** — each commit has one reason to exist. If you can describe it with "and", split it. Atomic commits can be reverted independently, bisected to find regressions, and reviewed in isolation.
-2. **Messages tell the story** — the body must *cover* three things: **Why** (what problem motivated this?), **Benefit unlocked** (what does this enable?), **Trade-offs** (why this approach over alternatives?). These three are a *content* checklist — don't turn them into literal `Why:`/`Benefit:`/`Trade-offs:` labels; weave them into flowing first-person prose matching the project's recent commits. (Section headers themselves are encouraged for longer bodies — see the format rules below — just not these three as the headers.) The diff shows the what; the message is for reasoning. A body that only describes what changed is incomplete. **If the motivation isn't clear from context, ask before writing the message — don't guess. Before writing, skim recent merged/individual commits in the repo and mirror their structure and tone.**
-3. **Revise before sharing** — your working history is a draft. Squash fixups, reorder for clarity, remove noise before pushing. The goal is a history someone else can read, not a truthful log of false starts.
-4. **Single-purpose branches** — keep branches focused. If development produced something independently useful, cherry-pick it out and land it early. Smaller PRs merge sooner, conflict less, and deliver value faster.
-5. **Linear history** — rebase feature branches onto main before merging. Group related commits under a descriptive merge commit. A readable history is a debugging tool.
-
-See `~/.claude/docs/git_practices.md` for the full reference — FutureLearn engineering post on commit hygiene and the branch triage runbook.
+Reference: `~/.claude/docs/git_practices.md` — the commit-hygiene essay, branch triage and split-out recipes, squashing without interactive rebase, the docs/specs layout.
 
 ## Public files — no private references
 
-`~/.claude/` (CLAUDE.md, docs/, skills/, agents/) and dotfiles are committed to public repos. Never include in these files:
+`~/.claude/` and the dotfiles are public repos. Never put private project or repo names, private paths, personal details, internal URLs or credentials in them. Describe a pattern generically ("any repo with a `wrangler.toml`"); when the specific name is what makes it useful, put it in `~/dotfiles-private` — `claude/CLAUDE.md` for a rule, `claude/docs/` or `claude/skills/` for anything longer.
 
-- Private project names, repo names, or file paths
-- Personal details (name, email, employer, location)
-- Internal URLs, API endpoints, or credentials
-- Anything that would reveal information you wouldn't post publicly
+## Tooling
 
-When referencing a pattern or example, describe it generically (e.g. "any repo with a `wrangler.toml`") rather than naming a specific project. When the specific name is what makes it useful, put it in `~/dotfiles-private` instead — its `claude/CLAUDE.md` for a rule or example, `claude/docs/` or `claude/skills/` for anything longer.
+**macOS `sed` silently ignores GNU extensions.** BSD `sed` matches nothing for `\b`, `\+`, `\|` or `\w` and still reports success. Use `gsed` or `perl -pi -e`, and re-grep to confirm the substitution fired.
 
----
+**Worktrees: always `gwt`, never raw `git worktree`** — a hard rule, including from non-interactive Bash. `gwt` copies the gitignored files in `.worktreeinclude` (`.env`, `settings.local.json`, a symlinked `CLAUDE.local.md`) that a bare `git worktree add` leaves out, and puts worktrees where its other subcommands can find them. If it isn't loaded, `zsh -ic 'gwt …'`.
 
-## Shell tooling — macOS `sed` silently ignores GNU extensions
+- `gwt add [-b] <branch>`, `gwt rm [-f] <name>`, `gwt mv [-f] <name> <new>` (carries Claude history), `gwt ls`, `gwt status`.
+- From Bash, prefer the non-cd forms: `cd "$(gwt path <name>)"`, `gwt root -p`.
+- To push one changed file to other worktrees use `gwt send <path> [--to <dst>|all]`, not `gwt sync` — `sync` re-merges whole `.worktreeinclude` directories and can overwrite a worktree's own state. Use `sync` only for a worktree that has drifted.
+- Full reference: the header of `zsh/gwt.zsh`.
 
-The default `sed` on macOS is BSD `sed`, which does **not** support GNU extensions like `\b` (word boundary), `\+`, `\|`, or `\w`. The dangerous part: it doesn't error on them — `s/@host\b/host/g` matches *nothing* and reports success, so a "no-op" edit looks like it ran. Don't trust a `sed` substitution with GNU syntax until you've grepped the result.
+**Python:** always `uv` — never `pip`, `pip3` or bare `python3`. Reference: `~/.claude/docs/python_tooling.md`.
 
-- For word-boundary / GNU-regex work, use **`gsed`** (GNU sed, `brew install gnu-sed`) — it's the same syntax you'd reach for on Linux.
-- No `gsed`? Use `perl -pi -e 's/\b.../.../g'` (Perl regex is always available), or fall back to a plain literal replacement when the target string isn't a substring of anything else in the file.
-- Always verify the substitution actually fired (re-grep for the old pattern) rather than assuming.
+**Task runner: a `Rakefile`, whatever the language** — not a justfile, Makefile or `package.json` scripts, so `rake -T` always answers "what can I run?". Give each public task a `desc`, point `default` at the everyday task, shell out with `sh`, use FileUtils helpers for files, and pair every `install` (symlinks under `PREFIX`, default `~/.local`) with an `uninstall` that removes exactly what it made. An existing project keeps its runner unless asked to migrate.
 
-## Git worktrees — use `gwt`, not raw `git worktree`
-
-**Never run `git worktree add` / `git worktree remove` (or any raw `git worktree` subcommand) directly. Always use the `gwt` helper.** This is a hard rule, not a preference — no exceptions for "it's just a quick one" or non-interactive `Bash` calls. If `gwt` isn't loaded in the current shell, source it (`zsh -ic 'gwt …'` or source `zsh/gwt.zsh`) rather than falling back to raw `git worktree`.
-
-Why the helper and not the plumbing: `gwt` (defined in `zsh/gwt.zsh`) places worktrees under `.claude/worktrees/`, supports fuzzy name matching, carries Claude history on rename (`gwt mv`), and — critically — honours a repo's `.worktreeinclude` to copy gitignored files (`.env`, `.claude/settings.local.json`, a symlinked `CLAUDE.local.md`) into the new worktree on `gwt add`. A bare `git worktree add` silently omits those, so the worktree loses per-checkout config and its mandated rules. A raw worktree also won't sit at the path/name `gwt`'s other subcommands expect, so later `gwt cd`/`gwt rm`/`gwt mv` can't find it.
-
-Common commands:
-
-- `gwt add [-b] <branch>` — create a worktree (and branch with `-b`) and cd into it
-- `gwt <name>` / `gwt cd <name>` — cd into an existing worktree (fuzzy name)
-- `gwt mv [-f] <name> <new-name>` — rename a worktree's directory and carry its Claude history (`~/.claude/projects/`); branch is left untouched, `-f` skips the prompt
-- `gwt ls` / `gwt status` — list worktrees / full overview
-- `gwt rm [-f] <name>` — remove a worktree (fuzzy name; `-f` skips the prompt)
-- `gwt path [<name>]` — echo a worktree's absolute path (current if omitted)
-- `gwt root [-p]` — cd back to the main worktree root (`-p` echoes the path)
-- `gwt send <path> [--from <src>] [--to <dst>|all] [-f] [-y]` — copy one ad-hoc file or directory between worktrees (root → all with `--to all`)
-- `gwt sync [<name>|--all] [-f] [--hooks]` — re-merge root's `.worktreeinclude` into a worktree (the named one, every one with `--all`, or the current one); adds missing files and refreshes stale ones without deleting the worktree's own, `-f` makes root win on a conflict, `--hooks` re-runs the `post-add` hook
-
-**Distributing a change to the other worktrees: reach for `gwt send`, not `gwt sync`.** `send` copies the one path you name; `sync` re-merges everything `.worktreeinclude` covers, and those entries are usually whole directories, so one config edit drags every sibling file in that directory along with it. That's how a worktree's own state gets silently overwritten by root's. Use `sync` only when you actually want the full merge — a worktree that has drifted or missed files — and prefer `send` for the routine "I changed one file at root, push it out" case.
-
-The directory-changing subcommands (`add`, `cd`, `root`) rely on a shell wrapper, so from a non-interactive `Bash` call prefer the non-cd forms (`gwt path`, `gwt ls`, `gwt status`) and `cd "$(gwt path <name>)"` when you need to be inside one. Full reference and `.worktreeinclude` semantics live in the header of `zsh/gwt.zsh`.
-
-## Python tooling
-
-Always use `uv` for Python projects — never `pip`, `pip3`, or bare `python3`.
-
-See `~/.claude/docs/python_tooling.md` for the full reference.
-
-## Task runner — use a Rakefile
-
-A project's repeatable tasks (test, build, install, uninstall) go in a `Rakefile` at the repo root, **whatever the project's language** — Python, Rust and Swift alike. Not a justfile, Makefile, or `package.json` scripts. One runner everywhere means `rake -T` always answers "what can I run here?". Rake ships with Ruby, so a plain Rakefile needs no Gemfile.
-
-- Give every public task a `desc` so it shows in `rake -T`; point `task default:` at the everyday task (usually `test` or `build`).
-- Shell out with `sh`; do file work with Rake's FileUtils helpers (`mkdir_p`, `ln_sf`, `rm_f`, `cp_r`).
-- Install by symlinking under `PREFIX` (default `~/.local`) and always pair `install` with an `uninstall` that removes exactly what it created.
-
-An existing project that already uses another runner keeps it unless asked to migrate.
+**Scratch files:** use a project-local `./tmp/` or `./log/`, not `/tmp` or `$TMPDIR`, for anything you might inspect afterwards. Setup recipe: `~/.claude/docs/workspace.md`.
 
 ## Web standards
 
-When building any static HTML page, follow `~/.claude/docs/web_standards.md`. Key points:
+For any static HTML page, follow `~/.claude/docs/web_standards.md`:
 
-- **Aesthetic:** warm serif (`Times New Roman`), parchment background `#f5f1e8`, max-width 620px centred — editorial, not a dashboard
-- **Accessibility (non-negotiable):** WCAG AA contrast minimum, visible focus styles (`focus-visible`), `<nav aria-label>` for navigation, `lang="en"`, no `user-scalable=no`
-- **Dark mode:** always — use CSS custom properties so it's one `@media` block
-- **No frameworks:** plain HTML + CSS only; no React/Vue/Tailwind on read-only content pages
-- **Reference implementations:** any personal project with a `wrangler.toml` and `public/` directory (the private conventions name which) — read the CSS there first
+- **Aesthetic:** warm serif (`Times New Roman`), parchment `#f5f1e8`, max-width 620px centred — editorial, not a dashboard.
+- **Accessibility:** WCAG AA contrast, visible `focus-visible` styles, `<nav aria-label>`, `lang="en"`, no `user-scalable=no`.
+- **Dark mode always**, via CSS custom properties in one `@media` block.
+- **No frameworks** on read-only content pages — plain HTML and CSS.
+- **Reference implementations** (named in the private conventions): read their CSS first.
 
-**Before you commit — checklist:**
-> Re-read this before staging anything.
-- Is the work finished and the tests green? Commit it without asking; don't commit a half-done step.
-- Is this the smallest unit of change that delivers value on its own? (atomic — could it be reverted independently without breaking anything?)
-- Does each commit have exactly one reason to change? (Single Responsibility Principle — if you can describe it with "and", split it)
-- Is the first line a `<tag>: ` prefix (feat/fix/refactor/docs/chore/test/perf) followed by a short imperative summary of the *value*, not the implementation? (< 72 chars total)
-- Does the body *cover* all three (as prose, not headings): **Why** (motivation), **Benefit unlocked** (what this enables), **Trade-offs** (why this approach)?
-- Does the prose match the voice of the repo's recent commits? (skim them first)
-- Is it free of the phrases in `~/.claude/docs/writing_voice.md`? (terms that read as machine-written, each with the natural alternative beside it — check the subject line especially)
-- Are unrelated changes in separate commits?
-- Are relevant references included, and does each one have a URL or commit SHA? Naming a doc/issue/commit without a link is dead weight to a future reader.
-- Is the message being passed via HEREDOC?
-
-**Commit grouping rules:**
-- One commit per logical feature or change (not per file, not one big "various changes" commit)
-- Keep unrelated changes in separate commits
-- If a feature touches multiple files, those go in the **same** commit
-
-**Commit message format:**
-- **First line:** a conventional-commit tag prefix + short imperative summary, < 72 chars total. Format: `<tag>: <summary>` (e.g. `refactor: Move manufacturer list into a config YAML`, `fix: Correct mixed-case installer URLs`). Tags: `feat` (new capability), `fix` (bug fix), `refactor` (behaviour-preserving change), `docs`, `chore`, `test`, `perf`. Capitalise the summary after the tag.
-- **Body — flowing first-person prose** that provides *context and reasoning*, not a restatement of the diff. The diff already shows *what* changed; the body explains **why** it was needed, **what it unlocks**, the **trade-offs / approach rationale** (including what was consciously left out), and **any key bits that might not be obvious** from reading the code. Don't enumerate the changes — let the diff speak for that. Write it the way the project's recent commits read; **skim `git log` first and mirror their structure and tone**.
-- **Section headers are useful** — for anything beyond a short commit, group the prose under headers rather than leaving one long block. Match the project's existing convention; this repo's house style uses ascii-underlined bold headers, e.g. `** Background **`, `** Summary **` / `** Key Changes **`, `** Things to note **`, `** Out of scope **`. Short, single-idea commits can stay as plain prose.
-- Include references where relevant — Claude session URLs, issues, PRs, external docs, research. **Every reference must carry a URL or commit SHA.** The house style is footnote markers (`[1]`, `[2]`) in the prose with the link definitions collected at the foot of the message. Same for in-repo references: cite the commit SHA, not just "as discussed in the earlier refactor".
-- Always end with `Co-Authored-By: Claude [model] <noreply@anthropic.com>` — use the actual model you're running on (available in your system context, e.g. `Claude Sonnet 4.6`)
-- Use a HEREDOC to pass the message to `git commit -m`
-
-**Branch cleanup before raising a PR and before merging:** review every commit with `git log main...<branch> --oneline`. Cleanup commits (renames, fixups, "oops" corrections) are noise — squash them into the commit they belong with. Every commit should tell one clear story. Do this twice: once before raising the PR, and again before merging in case review feedback triggered more fixup commits.
-
-**Squashing without interactive rebase:** interactive rebase isn't available in Claude Code — rebuild the branch with `git cherry-pick --no-commit` instead. See `~/.claude/docs/git_practices.md` for the exact recipe.
-
-**Before you merge — checklist:**
-> Re-read this before running any merge command.
-- Has the user explicitly said to merge? Never propose and proceed in the same step.
-- Has the full diff been reviewed (not just `--stat`)? Show modified files to the user before merging.
-- Is the branch focused — can every commit be described in one sentence starting with the feature name? If not, split it first.
-- Has the branch been rebased onto the latest main?
-- Is the PR description written (summary, key changes, gotchas, references, test plan)?
-- Is the `## TODO before merge` checklist in the PR description complete — no outstanding items?
-- Single commit → `--rebase`; multiple commits → `--merge` with a descriptive merge commit title
-- Never push main directly — always use `gh pr merge`
-
-**Merge strategy (feature branches → main):**
-
-Before merging, always count commits: `git log main...<branch> --oneline | wc -l`
-
-- **Single commit** — rebase fast-forward: `gh pr merge <number> --rebase` (no merge commit, linear history)
-- **Multiple commits** — rebase the feature branch onto main first (`git rebase main` on the feature branch, push), then merge with `gh pr merge <number> --merge` to preserve the commits grouped under a descriptive merge commit. Merge commit title: `Merge feature/<name>: <what it does>`, body: what was built and why. To carry the PR description into the merge-commit body, convert it with `~/.claude/scripts/md_to_commit.rb` (Markdown → house-style headers, wrapped at 72) — see the "Pasting a PR description into the merge commit" recipe in `~/.claude/docs/git_practices.md`.
-
-Always rebase the feature branch onto main before merging — ensures the history is linear and conflicts are resolved on the feature branch, not on main.
-
-**Rebase with `--reset-author-date` so the log reads in date order.** A rebase keeps each commit's original author date, so a branch written over several days lands on main stamped earlier than commits already there — `git log` ordered by date and by topology then disagree, and "what shipped when" stops being answerable from the history. Resetting the dates puts the commits where they actually entered main, in the order they entered it. Use the `grod` helper (`zsh/git_aliases.zsh`), which is `git rebase origin/main --reset-author-date` with the trunk worked out for you.
-
-For a stack, `grod` only fits the bottom branch — rebasing each part onto main independently gives the shared commits different SHAs in every branch. Chain them instead, bottom to top, each onto the rebased branch below it:
-
-```bash
-git rebase --onto <rebased-lower-tip> <old-lower-tip> <branch> --reset-author-date --no-keep-empty
-```
-
-`--no-keep-empty` drops the empty commits a branch picks up along the way (the "force CI rebuild" kind), which a plain rebase preserves.
-
-**Always merge via `gh pr merge`** — never push main directly. Pushing main bypasses GitHub's merge mechanism; the PR only appears merged by inference rather than being properly closed. `gh pr merge` closes the PR, records the merge event, and keeps the GitHub history canonical.
-
-**Process:**
-1. **Always start on a feature branch** — never work directly on main, even for small changes. Create a branch before writing any code: `git checkout -b feature/<name>`
-2. Run `git status` and `git diff --stat` to survey all dirty changes
-3. Show the full diff — not just the stat — so the user can review every line before anything is merged. For branches with many files, diff file-by-file or skip all-addition new files (they have no "what changed") and diff only modified files: `git diff main...<branch> -- file1 file2`
-4. Pick a grouping. No need to wait for approval
-5. Stage and commit each group sequentially, then list the commits in your report
-6. **Never merge or raise a PR until the user explicitly says to** — propose it, then wait
-7. **After merging — preserve the branch's context with `/handover`.** Once a feature branch is merged and about to be deleted, run `/handover` to distil its session log into a single handover entry on `main` so the branch's history and decisions survive its removal. Then delete the merged branch (and its worktree, via `gwt rm`). This applies to local-only merges too, not just `gh pr merge`.
-
-**Before you push — checklist:**
-> Re-read this before every `git push`, especially to main.
-- Run `git log origin/<branch>..HEAD --oneline` and confirm every listed commit is intended to ship. `git push` pushes *all* ahead-commits, not just the one you just made.
-- **Never push WIP commits to main.** If a commit message starts with `WIP`, `fixup!`, `squash!`, `tmp`, or similar, it doesn't belong on main — rebase/squash it first, or move it to a branch.
-- **Dummy / throwaway / test / verification commits on a feature branch must be prefixed `DO NOT MERGE:`.** Anything that's only on the branch to exercise CI, reproduce a bug, sanity-check a workflow change, or otherwise prove a point — and is not meant to ship — gets this prefix. Examples: a deliberately failing test to confirm an artifact upload, a temporary `puts` in production code to verify a log path, a hardcoded value to flush out a downstream behaviour. The prefix makes them impossible to miss during pre-merge branch cleanup — revert (or drop them with a rebase) before raising the PR for review, or at the very latest before merging.
-- If you find unexpected ahead-commits on main (e.g. from a previous session), pause and surface them to the user before pushing. Don't assume they're safe to ship.
-- Never `git push --force` to main.
-
-**Feature branch PRs:**
-
-**Read the repo before writing the template.** A repo with an established PR style wins over anything here — skim the last handful of *merged* PRs (`gh pr list --state merged --limit 15 --json number,body`) and mirror their headings, tone, and **length**. The template below is the default for a repo with no convention of its own, and it is also what a house style tends to converge on. Getting this wrong is easy and invisible: copying the format of one recent PR is a sample of one, and the rarest variant is as likely to be the one you land on as the common one.
-
-PR descriptions follow the same philosophy as commit messages — explain the *why*, not just the *what*, and **defer the per-change detail to the commit messages** rather than re-narrating the diff. The body orients the reviewer; the commits carry the specifics.
-
-**Keep it short.** A PR description that is longer than any recently merged one is a signal you are re-narrating the diff. Match the repo's range; when in doubt, aim for the middle of it, not the top.
-
-**Check the wording against `~/.claude/docs/writing_voice.md`** — the phrases that read as machine-written, each with the natural alternative beside it, plus the words that look like slop but are genuinely in use. A PR description is read by people who did not write the branch, so an off-key phrase is more noticeable here than anywhere else.
-
-Structure — three sections, bold-with-underline headings:
-
-1. **Motivation** — lead with the *why*, kept high-level: a paragraph or two on the problem this solves or the capability it unlocks, and the reasoning behind the approach. Don't enumerate the changes here. Illustrate the problem with one concrete example rather than listing every instance of it. For a stacked or part-N PR, open by naming the part it follows and linking it. If the PR is behaviour-preserving except for a deliberate change, call that exception out here.
-2. **Summary** — open with **one or two sentences of plain English on the impact**, set in bold, before any bullet: what is actually different now, in terms a reader who did not write the branch would care about. Not a restatement of the title, not an inventory of the parts — the effect. E.g. *"System tests no longer touch the network. The browser gets every third-party file from disk instead of from someone else's CDN, which halves the suite's runtime and takes an outage or a slow response off the list of things that can turn a build red."* The bullets say what was built; this says what it buys, and it is the part a reviewer skimming the list of open PRs actually reads. Then a short bullet list of the significant changes at a high level (not exhaustive, not file-by-file). End with **"See individual commit messages for the details."** Fold references inline where they belong (every reference carries a URL or commit SHA). For a stacked PR, close with a line naming the base branch and a compare link, plus the merge/rebase order. **Don't link to predecessor/draft PRs as predecessors** — but part-N cross-links between live stacked PRs are the point, keep those.
-3. **Things to note** — gotchas, trade-offs, deliberate omissions, anything that would surprise a reviewer reading the diff cold. One idea per bullet. This is where scope boundaries and "what this deliberately does not do" live.
-
-**Questions for the reviewer go in Things to note, not their own heading** — phrased as the decision you took plus an invitation, e.g. "I went narrow rather than wide because X. Shout if you'd rather go wide." Still raise them: a judgement call left unflagged is a judgement call nobody reviews.
-
-Do **not** add separate `Key changes`, `Gotchas`, `References`, `Out of scope`, or `Test plan` headings. Skip a `TODO` checklist unless the branch genuinely has outstanding steps worth tracking in public — an empty-by-merge-time checklist is noise. If the project tracks work in an issue tracker, the task link goes on the first line, above everything.
-
-Example:
-
-```markdown
-https://tracker.example.com/task/1234
-
-**Motivation**
-============
-
-Part 1 (#41) taught the client to read the API's ETag headers. This branch uses them
-to cache responses on disk, so a repeated `list` no longer goes back to the server for
-data it already has.
-
-The cache lives under `$XDG_CACHE_HOME` rather than beside the config, so clearing it
-never touches settings. It is on by default; `--no-cache` skips it for a single call.
-
-**Summary**
-===========
-
-**Running the same command twice no longer waits on the network the second time, and
-the CLI keeps working on a flaky connection for anything it has already seen.**
-
-- Store each response with its ETag and send `If-None-Match` next time. A `304`
-  serves the stored copy.
-- Fall back to the cached copy, with a warning, when the server can't be reached.
-- Add `cache clear`, so a user can start fresh without hunting for the directory.
-
-See individual commit messages for the details.
-
-**Things to note**
-===============
-
-- Nothing expires on a timer. The server decides what is stale through the ETag, which
-  avoids picking one TTL that is wrong for every endpoint.
-
-- Writes are never cached or replayed. Queuing them offline means resolving conflicts,
-  and that is a separate piece of work.
-
-- The fallback serves stale data rather than failing. Every command today is read-only,
-  so I went that way. Shout if you'd rather it fail loudly.
-```
-
-**Editing PR descriptions, issues, comments — fetch live state first, edit in place, never regenerate from a remembered template.** The user is often editing the same artifact concurrently in the GitHub UI. Regenerating the whole body from your last-known version silently stomps their edits. The right pattern is always: `gh pr view <n> --json body --jq .body > /tmp/body.md` → `Edit` only the line that needs changing → `gh pr edit <n> --body-file /tmp/body.md`. Applies equally to issue bodies, PR comments, anywhere a human and you might both write. If a small targeted edit isn't possible (e.g. major restructure), confirm with the user before pushing a full rewrite.
-
-**Screenshots in a PR description:**
-
-Screenshots earn their place when the change is visual — a before/after pair showing
-the broken state next to the fixed one does more than a paragraph. Three constraints,
-all learned the hard way:
-
-- **`gh` cannot attach images.** `--body-file` is text only, and the endpoint the web
-  UI posts to (`/upload/policies/assets`) is session-authenticated, so a token cannot
-  drive it. The working flow: ask the user to drag the files into a **comment** on the
-  PR and post it, read the `user-attachments` URLs back with
-  `gh pr view <n> --json body`, build them into the description, then the user deletes
-  the comment. The URLs survive the comment being deleted.
-
-- **On a private repo, `raw.githubusercontent.com` URLs do not render.** GitHub's camo
-  proxy fetches server-side without the viewer's credentials, so pushing images to a
-  side branch and linking them is a dead end — they show as broken images. Do not
-  reach for it.
-
-- **Downscale before uploading.** GitHub renders a dragged-in image at its intrinsic
-  size, and drag-and-drop inserts plain `![](url)` where you get no say. A desktop
-  capture at 2× DPR is enormous. Resize by the DPR factor first
-  (`sips --resampleWidth <css-px> shot.png`) — use `--resampleWidth`, not `-Z`, which
-  constrains the longest side and leaves inconsistent widths. Mobile-width captures are
-  fine as they are; tablet and up need it. Name the files with a zero-padded prefix
-  (`01-`, `02-`) so they upload in order.
-
-**Before any browser screenshot or visual check, ask the user to disable DarkReader.**
-On client projects the app usually ships no dark mode at all, so DarkReader is showing
-a machine inversion of a light-only design: it looks subtly broken, and it hides real
-problems with contrast and colour. It cannot be neutralised from the page — removing
-its injected style nodes triggers its MutationObserver and they come straight back —
-and toggling the extension is a change to the user's browser, not yours to make. So
-ask, and wait. Geometry (`scrollHeight`, layout measurements) is unaffected, but
-anything judged by eye is not.
-
-**Labels:** don't bother with PR labels — skip `gh label list` and create PRs without a label unless explicitly asked to add one.
-
-**When to skip a feature branch:**
-Small, self-contained changes (typo fixes, doc tweaks, single-line config changes) can be committed directly to main — not everything needs a branch and PR. This is a judgement call each time; when in doubt, ask.
-
-**Branch hygiene:** if unrelated changes crept into a feature branch, split them out before raising a PR — focused branches merge sooner and conflict less. The test: can every commit be described in one sentence starting with the feature name?
-
-**Detecting merged branches:** `git branch --merged` misses fast-forward rebased branches — always verify with `git diff main...<branch> --stat`. Empty diff = already on main.
-
-See `~/.claude/docs/git_practices.md` for the docs/specs directory layout, the full branch hygiene split-out recipe, and the branch triage runbook.
+**Before any browser screenshot or visual check, ask the user to disable DarkReader**, and wait. It inverts light-only designs, hiding real contrast problems, and can't be neutralised from the page. Layout measurements are unaffected; anything judged by eye is not.

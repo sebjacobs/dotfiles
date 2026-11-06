@@ -1,6 +1,6 @@
 # Git practices
 
-Reference material underpinning the git conventions in `CLAUDE.md`. Two sections: the original FutureLearn engineering post on commit hygiene, and a branch triage runbook for cleaning up mixed-concern branches.
+Reference material underpinning the git conventions in `CLAUDE.md` and the `commit`, `pull-request` and `merge-branch` skills. Two sections: the original FutureLearn engineering post on commit hygiene, and a branch triage runbook for cleaning up mixed-concern branches.
 
 ---
 
@@ -194,7 +194,7 @@ When checking whether feature branches have been merged, `git branch --merged` o
 
 ## After merging — `/handover` before deleting the branch
 
-A merged feature branch still carries context the merge commit doesn't: the session log (jotter entries) describing what was tried, what was rejected, and why. Deleting the branch loses the thread of that work. So once a branch is merged and about to be removed, run `/handover` to distil its log into a single handover entry on `main` — then delete the branch and its worktree (`gwt rm`). This is the last step of the merge process in `CLAUDE.md`, and it applies to local-only merges (rebase + `--no-ff` on main) exactly as it does to `gh pr merge`.
+A merged feature branch still carries context the merge commit doesn't: the session log (jotter entries) describing what was tried, what was rejected, and why. Deleting the branch loses the thread of that work. So once a branch is merged and about to be removed, run `/handover` to distil its log into a single handover entry on `main` — then delete the branch and its worktree (`gwt rm`). This is the last step of the `merge-branch` skill, and it applies to local-only merges (rebase + `--no-ff` on main) exactly as it does to `gh pr merge`.
 
 ## Pasting a PR description into the merge commit
 

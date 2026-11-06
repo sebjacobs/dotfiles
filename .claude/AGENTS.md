@@ -121,12 +121,6 @@ Reference: `~/.claude/docs/git_practices.md` — the commit-hygiene essay, branc
 
 ## Web standards
 
-For any static HTML page, follow `~/.claude/docs/web_standards.md`:
-
-- **Aesthetic:** warm serif (`Times New Roman`), parchment `#f5f1e8`, max-width 620px centred — editorial, not a dashboard.
-- **Accessibility:** WCAG AA contrast, visible `focus-visible` styles, `<nav aria-label>`, `lang="en"`, no `user-scalable=no`.
-- **Dark mode always**, via CSS custom properties in one `@media` block.
-- **No frameworks** on read-only content pages — plain HTML and CSS.
-- **Reference implementations** (named in the private conventions): read their CSS first.
+Before building, styling or reviewing any static HTML page, invoke `/web-page` — the house style (parchment, serif, 620px column), dark mode and the accessibility rules live there.
 
 **Before any browser screenshot or visual check, ask the user to disable DarkReader**, and wait. It inverts light-only designs, hiding real contrast problems, and can't be neutralised from the page. Layout measurements are unaffected; anything judged by eye is not.

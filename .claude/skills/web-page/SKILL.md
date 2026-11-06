@@ -1,12 +1,11 @@
-# Web standards
-
-House style for any static HTML pages built across personal projects.
-
-## Reference implementation
-
-The canonical examples live in the `public/` directories of personal projects that use this stack. Look for repos with a `wrangler.toml` and a `public/` directory — those are built to this standard, and the private conventions name the current ones. When in doubt, read the CSS from an existing project first.
-
 ---
+name: web-page
+description: House style for static HTML pages in personal projects — the parchment-and-serif design system, its palette with dark mode, typography, layout, page templates and the accessibility rules every page must meet. Use before building, styling or restyling any static HTML page, writing its CSS, or reviewing one for contrast and accessibility; when the user says "make a page", "build a site", "style this page", "add dark mode" or "check the contrast".
+---
+
+# Web page
+
+House style for any static HTML page built in a personal project. The palette, type and templates below are complete: build from them rather than hunting for an existing page to copy.
 
 ## Design system
 

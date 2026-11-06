@@ -1,10 +1,12 @@
 # Claude global conventions
 
-> **MANDATORY FIRST ACTION (applies to subagents too):** before answering or calling any other tool, Read `./CLAUDE.local.md` if it exists at the root of the current working directory — even for trivial tasks. It holds per-checkout overrides that win over the project `CLAUDE.md`, this file, and defaults from your user-context (e.g. how to address the user).
+> **MANDATORY FIRST ACTION (applies to subagents too):** before answering or calling any other tool, Read `./CLAUDE.local.md` if it exists at the root of the current working directory — even for trivial tasks. It holds per-checkout overrides that win over the project `AGENTS.md`, this file, and defaults from your user-context (e.g. how to address the user).
 
-> **Where this config lives:** `CLAUDE.md`, `settings.json` and `keybindings.json` in `~/.claude/` are symlinks into the public `~/dotfiles/.claude/`. `skills/`, `agents/` and `docs/` are real directories of per-entry symlinks, filled by `claude-link` from `~/dotfiles/.claude/` and the private `~/dotfiles-private/claude/`. Never create a file directly in `~/.claude/`: add it to the right repo, commit it, and run `claude-link`. Anything naming a real project, client, host or private path goes in `~/dotfiles-private`; everything else in `~/dotfiles`.
+> **Where this config lives:** `AGENTS.md`, `settings.json` and `keybindings.json` in `~/.claude/` are symlinks into the public `~/dotfiles/.claude/`, and `~/.claude/CLAUDE.md` links to the same `AGENTS.md` because Claude Code only reads the global file under that name. `skills/`, `agents/` and `docs/` are real directories of per-entry symlinks, filled by `claude-link` from `~/dotfiles/.claude/` and the private `~/dotfiles-private/claude/`. Never create a file directly in `~/.claude/`: add it to the right repo, commit it, and run `claude-link`. Anything naming a real project, client, host or private path goes in `~/dotfiles-private`; everything else in `~/dotfiles`.
 
 Private additions to these conventions, when that repo is cloned: @~/dotfiles-private/claude/CLAUDE.md
+
+**Project instructions live in `AGENTS.md`, falling back to `CLAUDE.md`.** Wherever these conventions, the docs or a skill say "the project's AGENTS.md", read the project's `AGENTS.md`, or its `CLAUDE.md` if it has no `AGENTS.md`.
 
 **Read the `~/.claude/docs/X.md` a section points to before using that tool.** Don't guess flags from memory or fall back to `--help` after a failed guess.
 
@@ -40,7 +42,7 @@ Stop and ask for anything **irreversible or outward-facing**: `git push`, mergin
 
 **Logging:** session notes live in a private data repo via `jotter`; `/start`, `/save`, `/stop` and `/note` write them. For "what did we do yesterday?", use `jotter ls` / `jotter search` (`--since`/`--until`) before raw transcripts. The CLI is `jotter write` (not `add`) and needs `--project`, `--branch`, `--type`, `--content`. Reference: `~/.claude/docs/jotter.md`.
 
-**End:** run `/stop` (`stop-session`) — it stops `sesh` and cancels the heartbeat. `/save` for a mid-session checkpoint, `/note` for a quick note. Check the project's CLAUDE.md for extra end-of-session steps.
+**End:** run `/stop` (`stop-session`) — it stops `sesh` and cancels the heartbeat. `/save` for a mid-session checkpoint, `/note` for a quick note. Check the project's AGENTS.md (or CLAUDE.md) for extra end-of-session steps.
 
 ## Context and subagents
 
@@ -49,11 +51,11 @@ Stop and ask for anything **irreversible or outward-facing**: `git push`, mergin
 - Route by cost: **Haiku** for mechanical work, **Sonnet** by default, **Opus** for high-stakes reasoning. Reference: `~/.claude/docs/subagents.md`.
 - **Waiting on a background process:** poll on a `ScheduleWakeup` timer (~270s) rather than file monitors or task output files, which are unreliable. Verify completion by checking the output itself.
 
-**Suggest Claude Code features.** The user is learning Claude Code. When a feature would help, mention it briefly: repetition after tool use → hooks; the same change across many files → `/batch` or partitioned subagents; uncertain approach → `/plan`; a long-running task → `/loop`; a repeatable pipeline → an agent file; a constraint Claude keeps forgetting → CLAUDE.md. Check with the `claude-code-guide` subagent if unsure what exists.
+**Suggest Claude Code features.** The user is learning Claude Code. When a feature would help, mention it briefly: repetition after tool use → hooks; the same change across many files → `/batch` or partitioned subagents; uncertain approach → `/plan`; a long-running task → `/loop`; a repeatable pipeline → an agent file; a constraint Claude keeps forgetting → AGENTS.md. Check with the `claude-code-guide` subagent if unsure what exists.
 
 ## Evaluating config changes
 
-Before merging a new or rewritten CLAUDE.md section, doc, skill or agent — or removing or moving one — run a quick A/B eval: two parallel subagents answer the same representative question, one with the old files and one with the new, then an Opus agent scores both 0–3 on completeness, accuracy, actionability and gaps acknowledged. Merge if the new setup scores +2 or more. Rubric and prompt templates: `~/.claude/docs/eval_config_changes.md`.
+Before merging a new or rewritten AGENTS.md section, doc, skill or agent — or removing or moving one — run a quick A/B eval: two parallel subagents answer the same representative question, one with the old files and one with the new, then an Opus agent scores both 0–3 on completeness, accuracy, actionability and gaps acknowledged. Merge if the new setup scores +2 or more. Rubric and prompt templates: `~/.claude/docs/eval_config_changes.md`.
 
 ## Code comments — don't write them
 

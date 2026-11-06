@@ -1,16 +1,16 @@
 # Evaluating global and project config changes
 
-Before merging a change to `CLAUDE.md`, `~/.claude/docs/`, or project skills, run a quick A/B eval to verify the change improves agent responses rather than just adding noise. This takes ~5 minutes and catches regressions before they land on main.
+Before merging a change to `AGENTS.md`, `~/.claude/docs/`, or project skills, run a quick A/B eval to verify the change improves agent responses rather than just adding noise. This takes ~5 minutes and catches regressions before they land on main.
 
 ---
 
 ## When to run an eval
 
-- Adding a new section to CLAUDE.md (principles, workflows, checklists)
+- Adding a new section to AGENTS.md (principles, workflows, checklists)
 - Adding a new file to `~/.claude/docs/` or `docs/engineering/`
 - Significantly rewriting an existing section
 - Removing content that was previously available
-- Moving content from project CLAUDE.md into global CLAUDE.md or `~/.claude/docs/` — verify the project doesn't lose coverage
+- Moving content from a project AGENTS.md or CLAUDE.md into global AGENTS.md or `~/.claude/docs/` — verify the project doesn't lose coverage
 - Extracting a workflow into a skill — verify the skill produces equivalent or better answers than the inline instructions did
 - Creating or updating an agent definition — verify the agent handles its task correctly under the new instructions
 
@@ -120,7 +120,7 @@ The margin from the git_practices.md eval was +2 (19 → 21 out of 24). The new 
 | Gaps acknowledged | 2 | 1 | 3 | 2 |
 | **Subtotal** | **9** | **10** | **10** | **11** |
 
-**Total: 19 vs 21.** Setup B won on depth and actionability — the bucket taxonomy and runbook turned abstract rules into followable procedures. The margin was modest because CLAUDE.md already had the rules; the docs added the *how to apply them* layer.
+**Total: 19 vs 21.** Setup B won on depth and actionability — the bucket taxonomy and runbook turned abstract rules into followable procedures. The margin was modest because AGENTS.md already had the rules; the docs added the *how to apply them* layer.
 
 **Verdict from Opus:** "Setup B performed better overall because the supplementary document gave it concrete examples, a structured taxonomy for branch cleanup, and practical edge-case tips. The margin is modest because Setup A already captured the rules accurately — Setup B's advantage is depth and actionability rather than correcting errors."
 

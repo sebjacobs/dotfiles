@@ -5,7 +5,7 @@ description: Run the session start routine — ask about available time and hard
 
 # Start Session
 
-Runs the session start routine documented in CLAUDE.md. Ensures every session begins with a shared understanding of available time, current priorities, and a single concrete goal.
+Runs the session start routine documented in AGENTS.md. Ensures every session begins with a shared understanding of available time, current priorities, and a single concrete goal.
 
 ---
 

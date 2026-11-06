@@ -1,6 +1,6 @@
 # Git practices
 
-Reference material underpinning the git conventions in `CLAUDE.md` and the `commit`, `pull-request` and `merge-branch` skills. Two sections: the original FutureLearn engineering post on commit hygiene, and a branch triage runbook for cleaning up mixed-concern branches.
+Reference material underpinning the git conventions in `AGENTS.md` and the `commit`, `pull-request` and `merge-branch` skills. Two sections: the original FutureLearn engineering post on commit hygiene, and a branch triage runbook for cleaning up mixed-concern branches.
 
 ---
 
@@ -157,7 +157,7 @@ Pick SHAs in chronological order (oldest → newest). Out-of-order picks produce
 
 ## Docs and specs layout
 
-Projects follow this layout for documentation unless a project-specific process is already in place (check the project's CLAUDE.md first):
+Projects follow this layout for documentation unless a project-specific process is already in place (check the project's AGENTS.md, or CLAUDE.md, first):
 
 ```
 docs/

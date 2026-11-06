@@ -1,10 +1,10 @@
-# CLAUDE.md
+# AGENTS.md
 
-This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+This file provides guidance to Claude Code (claude.ai/code) and other coding agents when working with code in this repository.
 
 ## Key constraint
 
-`.claude/CLAUDE.md` is symlinked to `~/.claude/CLAUDE.md`. Changes to it must be committed here in the dotfiles repo — editing the symlink target directly won't track in git.
+`.claude/AGENTS.md` is symlinked to both `~/.claude/AGENTS.md` and `~/.claude/CLAUDE.md` (Claude Code only reads the global file as `CLAUDE.md`). Changes to it must be committed here in the dotfiles repo — editing the symlink target directly won't track in git.
 
 ## Bootstrap & installation
 
@@ -37,10 +37,10 @@ brew bundle         # Installs all packages including ruby-install, starship, zs
 - `./` — dotfiles (`.gitconfig`, `.editorconfig`, etc.) → symlinked to `$HOME`
 - `zsh/` — shell environment, PATH, aliases, git shortcuts → sourced directly from `~/.zshrc`
 - `.claude/` — Claude Code settings, keybindings, and global Claude config → linked into `~/.claude/`:
-  - `CLAUDE.md` — always loaded at session start; principles and rules, kept concise
+  - `AGENTS.md` — always loaded at session start; principles and rules, kept concise
   - `skills/` — auto-discovered slash commands available in all projects
   - `agents/` — named subagents invokable via the Agent tool
-  - `docs/` — longer reference material (not auto-loaded; CLAUDE.md points to these by path)
+  - `docs/` — longer reference material (not auto-loaded; AGENTS.md points to these by path)
 
 ## Private half — `~/dotfiles-private`
 

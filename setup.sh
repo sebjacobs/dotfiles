@@ -32,7 +32,7 @@ fi
 
 # Soft checks: dependencies installed manually (outside brew bundle / the hard
 # prerequisites above). They are not required for symlinking to succeed, so warn
-# and keep going rather than exit. Install commands live in CLAUDE.md's
+# and keep going rather than exit. Install commands live in AGENTS.md's
 # "Manual steps after setup" section. Each test probes the artefact directly
 # (dir/file/binary) rather than a PATH command, since several are shell
 # functions or live under $HOME and aren't on a fresh sh's PATH.
@@ -92,7 +92,7 @@ files=(
   ".gwt.yml"
   ".ruby-version"
   ".jotter"
-  ".claude/CLAUDE.md"
+  ".claude/AGENTS.md"
   ".claude/settings.json"
   ".claude/statusline.sh"
   ".claude/keybindings.json"
@@ -120,6 +120,13 @@ do
   fi
 done
 
+
+claude_md="$HOME/.claude/CLAUDE.md"
+if [ -e "$claude_md" ] && ! test -L "$claude_md"; then
+  echo "skipping $claude_md"
+else
+  ln -snf "$DOTFILES_HOME/.claude/AGENTS.md" "$claude_md"
+fi
 
 for file in $(ls "$DOTFILES_HOME/bin")
 do

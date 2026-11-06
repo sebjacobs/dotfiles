@@ -11,7 +11,7 @@ A `stop` ends a *work session*, not a branch — you'll stop a branch many times
 
 **Mid-session checkpoint or stepping away briefly?** Use `/save` instead. **Just jotting a note?** Use `/note`.
 
-**Want ROADMAP / DONE.md / CLAUDE.md curation?** That used to live here but is now out of scope — do it before invoking `/stop`, or run a dedicated `/tracker`-style skill if you have one.
+**Want ROADMAP / DONE.md / AGENTS.md curation?** That used to live here but is now out of scope — do it before invoking `/stop`, or run a dedicated `/tracker`-style skill if you have one.
 
 ---
 

@@ -7,7 +7,7 @@ description: Merge a finished feature branch into main — the pre-merge checkli
 
 Merging is outward-facing: **only merge once the user has explicitly said to.** Never propose a merge and carry it out in the same step.
 
-Check the project's CLAUDE.md first. A solo repo may merge locally with `git merge` instead of through a PR, and that override wins over the PR mechanics below.
+Check the project's AGENTS.md (or CLAUDE.md if it has none) first. A solo repo may merge locally with `git merge` instead of through a PR, and that override wins over the PR mechanics below.
 
 ## Before merging
 

@@ -40,7 +40,7 @@ Irreversible and outward-facing actions still stop and wait for explicit approva
 - `git push`, `gh pr merge`, any merge to `main`
 - Deleting branches, worktrees, or files that aren't yours to delete
 - Anything that sends data to an external service
-- Anything the project's `CLAUDE.md` marks as approval-gated
+- Anything the project's `AGENTS.md` (or `CLAUDE.md`) marks as approval-gated
 
 Do the work right up to that line — commit locally, write the PR body to a file, stage the deletion — then stop and surface it in the end-of-session report as a ready-to-run action. "Blocked on approval" is not the same as blocked; keep going on everything else.
 

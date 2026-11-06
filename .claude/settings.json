@@ -103,7 +103,7 @@
     "soft_deny": [
       "$defaults",
       "Bash(sqlite3 data/uk/*.db .backup*) and similar direct writes to production DBs outside the documented backup script — confirm before overwriting backups",
-      "Bash(git worktree add:*), Bash(git worktree remove:*) — CLAUDE.md mandates the gwt wrapper instead of raw git worktree commands"
+      "Bash(git worktree add:*), Bash(git worktree remove:*) — AGENTS.md mandates the gwt wrapper instead of raw git worktree commands"
     ],
     "environment": [
       "### Org-wide",
@@ -129,7 +129,7 @@
       "**Primary use of Claude Code**: software development (personal investment research platform, UK/Korea small-cap stock research)",
       "**Trusted repo**: sebjacobs/stock-fetch (github.com:sebjacobs/stock-fetch.git), private — confidential material (research data, personal portfolio criteria) is fine here; secrets/credentials are still never cleared into the repo by virtue of visibility",
       "**Org-specific CLIs**: `gwt` (git worktree helper, ~/dotfiles), `sesh` (session timer), `svc` (launchd service wrapper), `jotter` (session notes CLI), `just` (task runner for this repo's justfile), `uv` (Python toolchain, mandatory over pip)",
-      "**routine under this repo's `scripts/`, `db/`, `docs/` prefixes**: uv, sqlite3, jotter, perl, sesh, svc, ruby usage is routine tooling for this project per CLAUDE.md and observed frequency"
+      "**routine under this repo's `scripts/`, `db/`, `docs/` prefixes**: uv, sqlite3, jotter, perl, sesh, svc, ruby usage is routine tooling for this project per AGENTS.md and observed frequency"
     ]
   },
   "voiceEnabled": true,

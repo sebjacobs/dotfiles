@@ -10,13 +10,13 @@ It's linked into `~/.claude/` on my machine, alongside a few private skills and 
 
 ## The interesting bits
 
-- **[`CLAUDE.md`](CLAUDE.md)** — global instructions loaded at the start of every Claude Code session. Conventions for sessions, git, commits, reviews, and how I like Claude to behave.
+- **[`AGENTS.md`](AGENTS.md)** — global instructions loaded at the start of every Claude Code session. Conventions for sessions, git, commits, reviews, and how I like Claude to behave.
 - **[`skills/`](skills/)** — custom slash commands. Each one is a self-contained folder with a `SKILL.md` describing when to invoke it and what it does. Highlights:
   - `start-session` / `save-session` / `stop-session` / `note` / `handover` — the session lifecycle, backed by [jotter](docs/jotter.md) for notes
   - `pingpong` — TDD ping-pong pairing mode
   - `branch-audit` — triage stale branches in a repo
   - `dennis` — say hi to the dachshund
-- **[`docs/`](docs/)** — longer-form reference material that `CLAUDE.md` points to rather than inlining. Git practices, subagents, workspace hygiene, web standards, and more.
+- **[`docs/`](docs/)** — longer-form reference material that `AGENTS.md` points to rather than inlining. Git practices, subagents, workspace hygiene, web standards, and more.
 - **[`settings.json`](settings.json)** — tool allow/deny lists and other Claude Code settings.
 - **[`keybindings.json`](keybindings.json)** — custom keyboard shortcuts.
 

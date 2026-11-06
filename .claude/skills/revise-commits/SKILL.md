@@ -100,15 +100,7 @@ git push --force-with-lease origin <branch>
 
 ## Message style
 
-Match the repo. **Skim `git log` first and mirror the structure, tone and length of recent commits** — the rules in `~/.claude/CLAUDE.md` are the default, not an override for a repo with its own voice. Sample a handful, not one; the rarest variant is as easy to land on as the common one.
-
-The shape those rules ask for, briefly:
-
-- **Subject:** `<tag>: <Capitalised imperative summary>`, under 72 chars, describing the *value* not the implementation. Tags: `feat`, `fix`, `refactor`, `docs`, `chore`, `test`, `perf`.
-- **Body:** flowing first-person prose covering **why** it was needed, **what it unlocks**, and the **trade-offs / what was consciously left out**. Not a restatement of the diff — the diff already says what changed.
-- **Headers earn their place on longer commits.** A short single-idea commit stays plain prose. Note that commit bodies and PR descriptions diverge here in practice: commits tend to open with `** Background **`, PR descriptions with `**Motivation**`. Check which the repo uses before assuming.
-- **Every reference carries a URL or commit SHA.** Naming a doc, issue or earlier commit without one is dead weight to a future reader.
-- End with the `Co-Authored-By:` trailer naming the actual model.
+Follow the message rules in the `commit` skill: subject format, a prose body covering why, benefit and trade-offs, headers on longer bodies, linked references and the attribution trailer. Skim `git log` first and match the repo's own voice. Commit bodies and PR descriptions often differ: commits tend to open with `** Background **`, PR descriptions with `**Motivation**`.
 
 **Run every subject and body past `~/.claude/docs/writing_voice.md` before writing it.** Rewording is exactly where a machine-written phrase gets baked into history permanently — "hold X to a constant number", "leverage", "streamline", "optimise" with no mechanism named. That doc lists them with the natural alternative beside each, and closes with the words that *look* like slop but are genuinely in use, so a reword doesn't strip them.
 

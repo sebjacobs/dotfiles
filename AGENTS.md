@@ -102,4 +102,4 @@ This is a solo repo, so feature branches merge **locally** straight to `main` �
 - **Single commit** → fast-forward: `git merge --ff-only feature/<name>`
 - **Multiple commits** → group under a descriptive merge commit: `git merge --no-ff feature/<name>` with a `Merge feature/<name>: <what it does>` title and a body explaining the why (pass it via `-F <file>` — `git merge` does not read `-F -`/stdin like `git commit` does).
 
-Then `git push origin main` (prompts for approval — `git push` isn't allow-listed) and delete the merged branch. Still never commit straight to `main` for non-trivial work — branch first, merge after.
+Then push to both remotes, `git push origin main` (Forgejo) and `git push gh main` (the public GitHub mirror) — each prompts for approval, since `git push` isn't allow-listed — and delete the merged branch. Still never commit straight to `main` for non-trivial work — branch first, merge after.

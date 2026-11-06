@@ -31,6 +31,8 @@ PR descriptions follow the same philosophy as commit messages — explain the *w
 
 **Keep it short.** A PR description that is longer than any recently merged one is a signal you are re-narrating the diff. Match the repo's range; when in doubt, aim for the middle of it, not the top.
 
+**If `~/.claude/docs/pr_worked_example.md` exists, read it before drafting.** It holds a real PR description that landed well with its reviewer, kept privately because it names a client. Use it to calibrate length and tone; the repo's own house style still wins.
+
 **Check the wording against `~/.claude/docs/writing_voice.md`** — the phrases that read as machine-written, each with the natural alternative beside it, plus the words that look like slop but are genuinely in use. A PR description is read by people who did not write the branch, so an off-key phrase is more noticeable here than anywhere else.
 
 Structure — three sections, bold-with-underline headings:
